@@ -19,12 +19,12 @@ from . import api, files, net
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="抓取 pixiv 标签作品并并发下载图片")
     parser.add_argument("--user-id", default="114638697")
-    parser.add_argument("--tag", default="R-18")
-    parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--limit", type=int, default=48, help="每页数量，也是翻页步长")
+    parser.add_argument("--tag", default="R-18", help="标签，默认 R-18")
+    parser.add_argument("--offset", type=int, default=0, help="偏移量，默认 0")
+    parser.add_argument("--limit", type=int, default=48, help="每页数量，也是翻页步长，默认 48")
     parser.add_argument("--out", default=None, help="根目录，默认 ./pixiv_downloads/<tag>，其下按作者分文件夹")
-    parser.add_argument("--workers", type=int, default=8, help="并发线程数")
-    parser.add_argument("--delay", type=float, default=0.2, help="每个任务发起前的等待秒数")
+    parser.add_argument("--workers", type=int, default=8, help="并发线程数，默认 8")
+    parser.add_argument("--delay", type=float, default=0.2, help="每个任务发起前的等待秒数，默认 0.2")
     parser.add_argument("--cookie", default=None, help="Cookie 字符串，优先级最高")
     parser.add_argument(
         "--cookie-file", default=net.COOKIE_FILE, help="Cookie 文件路径，默认 pixiv_cookie.txt"

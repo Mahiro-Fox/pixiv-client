@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 97%;
+    --foreground: 240 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 8%;
+    --primary: 205 100% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 91%;
+    --secondary-foreground: 240 6% 12%;
+    --muted: 240 5% 91%;
+    --muted-foreground: 240 4% 42%;
+    --accent: 205 90% 94%;
+    --accent-foreground: 205 100% 30%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 86%;
+    --input: 240 6% 86%;
+    --ring: 205 100% 48%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 5%;
+    --foreground: 240 6% 94%;
+    --card: 240 8% 8%;
+    --card-foreground: 240 6% 94%;
+    --popover: 240 8% 9%;
+    --popover-foreground: 240 6% 94%;
+    --primary: 205 100% 55%;
+    --primary-foreground: 210 40% 8%;
+    --secondary: 240 6% 13%;
+    --secondary-foreground: 240 6% 90%;
+    --muted: 240 6% 13%;
+    --muted-foreground: 240 5% 60%;
+    --accent: 240 6% 16%;
+    --accent-foreground: 240 6% 94%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 17%;
+    --input: 240 6% 17%;
+    --ring: 205 100% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary/30;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
