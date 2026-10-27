@@ -2,11 +2,13 @@ import type {
   BookmarkRest,
   CollectProgress,
   CollectResult,
+  CookieHealth,
   FollowingResult,
   PixivWork,
   SelfUser,
   TagMode,
   TagSuggestion,
+  UgoiraFrame,
   WorkPage
 } from '../../shared/types'
 import { buildTagQuery, hasTagFilter, matchesTagQuery } from '../../shared/tags'
@@ -73,13 +75,22 @@ interface FollowingResponse {
   }
 }
 
+interface SelfUserData {
+  id?: string
+  name?: string
+  pixivId?: string
+  profileImg?: string
+  profileImgBig?: string
+  premium?: boolean
+}
+
 interface SelfResponse {
   error?: boolean
   message?: string
-  userData?: { id?: string; name?: string; pixivId?: string }
+  userData?: SelfUserData
   body?: {
     userId?: string
-    userData?: { id?: string; name?: string; pixivId?: string }
+    userData?: SelfUserData
   }
 }
 
@@ -109,7 +120,8 @@ interface UgoiraResponse {
 export interface UgoiraMeta {
   zipUrl: string
   mimeType: string
-  frames: number
+  /** 帧顺序与每帧时长（毫秒），转码时按此编码 */
+  frames: UgoiraFrame[]
 }
 
 interface TagBreadcrumb {
@@ -224,12 +236,38 @@ export async function fetchSelfUser(
       const info = data.body?.userData || data.userData
       const id = String(info?.id || data.body?.userId || '').trim()
       if (!id) continue
-      return { id, name: info?.name || info?.pixivId || id }
+      return {
+        id,
+        name: info?.name || info?.pixivId || id,
+        account: info?.pixivId ?? '',
+        // 优先大图：高分屏下 50px 头像会被拉伸
+        avatar: info?.profileImgBig || info?.profileImg || '',
+        premium: Boolean(info?.premium)
+      }
     } catch {
       // 单个候选失败（404/超时）不影响下一个候选
     }
   }
   return null
+}
+
+/**
+ * Cookie 体检：只回答「确定有效」「确定失效」「问不出来」三个问题。
+ * 不复用 fetchSelfUser：那个会把网络故障一并吞成 null，
+ * 而这里必须把「问不出来」和「已失效」分开，否则代理一抖就误报要重新登录。
+ * 实测 pixiv 的应答：未登录 → 200 且 userData 为 null；Cookie 失效 → 401。
+ */
+export async function probeCookieHealth(cookie: string): Promise<CookieHealth> {
+  if (!cookie) return 'expired'
+  try {
+    // 体检只打一次，失败就下结论，不走进 fetchJson 的重试链
+    const data = await fetchJson<SelfResponse>(SELF_URL, cookie, undefined, 1)
+    const info = data.body?.userData || data.userData
+    const id = String(info?.id || data.body?.userId || '').trim()
+    return id ? 'valid' : 'expired'
+  } catch (error) {
+    return /HTTP 40[13]/.test(String(error)) ? 'expired' : 'unknown'
+  }
 }
 
 /** 关注列表；userId 留空时自动解析当前登录账号 */
@@ -281,7 +319,7 @@ export async function fetchPages(
   return data.body || []
 }
 
-/** 动图（ugoira）元数据：zip 地址、帧数与帧延迟（当前仅下载 zip，不做转码） */
+/** 动图（ugoira）元数据：zip 地址、帧顺序与每帧时长 */
 export async function fetchUgoiraMeta(
   illustId: string,
   cookie = '',
@@ -296,10 +334,18 @@ export async function fetchUgoiraMeta(
 
   const zipUrl = data.body?.originalSrc || data.body?.src || ''
   if (!zipUrl) throw new Error('动图接口未返回 zip 地址')
+
+  const frames = (data.body?.frames || [])
+    .map((frame) => ({
+      file: String(frame.file || '').trim(),
+      delay: Math.max(20, Number(frame.delay || 0))
+    }))
+    .filter((frame) => Boolean(frame.file))
+
   return {
     zipUrl,
     mimeType: data.body?.mime_type || 'image/jpeg',
-    frames: Array.isArray(data.body?.frames) ? data.body.frames.length : 0
+    frames
   }
 }
 

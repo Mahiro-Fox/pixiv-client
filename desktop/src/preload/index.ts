@@ -4,6 +4,7 @@ import type {
   CollectParams,
   CollectProgress,
   CollectResult,
+  CookieHealth,
   CookieStatus,
   DownloadItemEvent,
   DownloadParams,
@@ -36,6 +37,11 @@ const api: PixivApi = {
   setConfig: (patch) => ipcRenderer.invoke('config:set', patch) as Promise<AppConfig>,
   getCookie: () => ipcRenderer.invoke('cookie:get') as Promise<CookieStatus>,
   setCookie: (raw: string) => ipcRenderer.invoke('cookie:set', raw) as Promise<CookieStatus>,
+  loginPixiv: () =>
+    ipcRenderer.invoke('cookie:login') as Promise<CookieStatus | null>,
+  clearCookie: () => ipcRenderer.invoke('cookie:clear') as Promise<CookieStatus>,
+  checkCookieHealth: () => ipcRenderer.invoke('cookie:health') as Promise<CookieHealth>,
+  onCookieInvalid: (handler: () => void) => subscribe<unknown>('cookie:invalid', () => handler()),
   pickDir: () => ipcRenderer.invoke('dialog:pick-dir') as Promise<string | null>,
   openDir: (dir: string) => ipcRenderer.invoke('shell:open-dir', dir) as Promise<void>,
   collectWorks: (params: CollectParams) =>
@@ -52,6 +58,8 @@ const api: PixivApi = {
   listLibrary: (force?: boolean) =>
     ipcRenderer.invoke('library:list', Boolean(force)) as Promise<LibraryResult>,
   openLibraryDir: (dir: string) => ipcRenderer.invoke('library:open-dir', dir) as Promise<void>,
+  deleteLibraryFiles: (paths: string[]) =>
+    ipcRenderer.invoke('library:delete', paths) as Promise<LibraryResult>,
   checkDownloaded: (params: DownloadedParams) =>
     ipcRenderer.invoke('works:downloaded', params) as Promise<string[]>,
   startDownload: (params: DownloadParams) =>
@@ -67,6 +75,8 @@ const api: PixivApi = {
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) =>
     subscribe('queue:changed', callback),
   onThrottle: (callback: (state: ThrottleState) => void) => subscribe('throttle:state', callback),
+  onLibraryChanged: (callback: () => void) =>
+    subscribe<unknown>('library:changed', () => callback()),
   onCollectProgress: (callback: (progress: CollectProgress) => void) =>
     subscribe('collect:progress', callback),
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) =>

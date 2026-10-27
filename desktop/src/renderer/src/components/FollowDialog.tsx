@@ -2,7 +2,9 @@ import { ChevronLeft, ChevronRight, ExternalLink, Loader2, Users, X } from 'luci
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import type { FollowUser } from '@shared/types'
+import { lastFollowPage, readFollowPage, rememberFollowPage, writeFollowPage } from '@renderer/lib/dialogCache'
 import { cn } from '@renderer/lib/utils'
+import { useI18n } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -24,10 +26,13 @@ function messageOf(error: unknown): string {
  * 点击任意用户即以该用户 ID 抓取作品列表。
  */
 export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
-  const [users, setUsers] = useState<FollowUser[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const { t } = useI18n()
+  // 打开时回到上次浏览的页码，并直接使用缓存数据（过期才重新请求）
+  const initial = readFollowPage(lastFollowPage())
+  const [page, setPage] = useState(lastFollowPage)
+  const [users, setUsers] = useState<FollowUser[]>(initial?.users ?? [])
+  const [total, setTotal] = useState(initial?.total ?? 0)
+  const [loading, setLoading] = useState(initial === null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -40,6 +45,19 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
 
   useEffect(() => {
     let alive = true
+    rememberFollowPage(page)
+
+    const cached = readFollowPage(page)
+    if (cached) {
+      setUsers(cached.users)
+      setTotal(cached.total)
+      setError('')
+      setLoading(false)
+      return () => {
+        alive = false
+      }
+    }
+
     setLoading(true)
     setError('')
 
@@ -49,6 +67,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
         if (!alive) return
         setUsers(result.users)
         setTotal(result.total)
+        writeFollowPage(page, { users: result.users, total: result.total })
       })
       .catch((reason: unknown) => {
         if (!alive) return
@@ -81,15 +100,15 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
           <div className="min-w-0 space-y-1">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <Users className="h-4 w-4 text-primary" />
-              关注列表
+              {t('follow.title')}
             </h2>
             <p className="text-xs text-muted-foreground">
-              点击任意画师即可用其用户 ID 抓取作品列表；也可点「pixiv」先去主页看看
+              {t('follow.hint')}
             </p>
           </div>
           <button
             type="button"
-            aria-label="关闭"
+            aria-label={t('follow.close')}
             onClick={props.onClose}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
@@ -101,7 +120,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              正在读取关注列表…
+              {t('follow.loading')}
             </div>
           ) : error ? (
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -110,7 +129,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
               <Users className="h-6 w-6" />
-              没有读到关注的用户，请检查 Cookie 是否有效
+              {t('follow.empty')}
             </div>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -149,11 +168,11 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                       </Badge>
                     </div>
                     <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                      {user.comment || '这位画师还没有写简介'}
+                      {user.comment || t('follow.noComment')}
                     </p>
                     <div className="flex items-center gap-2 pt-1">
                       <span className="text-[11px] text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                        点击抓取作品 →
+                        {t('follow.pick')}
                       </span>
                       <a
                         href={`https://www.pixiv.net/users/${user.id}`}
@@ -176,8 +195,12 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
         <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
           <p className="text-[11px] text-muted-foreground">
             {total > 0
-              ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} / 共 ${total} 位`
-              : '暂无关注'}
+              ? t('follow.count', {
+                  from: (page - 1) * PAGE_SIZE + 1,
+                  to: Math.min(page * PAGE_SIZE, total),
+                  total
+                })
+              : t('follow.none')}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -187,7 +210,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
               onClick={() => setPage((previous) => Math.max(1, previous - 1))}
             >
               <ChevronLeft />
-              上一页
+              {t('follow.prev')}
             </Button>
             <span className={cn('text-xs tabular-nums text-muted-foreground')}>
               {page} / {pageCount}
@@ -198,7 +221,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
               disabled={!hasNext || loading}
               onClick={() => setPage((previous) => Math.min(pageCount, previous + 1))}
             >
-              下一页
+              {t('follow.next')}
               <ChevronRight />
             </Button>
           </div>

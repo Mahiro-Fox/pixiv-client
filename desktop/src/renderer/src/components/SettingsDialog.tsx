@@ -1,21 +1,43 @@
 import {
   Cookie,
+  FileArchive,
+  Film,
   FolderOpen,
   FolderSearch,
+  Gauge,
   Gem,
   Image as ImageIcon,
+  Languages,
   Loader2,
-  Settings2
+  LogIn,
+  Minus,
+  Monitor,
+  Moon,
+  Plus,
+  Settings2,
+  Sun,
+  Trash2
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
-import type { AppConfig, CookieStatus, ImageQuality, SelfUser } from '@shared/types'
+import type {
+  AppConfig,
+  CookieStatus,
+  ImageQuality,
+  Locale,
+  SelfUser,
+  ThemeMode,
+  UgoiraFormat
+} from '@shared/types'
 import {
   DEFAULT_FILE_TEMPLATE,
   TEMPLATE_TOKENS,
   renderFileName,
   validateTemplate
 } from '@shared/template'
+import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle'
+import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n'
+import type { Translate } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
@@ -27,6 +49,10 @@ interface SettingsDialogProps {
   selfUser: SelfUser | null
   onConfigChange: (patch: Partial<AppConfig>) => void
   onSaveCookie: (raw: string) => Promise<void>
+  /** 打开应用内 pixiv 登录窗口；返回 false 表示用户取消了登录 */
+  onLogin: () => Promise<boolean>
+  /** 清除已保存的 Cookie，并重置登录窗口的会话 */
+  onClearCookie: () => Promise<void>
   onPickDir: () => void
   onOpenDir: () => void
   onClose: () => void
@@ -37,33 +63,110 @@ function worksTagOf(config: AppConfig): string {
   return config.source === 'bookmarks' ? '收藏夹' : config.tag
 }
 
-function cookieSourceLabel(source: CookieStatus['source']): string {
-  if (source === 'env') return '来自环境变量'
-  if (source === 'file') return '来自本地文件'
-  return '未配置'
+function cookieSourceLabel(t: Translate, source: CookieStatus['source']): string {
+  if (source === 'env') return t('settings.cookie.sourceEnv')
+  if (source === 'file') return t('settings.cookie.sourceFile')
+  return t('settings.cookie.sourceNone')
 }
 
-const QUALITY_OPTIONS: { value: ImageQuality; label: string; hint: string; icon: React.JSX.Element }[] = [
-  {
-    value: 'regular',
-    label: '常规图',
-    hint: '约 1200px，体积小，适合浏览与备份',
-    icon: <ImageIcon className="h-3.5 w-3.5" />
-  },
-  {
-    value: 'original',
-    label: '高清原图',
-    hint: '作品原始尺寸，体积更大，适合收藏',
-    icon: <Gem className="h-3.5 w-3.5" />
-  }
-]
+/** 单选卡片：主题、语言、质量、动图格式共用一套样式 */
+function OptionCard(props: {
+  active: boolean
+  icon: React.JSX.Element
+  label: string
+  hint?: string
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className={`flex flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+        props.active
+          ? 'border-primary/60 bg-primary/10'
+          : 'border-border/70 bg-background/60 hover:border-border'
+      }`}
+    >
+      <span
+        className={`flex items-center gap-1.5 text-xs font-medium ${
+          props.active ? 'text-primary' : 'text-foreground'
+        }`}
+      >
+        {props.icon}
+        {props.label}
+      </span>
+      {props.hint ? (
+        <span className="text-[10px] leading-4 text-muted-foreground">{props.hint}</span>
+      ) : null}
+    </button>
+  )
+}
 
-/** 设置弹窗：下载质量、保存目录、文件名模板与 Cookie 等全局设置 */
+/** 限流参数加减器：只走合法区间内的步进，避免输入框被清空时写入 0 */
+function NumberStepper(props: {
+  label: string
+  hint: string
+  decreaseLabel: string
+  increaseLabel: string
+  value: number
+  unit: string
+  min: number
+  max: number
+  step: number
+  onChange: (value: number) => void
+}): React.JSX.Element {
+  const clamp = (next: number): number => Math.max(props.min, Math.min(props.max, next))
+  const buttonClass =
+    'flex h-5 w-5 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 px-2.5 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-medium">{props.label}</p>
+        <p className="truncate text-[10px] text-muted-foreground">{props.hint}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          aria-label={props.decreaseLabel}
+          disabled={props.value <= props.min}
+          className={buttonClass}
+          onClick={() => props.onChange(clamp(props.value - props.step))}
+        >
+          <Minus className="h-3 w-3" />
+        </button>
+        <span className="w-14 text-center text-xs tabular-nums">
+          {props.value}
+          <span className="text-[10px] text-muted-foreground">{props.unit}</span>
+        </span>
+        <button
+          type="button"
+          aria-label={props.increaseLabel}
+          disabled={props.value >= props.max}
+          className={buttonClass}
+          onClick={() => props.onChange(clamp(props.value + props.step))}
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** 设置弹窗：主题、语言、下载质量、保存目录、文件名模板与 Cookie 等全局设置 */
 export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const { config } = props
+  const { t } = useI18n()
   const templateRef = useRef<HTMLInputElement | null>(null)
   const [cookieInput, setCookieInput] = useState('')
   const [savingCookie, setSavingCookie] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [loginCancelled, setLoginCancelled] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
+
+  // Cookie 存在且能解析出账号，才算真正「已登录」
+  const loggedIn = Boolean(props.cookie?.hasCookie && props.selfUser)
 
   useEffect(() => {
     if (!props.cookie?.hasCookie) setCookieInput('')
@@ -80,6 +183,86 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     }
   }
 
+  const login = async (): Promise<void> => {
+    setLoggingIn(true)
+    setLoginCancelled(false)
+    try {
+      // 登录窗口是独立窗口，用户在那边输完密码；这里只负责等待结果
+      const ok = await props.onLogin()
+      setLoginCancelled(!ok)
+    } finally {
+      setLoggingIn(false)
+    }
+  }
+
+  const clearCookie = async (): Promise<void> => {
+    setClearing(true)
+    try {
+      await props.onClearCookie()
+      setConfirmingClear(false)
+      setLoginCancelled(false)
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  const themeOptions: { value: ThemeMode; label: string; icon: React.JSX.Element }[] = [
+    { value: 'light', label: t('theme.light'), icon: <Sun className="h-3.5 w-3.5" /> },
+    { value: 'dark', label: t('theme.dark'), icon: <Moon className="h-3.5 w-3.5" /> },
+    { value: 'system', label: t('theme.system'), icon: <Monitor className="h-3.5 w-3.5" /> }
+  ]
+  const localeOptions: { value: Locale; label: string }[] = [
+    { value: 'zh-CN', label: '简体中文' },
+    { value: 'en', label: 'English' },
+    { value: 'ja', label: '日本語' }
+  ]
+
+  const qualityOptions: {
+    value: ImageQuality
+    label: string
+    hint: string
+    icon: React.JSX.Element
+  }[] = [
+    {
+      value: 'regular',
+      label: t('settings.quality.regular'),
+      hint: t('settings.quality.regularHint'),
+      icon: <ImageIcon className="h-3.5 w-3.5" />
+    },
+    {
+      value: 'original',
+      label: t('settings.quality.original'),
+      hint: t('settings.quality.originalHint'),
+      icon: <Gem className="h-3.5 w-3.5" />
+    }
+  ]
+
+  const ugoiraOptions: {
+    value: UgoiraFormat
+    label: string
+    hint: string
+    icon: React.JSX.Element
+  }[] = [
+    {
+      value: 'mp4',
+      label: t('settings.ugoira.mp4'),
+      hint: t('settings.ugoira.mp4Hint'),
+      icon: <Film className="h-3.5 w-3.5" />
+    },
+    {
+      value: 'gif',
+      label: t('settings.ugoira.gif'),
+      hint: t('settings.ugoira.gifHint'),
+      icon: <ImageIcon className="h-3.5 w-3.5" />
+    },
+    {
+      value: 'zip',
+      label: t('settings.ugoira.zip'),
+      hint: t('settings.ugoira.zipHint'),
+      icon: <FileArchive className="h-3.5 w-3.5" />
+    }
+  ]
+
   const templateError = validateTemplate(config.fileNameTemplate)
   const templatePreview = renderFileName(config.fileNameTemplate || DEFAULT_FILE_TEMPLATE, {
     id: '122784064',
@@ -89,6 +272,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     tag: worksTagOf(config),
     page: 1,
     date: '2026-01-02T03:04:05+09:00',
+    quality: config.imageQuality,
     ext: '.jpg'
   })
 
@@ -113,55 +297,215 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
   return (
     <Dialog
-      title="设置"
-      description="下载质量、保存目录、文件名模板与 Cookie 等全局设置"
+      title={t('settings.title')}
+      description={t('settings.description')}
       icon={<Settings2 className="h-4 w-4 text-primary" />}
       onClose={props.onClose}
       footer={
         <Button size="sm" onClick={props.onClose}>
-          完成
+          {t('settings.done')}
         </Button>
       }
     >
       <div className="space-y-5">
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">下载质量</h3>
-            <span className="text-[11px] text-muted-foreground">下载前也可在左栏快速切换</span>
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <Languages className="h-4 w-4 text-primary" />
+              {t('settings.appearance.title')}
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.appearance.summary')}
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {QUALITY_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => props.onConfigChange({ imageQuality: option.value })}
-                className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition-colors ${
-                  config.imageQuality === option.value
-                    ? 'border-primary/60 bg-primary/10'
-                    : 'border-border/70 bg-background/60 hover:border-border'
-                }`}
-              >
-                <span
-                  className={`flex items-center gap-1.5 text-xs font-medium ${
-                    config.imageQuality === option.value ? 'text-primary' : 'text-foreground'
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">{t('settings.appearance.theme')}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {themeOptions.map((option) => (
+                <OptionCard
+                  key={option.value}
+                  active={config.theme === option.value}
+                  icon={option.icon}
+                  label={option.label}
+                  onClick={() => props.onConfigChange({ theme: option.value })}
+                />
+              ))}
+            </div>
+            <p className="text-[11px] leading-4 text-muted-foreground/70">
+              {t('settings.appearance.themeHint')}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              {t('settings.appearance.language')}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {localeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => props.onConfigChange({ locale: option.value })}
+                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                    config.locale === option.value
+                      ? 'border-primary/60 bg-primary/10 text-primary'
+                      : 'border-border/70 bg-background/60 text-foreground hover:border-border'
                   }`}
                 >
-                  {option.icon}
                   {option.label}
-                </span>
-                <span className="text-[10px] leading-4 text-muted-foreground">{option.hint}</span>
-              </button>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] leading-4 text-muted-foreground/70">
+              {t('settings.appearance.languageHint')}
+            </p>
+          </div>
+        </section>
+
+        <section className="space-y-2 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">{t('settings.quality.title')}</h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.quality.hint')}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {qualityOptions.map((option) => (
+              <OptionCard
+                key={option.value}
+                active={config.imageQuality === option.value}
+                icon={option.icon}
+                label={option.label}
+                hint={option.hint}
+                onClick={() => props.onConfigChange({ imageQuality: option.value })}
+              />
             ))}
           </div>
           <p className="text-[11px] leading-4 text-muted-foreground/70">
-            动图（ugoira）作品不区分质量，统一保存为 pixiv 提供的帧压缩包（.zip）
+            {t('settings.quality.note')}
           </p>
         </section>
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">保存目录</h3>
-            <span className="text-[11px] text-muted-foreground">按「标签 / 作者」两级存放</span>
+            <h3 className="text-sm font-medium">{t('settings.ugoira.title')}</h3>
+            <span className="text-[11px] text-muted-foreground">{t('settings.ugoira.hint')}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {ugoiraOptions.map((option) => (
+              <OptionCard
+                key={option.value}
+                active={config.ugoiraFormat === option.value}
+                icon={option.icon}
+                label={option.label}
+                hint={option.hint}
+                onClick={() => props.onConfigChange({ ugoiraFormat: option.value })}
+              />
+            ))}
+          </div>
+          <p className="text-[11px] leading-4 text-muted-foreground/70">
+            {t('settings.ugoira.note')}
+          </p>
+        </section>
+
+        <section className="space-y-2 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <Gauge className="h-4 w-4 text-primary" />
+              {t('settings.throttle.title')}
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              onClick={() =>
+                props.onConfigChange({
+                  throttleApiConcurrency: DEFAULT_THROTTLE_LIMITS.apiConcurrency,
+                  throttleApiInterval: DEFAULT_THROTTLE_LIMITS.apiInterval,
+                  throttleCdnConcurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
+                  throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval
+                })
+              }
+            >
+              {t('settings.throttle.reset')}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberStepper
+              label={t('settings.throttle.apiConcurrency')}
+              hint={t('settings.throttle.apiConcurrencyHint')}
+              decreaseLabel={t('settings.step.decrease', {
+                label: t('settings.throttle.apiConcurrency')
+              })}
+              increaseLabel={t('settings.step.increase', {
+                label: t('settings.throttle.apiConcurrency')
+              })}
+              value={config.throttleApiConcurrency}
+              unit=""
+              min={THROTTLE_RANGES.apiConcurrency.min}
+              max={THROTTLE_RANGES.apiConcurrency.max}
+              step={THROTTLE_RANGES.apiConcurrency.step}
+              onChange={(value) => props.onConfigChange({ throttleApiConcurrency: value })}
+            />
+            <NumberStepper
+              label={t('settings.throttle.apiInterval')}
+              hint={t('settings.throttle.intervalHint')}
+              decreaseLabel={t('settings.step.decrease', {
+                label: t('settings.throttle.apiInterval')
+              })}
+              increaseLabel={t('settings.step.increase', {
+                label: t('settings.throttle.apiInterval')
+              })}
+              value={config.throttleApiInterval}
+              unit="ms"
+              min={THROTTLE_RANGES.apiInterval.min}
+              max={THROTTLE_RANGES.apiInterval.max}
+              step={THROTTLE_RANGES.apiInterval.step}
+              onChange={(value) => props.onConfigChange({ throttleApiInterval: value })}
+            />
+            <NumberStepper
+              label={t('settings.throttle.cdnConcurrency')}
+              hint={t('settings.throttle.cdnConcurrencyHint')}
+              decreaseLabel={t('settings.step.decrease', {
+                label: t('settings.throttle.cdnConcurrency')
+              })}
+              increaseLabel={t('settings.step.increase', {
+                label: t('settings.throttle.cdnConcurrency')
+              })}
+              value={config.throttleCdnConcurrency}
+              unit=""
+              min={THROTTLE_RANGES.cdnConcurrency.min}
+              max={THROTTLE_RANGES.cdnConcurrency.max}
+              step={THROTTLE_RANGES.cdnConcurrency.step}
+              onChange={(value) => props.onConfigChange({ throttleCdnConcurrency: value })}
+            />
+            <NumberStepper
+              label={t('settings.throttle.cdnInterval')}
+              hint={t('settings.throttle.intervalHint')}
+              decreaseLabel={t('settings.step.decrease', {
+                label: t('settings.throttle.cdnInterval')
+              })}
+              increaseLabel={t('settings.step.increase', {
+                label: t('settings.throttle.cdnInterval')
+              })}
+              value={config.throttleCdnInterval}
+              unit="ms"
+              min={THROTTLE_RANGES.cdnInterval.min}
+              max={THROTTLE_RANGES.cdnInterval.max}
+              step={THROTTLE_RANGES.cdnInterval.step}
+              onChange={(value) => props.onConfigChange({ throttleCdnInterval: value })}
+            />
+          </div>
+          <p className="text-[11px] leading-4 text-muted-foreground/70">
+            {t('settings.throttle.note')}
+          </p>
+        </section>
+
+        <section className="space-y-2 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">{t('settings.outDir.title')}</h3>
+            <span className="text-[11px] text-muted-foreground">{t('settings.outDir.hint')}</span>
           </div>
           <div className="rounded-md border border-border/70 bg-background/60 px-3 py-2 text-[11px] leading-5 text-muted-foreground break-all">
             {config.outDir}
@@ -169,25 +513,25 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={props.onPickDir}>
               <FolderSearch />
-              选择目录
+              {t('settings.outDir.pick')}
             </Button>
             <Button variant="ghost" size="sm" className="flex-1" onClick={props.onOpenDir}>
               <FolderOpen />
-              打开目录
+              {t('settings.outDir.open')}
             </Button>
           </div>
         </section>
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">文件名模板</h3>
+            <h3 className="text-sm font-medium">{t('settings.template.title')}</h3>
             <Button
               variant="ghost"
               size="sm"
               className="h-6 px-2 text-[11px]"
               onClick={() => props.onConfigChange({ fileNameTemplate: DEFAULT_FILE_TEMPLATE })}
             >
-              恢复默认
+              {t('settings.template.reset')}
             </Button>
           </div>
           <Input
@@ -198,26 +542,31 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             onChange={(event) => props.onConfigChange({ fileNameTemplate: event.target.value })}
           />
           <div className="flex flex-wrap gap-1">
-            {TEMPLATE_TOKENS.map((item) => (
-              <button
-                key={item.token}
-                type="button"
-                title={`${item.label}，示例：${item.example}`}
-                onClick={() => insertToken(item.token)}
-                className="rounded border border-border/70 bg-secondary/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
-              >
-                {item.token}
-              </button>
-            ))}
+            {TEMPLATE_TOKENS.map((item) => {
+              const labelKey = TOKEN_LABEL_KEYS[item.token]
+              const label = labelKey ? t(labelKey) : item.label
+              return (
+                <button
+                  key={item.token}
+                  type="button"
+                  title={t('settings.template.tooltip', { label, example: item.example })}
+                  onClick={() => insertToken(item.token)}
+                  className="rounded border border-border/70 bg-secondary/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                >
+                  {item.token}
+                </button>
+              )
+            })}
           </div>
           <p className="break-all rounded-md border border-border/70 bg-background/60 px-2 py-1.5 text-[11px] leading-5 text-muted-foreground">
-            预览：<span className="text-foreground/90">{templatePreview}</span>
+            {t('settings.template.preview')}
+            <span className="text-foreground/90">{templatePreview}</span>
           </p>
           {templateError ? (
             <p className="text-[11px] leading-4 text-destructive">{templateError}</p>
           ) : (
             <p className="text-[11px] leading-4 text-muted-foreground/70">
-              未写 {'{ext}'} 时自动追加扩展名；非法字符会被替换，超过 120 字符会截断
+              {t('settings.template.note')}
             </p>
           )}
         </section>
@@ -226,37 +575,114 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-medium">
               <Cookie className="h-4 w-4 text-primary" />
-              Cookie
+              {t('settings.cookie.title')}
             </h3>
             <Badge variant={props.cookie?.hasCookie ? 'success' : 'destructive'}>
-              {props.cookie?.hasCookie ? '已配置' : '未配置'}
+              {props.cookie?.hasCookie
+                ? t('settings.cookie.configured')
+                : t('settings.cookie.notConfigured')}
             </Badge>
           </div>
           <p className="text-[11px] leading-4 text-muted-foreground">
             {props.cookie?.hasCookie
-              ? `${cookieSourceLabel(props.cookie.source)} · ${props.cookie.masked}`
-              : '未登录时 R-18 作品会被 pixiv 过滤，建议先配置 PHPSESSID'}
+              ? `${cookieSourceLabel(t, props.cookie.source)} · ${props.cookie.masked}`
+              : t('settings.cookie.hint')}
           </p>
           {props.selfUser ? (
             <p className="text-[11px] leading-4 text-muted-foreground/80">
-              当前登录：{props.selfUser.name}（{props.selfUser.id}）
+              {t('settings.cookie.currentUser', {
+                name: props.selfUser.name,
+                id: props.selfUser.id
+              })}
             </p>
           ) : null}
+          {loggedIn ? (
+            <p className="text-[11px] leading-4 text-muted-foreground/70">
+              {t('settings.cookie.alreadyLoggedIn')}
+            </p>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  disabled={loggingIn}
+                  onClick={() => void login()}
+                >
+                  {loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
+                  {loggingIn ? t('settings.cookie.loggingIn') : t('settings.cookie.login')}
+                </Button>
+              </div>
+              <p className="text-[11px] leading-4 text-muted-foreground/70">
+                {t('settings.cookie.loginHint')}
+              </p>
+              <p className="text-[11px] leading-4 text-red-500">
+                {t('settings.cookie.captchaLoop')}
+              </p>
+            </>
+          )}
+          {props.cookie?.hasCookie ? (
+            confirmingClear ? (
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-[11px] leading-4 text-amber-500">
+                  {t('settings.cookie.clearConfirm')}
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={clearing}
+                  onClick={() => void clearCookie()}
+                >
+                  {clearing ? <Loader2 className="animate-spin" /> : null}
+                  {t('settings.cookie.clearOk')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={clearing}
+                  onClick={() => setConfirmingClear(false)}
+                >
+                  {t('settings.cookie.clearCancel')}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setConfirmingClear(true)}
+              >
+                <Trash2 />
+                {t('settings.cookie.clear')}
+              </Button>
+            )
+          ) : null}
+          {loginCancelled ? (
+            <p className="text-[11px] leading-4 text-amber-500">
+              {t('settings.cookie.loginCancelled')}
+            </p>
+          ) : null}
+          <p className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+            <span className="h-px flex-1 bg-border/60" />
+            {t('settings.cookie.orManual')}
+            <span className="h-px flex-1 bg-border/60" />
+          </p>
           <Textarea
             value={cookieInput}
             onChange={(event) => setCookieInput(event.target.value)}
-            placeholder="粘贴 PHPSESSID=... 或完整 Cookie"
+            placeholder={t('settings.cookie.placeholder')}
             spellCheck={false}
           />
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             className="w-full"
             disabled={!cookieInput.trim() || savingCookie}
             onClick={() => void saveCookie()}
           >
             {savingCookie ? <Loader2 className="animate-spin" /> : <Cookie />}
-            保存 Cookie
+            {t('settings.cookie.save')}
           </Button>
         </section>
       </div>

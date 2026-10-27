@@ -22,6 +22,7 @@ import {
   type ReactNode
 } from 'react'
 import type * as React from 'react'
+import { useI18n } from '@renderer/i18n'
 
 /* -------------------------------- 常量 / 类型 -------------------------------- */
 
@@ -145,6 +146,7 @@ function PreviewOverlay({
   onIndexChange,
   onClose
 }: PreviewOverlayProps): React.JSX.Element {
+  const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [view, setView] = useState<ViewState>(DEFAULT_VIEW)
@@ -450,7 +452,7 @@ function PreviewOverlay({
       ref={containerRef}
       role="dialog"
       aria-modal="true"
-      aria-label="图片预览"
+      aria-label={t('preview.dialogLabel')}
       className="fixed inset-0 z-[9999] select-none overflow-hidden bg-black/90 backdrop-blur-sm"
       style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
     >
@@ -495,7 +497,7 @@ function PreviewOverlay({
         type="button"
         data-preview-ui
         onClick={onClose}
-        aria-label="关闭"
+        aria-label={t('preview.close')}
         className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white/80 backdrop-blur transition-colors hover:bg-white/15 hover:text-white"
       >
         <X size={20} />
@@ -512,42 +514,42 @@ function PreviewOverlay({
         data-preview-ui
         className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-black/60 px-2 py-2 text-white shadow-2xl backdrop-blur-md"
       >
-        <ToolButton label="缩小" onClick={zoomOut}>
+        <ToolButton label={t('preview.zoomOut')} onClick={zoomOut}>
           <ZoomOut size={18} />
         </ToolButton>
 
         <button
           type="button"
           onClick={resetView}
-          title="重置视图"
-          aria-label="重置视图"
+          title={t('preview.resetView')}
+          aria-label={t('preview.resetView')}
           className="min-w-[58px] rounded-full px-2 py-1.5 text-xs font-medium tabular-nums text-white/80 transition-colors hover:bg-white/15 hover:text-white"
         >
           {Math.round(view.scale * 100)}%
         </button>
 
-        <ToolButton label="放大" onClick={zoomIn}>
+        <ToolButton label={t('preview.zoomIn')} onClick={zoomIn}>
           <ZoomIn size={18} />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton label="顺时针旋转 90°" onClick={rotate}>
+        <ToolButton label={t('preview.rotate')} onClick={rotate}>
           <RotateCw size={18} />
         </ToolButton>
-        <ToolButton label="水平翻转" onClick={toggleFlipX} active={view.flipX}>
+        <ToolButton label={t('preview.flipX')} onClick={toggleFlipX} active={view.flipX}>
           <FlipHorizontal size={18} />
         </ToolButton>
-        <ToolButton label="垂直翻转" onClick={toggleFlipY} active={view.flipY}>
+        <ToolButton label={t('preview.flipY')} onClick={toggleFlipY} active={view.flipY}>
           <FlipVertical size={18} />
         </ToolButton>
-        <ToolButton label="适应屏幕" onClick={resetView}>
+        <ToolButton label={t('preview.fitScreen')} onClick={resetView}>
           <Maximize2 size={18} />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton label="关闭" onClick={onClose}>
+        <ToolButton label={t('preview.close')} onClick={onClose}>
           <X size={18} />
         </ToolButton>
       </div>
@@ -586,13 +588,14 @@ function NavButton(props: {
   side: 'left' | 'right'
   onClick: () => void
 }): React.JSX.Element {
+  const { t } = useI18n()
   const isLeft = props.side === 'left'
   return (
     <button
       type="button"
       data-preview-ui
       onClick={props.onClick}
-      aria-label={isLeft ? '上一张' : '下一张'}
+      aria-label={isLeft ? t('preview.prevImage') : t('preview.nextImage')}
       className={`absolute top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white/80 backdrop-blur transition-colors hover:bg-white/15 hover:text-white ${
         isLeft ? 'left-4' : 'right-4'
       }`}

@@ -1,4 +1,9 @@
 import type { ThrottleKind, ThrottleState } from '../../shared/types'
+import {
+  DEFAULT_THROTTLE_LIMITS,
+  clampThrottleValue,
+  type ThrottleLimits
+} from '../../shared/throttle'
 
 /**
  * 全局限速器。
@@ -25,10 +30,16 @@ interface Limiter {
 }
 
 const LIMITS: Record<ThrottleKind, { concurrency: number; minInterval: number }> = {
-  // 作品列表 / 分页接口：限制最严，串行两路即可
-  api: { concurrency: 2, minInterval: 650 },
+  // 作品列表 / 分页接口：默认限制最严，串行两路即可
+  api: {
+    concurrency: DEFAULT_THROTTLE_LIMITS.apiConcurrency,
+    minInterval: DEFAULT_THROTTLE_LIMITS.apiInterval
+  },
   // 图片 CDN：带宽型请求，可以更激进，但仍需节流
-  cdn: { concurrency: 6, minInterval: 120 }
+  cdn: {
+    concurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
+    minInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval
+  }
 }
 
 const MAX_COOLDOWN = 45_000
@@ -90,6 +101,28 @@ export function onThrottleChange(listener: (state: ThrottleState) => void): () =
 
 export function throttleStates(): ThrottleState[] {
   return [snapshot(limiters.api), snapshot(limiters.cdn)]
+}
+
+/**
+ * 应用用户设置的限流参数（并发上限与最小间隔），可随时调用。
+ * 已处于冷却或降并发状态的请求不受影响，只调整后续请求的闸门。
+ */
+export function applyThrottleLimits(limits: ThrottleLimits): void {
+  const apiConcurrency = clampThrottleValue('apiConcurrency', limits.apiConcurrency)
+  const apiInterval = clampThrottleValue('apiInterval', limits.apiInterval)
+  const cdnConcurrency = clampThrottleValue('cdnConcurrency', limits.cdnConcurrency)
+  const cdnInterval = clampThrottleValue('cdnInterval', limits.cdnInterval)
+
+  limiters.api.maxConcurrency = apiConcurrency
+  limiters.api.minInterval = apiInterval
+  limiters.cdn.maxConcurrency = cdnConcurrency
+  limiters.cdn.minInterval = cdnInterval
+
+  // 上限被调低时，之前的惩罚值可能超过新上限，收敛回合法范围
+  ;[limiters.api, limiters.cdn].forEach((limiter) => {
+    limiter.penalty = Math.max(0, Math.min(limiter.penalty, limiter.maxConcurrency - 1))
+    emit(limiter)
+  })
 }
 
 /** 距离解除冷却还剩多少毫秒 */

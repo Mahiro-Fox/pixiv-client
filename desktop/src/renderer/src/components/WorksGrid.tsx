@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import type * as React from 'react'
 import type { PixivWork, WorkSort } from '@shared/types'
 import { cn } from '@renderer/lib/utils'
+import { useI18n } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -21,6 +22,7 @@ export function WorkCard({
   onToggle,
   onOpen
 }: WorkCardProps): React.JSX.Element {
+  const { t } = useI18n()
   return (
     <div
       role="button"
@@ -58,7 +60,7 @@ export function WorkCard({
 
         <button
           type="button"
-          aria-label={selected ? '取消选择' : '选择作品'}
+          aria-label={selected ? t('works.deselect') : t('works.select')}
           onClick={(event) => {
             event.stopPropagation()
             onToggle(work.id)
@@ -76,11 +78,11 @@ export function WorkCard({
         <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
           {work.pageCount > 1 ? (
             <Badge variant="outline" className="bg-black/45 backdrop-blur text-white">
-              {work.pageCount} 张
+              {t('works.pageCount', { count: work.pageCount })}
             </Badge>
           ) : null}
           {Number(work.illustType) === 2 ? (
-            <Badge className="bg-amber-500/80 text-white backdrop-blur">动图</Badge>
+            <Badge className="bg-amber-500/80 text-white backdrop-blur">{t('works.ugoira')}</Badge>
           ) : null}
           {Number(work.xRestrict || 0) >= 1 ? (
             <Badge variant="destructive" className="bg-red-500/80 text-white backdrop-blur">
@@ -94,7 +96,7 @@ export function WorkCard({
 
         {downloaded ? (
           <Badge variant="success" className="absolute bottom-2 left-2 bg-black/45 backdrop-blur">
-            已下载
+            {t('works.downloaded')}
           </Badge>
         ) : null}
       </div>
@@ -159,6 +161,7 @@ function pageNumbers(page: number, pageCount: number): (number | 'gap')[] {
 }
 
 export function WorksGrid(props: WorksGridProps): React.JSX.Element {
+  const { t } = useI18n()
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   // 翻页后回到列表顶部
@@ -190,21 +193,21 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
         </div>
         <div className="space-y-1">
           <p className="text-sm font-medium">
-            {props.onlyNew ? '没有未下载的作品' : '还没有作品'}
+            {props.onlyNew ? t('works.emptyOnlyNew') : t('works.empty')}
           </p>
           <p className="text-xs text-muted-foreground">
             {props.onlyNew
-              ? '当前结果都已下载过，可关闭筛选查看全部'
+              ? t('works.emptyOnlyNewHint')
               : props.filteredOut > 0
-                ? `有 ${props.filteredOut} 个作品被过滤规则排除，可调整规则后查看`
-                : '在左侧填写用户 ID 与标签，点击「抓取作品列表」开始'}
+                ? t('works.emptyFilteredHint', { count: props.filteredOut })
+                : t('works.emptyHint')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {props.filteredOut > 0 ? (
             <Button variant="outline" size="sm" onClick={props.onOpenFilter}>
               <Filter />
-              调整过滤规则
+              {t('works.adjustFilter')}
             </Button>
           ) : null}
           {props.onlyNew ? (
@@ -213,7 +216,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
               onClick={props.onToggleOnlyNew}
               className="rounded-md px-2 py-1 text-xs text-primary transition-colors hover:bg-primary/10"
             >
-              查看全部作品
+              {t('works.viewAll')}
             </button>
           ) : null}
         </div>
@@ -231,18 +234,21 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 pb-3">
         <p className="min-w-0 truncate text-xs text-muted-foreground">
-          共 <span className="font-medium text-foreground">{props.filteredTotal}</span>
-          {props.onlyNew ? ' 个未下载作品' : ' 个作品'}
-          {props.total > props.filteredTotal ? `（接口总计 ${props.total}）` : ''}
-          {props.filteredOut > 0 ? ` · 规则过滤 ${props.filteredOut}` : ''}
-          {props.downloadedCount > 0 ? ` · 已下载 ${props.downloadedCount}` : ''}
-          {props.selected.size > 0 ? ` · 已选 ${props.selected.size}` : ''}
+          {t('works.totalPrefix')}
+          <span className="font-medium text-foreground">{props.filteredTotal}</span>
+          {props.onlyNew ? t('works.countSuffixOnlyNew') : t('works.countSuffix')}
+          {props.total > props.filteredTotal ? t('works.apiTotal', { total: props.total }) : ''}
+          {props.filteredOut > 0 ? t('works.filteredOut', { count: props.filteredOut }) : ''}
+          {props.downloadedCount > 0
+            ? t('works.downloadedCount', { count: props.downloadedCount })
+            : ''}
+          {props.selected.size > 0 ? t('works.selectedCount', { count: props.selected.size }) : ''}
         </p>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={props.onOpenFilter}
-            title="过滤规则"
+            title={t('works.filterRules')}
             className={cn(
               'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
               props.activeFilterCount > 0
@@ -251,7 +257,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
             )}
           >
             <Filter className="h-3.5 w-3.5" />
-            过滤
+            {t('works.filter')}
             {props.activeFilterCount > 0 ? (
               <span className="rounded-full bg-primary/20 px-1.5 text-[10px] tabular-nums text-primary">
                 {props.activeFilterCount}
@@ -261,14 +267,14 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           <select
             value={props.sort}
             onChange={(event) => props.onSortChange(event.target.value as WorkSort)}
-            aria-label="排序方式"
+            aria-label={t('works.sortLabel')}
             className="h-6 rounded-md border border-border/60 bg-background px-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            <option value="default">默认顺序</option>
-            <option value="pages-desc">页数最多</option>
-            <option value="pages-asc">页数最少</option>
-            <option value="date-desc">最新发布</option>
-            <option value="date-asc">最早发布</option>
+            <option value="default">{t('works.sortDefault')}</option>
+            <option value="pages-desc">{t('works.sortPagesDesc')}</option>
+            <option value="pages-asc">{t('works.sortPagesAsc')}</option>
+            <option value="date-desc">{t('works.sortDateDesc')}</option>
+            <option value="date-asc">{t('works.sortDateAsc')}</option>
           </select>
           <button
             type="button"
@@ -276,7 +282,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <FileDown className="h-3.5 w-3.5" />
-            导出
+            {t('works.export')}
           </button>
           <button
             type="button"
@@ -288,14 +294,14 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                 : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
             )}
           >
-            只看未下载
+            {t('works.onlyNew')}
           </button>
           <button
             type="button"
             onClick={props.onToggleAll}
             className="rounded-md px-2 py-1 text-xs text-primary transition-colors hover:bg-primary/10"
           >
-            {allSelected ? '取消全选' : '全选本页'}
+            {allSelected ? t('works.deselectAll') : t('works.selectPage')}
           </button>
         </div>
       </div>
@@ -319,7 +325,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
         <button
           type="button"
           disabled={!hasPrev}
-          aria-label="上一页"
+          aria-label={t('works.prevPage')}
           onClick={() => props.onPageChange(props.page - 1)}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -352,7 +358,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
         <button
           type="button"
           disabled={!hasNext}
-          aria-label="下一页"
+          aria-label={t('works.nextPage')}
           onClick={() => props.onPageChange(props.page + 1)}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -366,7 +372,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                 props.filteredTotal
               )} / ${props.filteredTotal}`
             : ''}
-          {selectedOnPage > 0 ? ` · 本页已选 ${selectedOnPage}` : ''}
+          {selectedOnPage > 0 ? t('works.pageSelected', { count: selectedOnPage }) : ''}
         </span>
       </footer>
     </div>

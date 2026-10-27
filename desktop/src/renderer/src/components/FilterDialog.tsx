@@ -2,6 +2,7 @@ import { Filter, RotateCcw } from 'lucide-react'
 import type * as React from 'react'
 import type { AppConfig, R18Filter } from '@shared/types'
 import { countActiveFilters } from '@renderer/lib/filters'
+import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
 import { Field, Select } from './ui/field'
@@ -15,6 +16,7 @@ interface FilterDialogProps {
 
 /** 过滤规则弹窗：本地实时生效，规则之间为「与」关系 */
 export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
+  const { t } = useI18n()
   const { config } = props
   const activeCount = countActiveFilters(config)
 
@@ -33,28 +35,28 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
 
   return (
     <Dialog
-      title="过滤规则"
-      description="规则在本地对抓取结果实时生效，多条规则同时满足才会保留"
+      title={t('filter.title')}
+      description={t('filter.description')}
       icon={<Filter className="h-4 w-4 text-primary" />}
       onClose={props.onClose}
       footer={
         <>
           <span className="mr-auto text-[11px] text-muted-foreground">
-            已启用 {activeCount} 条规则
+            {t('filter.activeCount', { count: activeCount })}
           </span>
           <Button variant="ghost" size="sm" onClick={clear}>
             <RotateCcw />
-            清空
+            {t('filter.clear')}
           </Button>
           <Button size="sm" onClick={props.onClose}>
-            完成
+            {t('filter.done')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="最少页数" hint="0 表示不限">
+          <Field label={t('filter.minPages')} hint={t('filter.noLimit')}>
             <Input
               type="number"
               min={0}
@@ -66,7 +68,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               }
             />
           </Field>
-          <Field label="最多页数" hint="0 表示不限">
+          <Field label={t('filter.maxPages')} hint={t('filter.noLimit')}>
             <Input
               type="number"
               min={0}
@@ -81,7 +83,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="最小宽度" hint="原图宽，0 不限">
+          <Field label={t('filter.minWidth')} hint={t('filter.minWidthHint')}>
             <Input
               type="number"
               min={0}
@@ -93,7 +95,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               }
             />
           </Field>
-          <Field label="最小高度" hint="原图高，0 不限">
+          <Field label={t('filter.minHeight')} hint={t('filter.minHeightHint')}>
             <Input
               type="number"
               min={0}
@@ -108,14 +110,14 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="内容分级">
+          <Field label={t('filter.r18')}>
             <Select
               value={config.filterR18}
               onChange={(value) => props.onConfigChange({ filterR18: value as R18Filter })}
             >
-              <option value="any">全部</option>
-              <option value="only">仅 R-18</option>
-              <option value="exclude">排除 R-18</option>
+              <option value="any">{t('filter.r18Any')}</option>
+              <option value="only">{t('filter.r18Only')}</option>
+              <option value="exclude">{t('filter.r18Exclude')}</option>
             </Select>
           </Field>
           <div className="flex items-end pb-1">
@@ -128,26 +130,26 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 }
                 className="h-3.5 w-3.5 accent-primary"
               />
-              排除 AI 作品
+              {t('filter.excludeAi')}
             </label>
           </div>
         </div>
 
-        <Field label="排除关键词" hint="匹配标题与作者名，逗号或空格分隔">
+        <Field label={t('filter.excludeKeywords')} hint={t('filter.excludeKeywordsHint')}>
           <Input
             value={config.filterExcludeKeywords}
             onChange={(event) =>
               props.onConfigChange({ filterExcludeKeywords: event.target.value })
             }
-            placeholder="例如：AI, 漫画, 汇总"
+            placeholder={t('filter.excludeKeywordsPlaceholder')}
           />
         </Field>
 
-        <Field label="排除标签" hint="匹配作品标签，同时兜底匹配标题与作者名">
+        <Field label={t('filter.excludeTags')} hint={t('filter.excludeTagsHint')}>
           <Input
             value={config.filterExcludeTags}
             onChange={(event) => props.onConfigChange({ filterExcludeTags: event.target.value })}
-            placeholder="例如：漫画, アニメ"
+            placeholder={t('filter.excludeTagsPlaceholder')}
           />
         </Field>
       </div>

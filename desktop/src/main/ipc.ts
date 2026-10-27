@@ -1,5 +1,6 @@
 import { BrowserWindow, app, dialog, ipcMain, shell, type WebContents } from 'electron'
-import { writeFile } from 'node:fs/promises'
+import { watch, type FSWatcher } from 'node:fs'
+import { rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type {
   AppConfig,
@@ -12,22 +13,28 @@ import type {
   FollowingParams,
   LibraryResult,
   PixivWork,
+  UgoiraFormat,
   WorkExportParams
 } from '../shared/types'
-import { getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
+import { clearCookie, getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
 import {
   collectBookmarks,
   collectWorks,
   fetchFollowing,
   fetchSelfUser,
   fetchWorkPages,
+  probeCookieHealth,
   suggestTags
 } from './pixiv/api'
 import { findDownloadedIds, safeName } from './pixiv/files'
+import { setAuthFailureHandler } from './pixiv/http'
+import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { runDownloadJob } from './pixiv/jobs'
-import { onThrottleChange, throttleStates } from './pixiv/throttle'
+import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
+import { throttleLimitsFromConfig } from '../shared/throttle'
 import { findJob, flushQueue, listFailures, listSummaries, loadStore, removeJob } from './queue'
 import { scanLibrary } from './library'
+import { forgetHistory } from './history'
 
 interface ActiveRun {
   controller: AbortController
@@ -40,10 +47,62 @@ let activeRun: ActiveRun | null = null
 let libraryCache: { at: number; result: LibraryResult } | null = null
 const LIBRARY_CACHE_MS = 15_000
 
+/** 保存目录监听：外部增删文件后让缓存失效并通知界面刷新 */
+let libraryWatcher: FSWatcher | null = null
+let watchedDir = ''
+let libraryWatchTimer: NodeJS.Timeout | null = null
+
+function stopLibraryWatcher(): void {
+  if (libraryWatchTimer) {
+    clearTimeout(libraryWatchTimer)
+    libraryWatchTimer = null
+  }
+  libraryWatcher?.close()
+  libraryWatcher = null
+  watchedDir = ''
+}
+
+/**
+ * 递归监听保存目录。Windows 原生支持 recursive；
+ * 监听失败（目录不存在、权限不足）时静默降级，仍可手动「重新扫描」。
+ */
+function watchLibraryDir(outDir: string): void {
+  const value = (outDir || '').trim()
+  if (!value || !path.isAbsolute(value)) {
+    stopLibraryWatcher()
+    return
+  }
+  const target = path.resolve(value)
+  if (libraryWatcher && watchedDir === target) return
+  stopLibraryWatcher()
+  try {
+    const watcher = watch(target, { recursive: true, persistent: false }, () => {
+      // 下载与批量删除会连续触发大量事件，合并成一次刷新
+      if (libraryWatchTimer) clearTimeout(libraryWatchTimer)
+      libraryWatchTimer = setTimeout(() => {
+        libraryWatchTimer = null
+        libraryCache = null
+        broadcast('library:changed', { at: Date.now() })
+      }, 800)
+    })
+    watcher.on('error', () => stopLibraryWatcher())
+    libraryWatcher = watcher
+    watchedDir = target
+  } catch {
+    libraryWatcher = null
+    watchedDir = ''
+  }
+}
+
 function toInt(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(min, Math.min(max, Math.round(parsed)))
+}
+
+/** 动图格式只接受三个合法值，其它输入回退到 mp4 */
+function toUgoiraFormat(value: unknown): UgoiraFormat {
+  return value === 'zip' || value === 'gif' ? value : 'mp4'
 }
 
 function broadcast(channel: string, payload: unknown, sender?: WebContents): void {
@@ -88,6 +147,7 @@ async function executeJob(
     delay: Math.max(0, Math.min(5, Number(params.delay) || 0)),
     imageQuality:
       (params.imageQuality ?? config.imageQuality) === 'original' ? 'original' : 'regular',
+    ugoiraFormat: toUgoiraFormat(params.ugoiraFormat ?? config.ugoiraFormat),
     cookie,
     signal: controller.signal,
     job: existing,
@@ -122,17 +182,50 @@ export function registerIpcHandlers(): void {
 
   onThrottleChange((state) => broadcast('throttle:state', state))
 
+  // 任何接口回 401/403 都说明 Cookie 已失效，推给界面提醒用户重新登录
+  setAuthFailureHandler(() => broadcast('cookie:invalid', null))
+
+  // 启动时应用已保存的限流参数，并监听保存目录变化
+  void loadConfig().then((config) => {
+    applyThrottleLimits(throttleLimitsFromConfig(config))
+    watchLibraryDir(config.outDir)
+  })
+
   ipcMain.handle('config:get', () => loadConfig())
 
   ipcMain.handle('config:set', async (_event, patch: Partial<AppConfig>) => {
     const config = await saveConfig(patch)
     libraryCache = null
+    // 限流参数改完立即生效，不必等下一次下载；保存目录变化时重建监听
+    applyThrottleLimits(throttleLimitsFromConfig(config))
+    watchLibraryDir(config.outDir)
     return config
   })
 
   ipcMain.handle('cookie:get', () => getCookieStatus())
 
   ipcMain.handle('cookie:set', (_event, raw: string) => saveCookie(raw))
+
+  // 应用内登录：开一个独立窗口走 pixiv 登录页，成功后直接读取自己的会话 Cookie
+  ipcMain.handle('cookie:login', async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender)
+    const cookie = await openPixivLogin(parent)
+    if (!cookie) return null
+    return saveCookie(cookie)
+  })
+
+  // 清除 Cookie：同时清空登录窗口分区的旧会话，
+  // 否则下次点登录会被残留会话直接跳过，窗口来不及显示就关掉了
+  ipcMain.handle('cookie:clear', async () => {
+    await clearPixivLoginSession()
+    return clearCookie()
+  })
+
+  // Cookie 体检：界面启动时和用户手动触发时调用
+  ipcMain.handle('cookie:health', async () => {
+    const { cookie } = await resolveCookie()
+    return probeCookieHealth(cookie)
+  })
 
   ipcMain.handle('dialog:pick-dir', async () => {
     const config = await loadConfig()
@@ -264,7 +357,8 @@ export function registerIpcHandlers(): void {
         outDir: job.outDir,
         workers: config.workers,
         delay: config.delay,
-        imageQuality: job.imageQuality || config.imageQuality
+        imageQuality: job.imageQuality || config.imageQuality,
+        ugoiraFormat: job.ugoiraFormat || config.ugoiraFormat
       },
       event.sender,
       id
@@ -332,6 +426,8 @@ export function registerIpcHandlers(): void {
     const outDir = (config.outDir || '').trim()
     if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效，请先在设置中选择目录')
     const resolved = path.resolve(outDir)
+    // 保存目录可能在 config:set 之外被改动，这里兜底对齐监听目标
+    watchLibraryDir(resolved)
     if (
       !force &&
       libraryCache &&
@@ -356,6 +452,46 @@ export function registerIpcHandlers(): void {
     }
     const error = await shell.openPath(target)
     if (error) throw new Error(error)
+  })
+
+  ipcMain.handle('library:delete', async (_event, paths: string[]) => {
+    const config = await loadConfig()
+    const outDir = (config.outDir || '').trim()
+    if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效，请先在设置中选择目录')
+    const root = path.resolve(outDir)
+
+    const removed: string[] = []
+    const dirs = new Set<string>()
+    for (const item of Array.isArray(paths) ? paths : []) {
+      const target = path.resolve(String(item || ''))
+      const relative = path.relative(root, target)
+      // 只允许删除保存目录内、且不是目录本身的文件
+      if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue
+      try {
+        await rm(target, { force: true })
+        removed.push(target)
+        dirs.add(path.dirname(target))
+      } catch {
+        // 单个文件删除失败不影响其它文件
+      }
+    }
+    if (removed.length === 0) throw new Error('没有可删除的文件')
+
+    forgetHistory(removed)
+    // 顺带清理变空的作者目录与标签目录
+    for (const dir of dirs) {
+      try {
+        await rmdir(dir)
+        await rmdir(path.dirname(dir))
+      } catch {
+        // 目录非空或已不存在，忽略
+      }
+    }
+
+    libraryCache = null
+    const result = await scanLibrary(root, config.fileNameTemplate)
+    libraryCache = { at: Date.now(), result }
+    return result
   })
 
   ipcMain.handle('throttle:get', () => throttleStates())

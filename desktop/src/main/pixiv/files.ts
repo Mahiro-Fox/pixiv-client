@@ -43,6 +43,10 @@ export interface DestContext {
   createDate?: string
   pageIndex: number
   url: string
+  /** 指定扩展名（含点），动图转码时用于覆盖 URL 推断出的扩展名 */
+  ext?: string
+  /** 下载质量，模板里写了 {quality} 时据此区分常规图与原图 */
+  quality?: ImageQuality
   /** 文件名模板，缺省用默认模板 */
   template?: string
 }
@@ -57,7 +61,8 @@ export function buildDest(authorDir: string, context: DestContext): string {
     tag: context.tag,
     page: context.pageIndex,
     date: context.createDate,
-    ext: extOf(context.url)
+    quality: context.quality,
+    ext: context.ext || extOf(context.url)
   }
   return path.join(authorDir, renderFileName(context.template || DEFAULT_FILE_TEMPLATE, vars))
 }
@@ -216,8 +221,8 @@ export async function findDownloadedIds(
 
   // id -> 已下载的分页序号集合
   const pagesById = new Map<string, Set<number>>()
-  // 首页文件路径，用于按质量校验像素尺寸
-  const coverById = new Map<string, string>()
+  // 首页文件路径（模板带 {quality} 时会有多份：常规图与原图各自一份）
+  const coversById = new Map<string, string[]>()
   for (const author of authors) {
     if (!author.isDirectory()) continue
     let files: string[]
@@ -240,7 +245,11 @@ export async function findDownloadedIds(
         const pages = pagesById.get(id) ?? new Set<number>()
         pages.add(page)
         pagesById.set(id, pages)
-        if (page === 0) coverById.set(id, path.join(rootDir, author.name, file))
+        if (page === 0) {
+          const covers = coversById.get(id) ?? []
+          covers.push(path.join(rootDir, author.name, file))
+          coversById.set(id, covers)
+        }
         break
       }
     }
@@ -262,14 +271,17 @@ export async function findDownloadedIds(
 
   if (quality !== 'original') return candidates
 
-  // 选择原图时逐作品校验首页文件尺寸：常规图（长边 1200）按未下载处理
+  // 选择原图时逐作品校验首页文件尺寸：常规图（长边 1200）按未下载处理。
+  // 模板里写了 {quality} 时同一页会同时有常规图与原图，任意一份达标即可。
   const verified = await Promise.all(
     candidates.map(async (id) => {
-      const cover = coverById.get(id)
+      const covers = coversById.get(id)
       const meta = wanted.get(id)
-      if (!cover || !meta) return id
-      const ok = await satisfiesQuality(cover, meta.width, meta.height, quality)
-      return ok ? id : ''
+      if (!covers || covers.length === 0 || !meta) return id
+      const checks = await Promise.all(
+        covers.map((cover) => satisfiesQuality(cover, meta.width, meta.height, quality))
+      )
+      return checks.some(Boolean) ? id : ''
     })
   )
   return verified.filter(Boolean)

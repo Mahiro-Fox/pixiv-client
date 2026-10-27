@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type {
   DownloadItemEvent,
@@ -10,7 +11,8 @@ import type {
   PixivWork,
   QueueJob,
   QueueStatus,
-  QueueTask
+  QueueTask,
+  UgoiraFormat
 } from '../../shared/types'
 import { flushQueue, dropJobIfDone } from '../queue'
 import { flushHistory, recordHistory } from '../history'
@@ -23,6 +25,7 @@ import {
   safeName,
   satisfiesQuality
 } from './files'
+import { convertUgoira, isFfmpegAvailable, type UgoiraTarget } from './ugoira'
 import { downloadFile, sleep } from './http'
 import { mapPool } from './pool'
 
@@ -62,6 +65,39 @@ async function needsReplacement(task: QueueTask, quality: ImageQuality): Promise
     quality
   )
   return !ok
+}
+
+/** 动图最终落盘扩展名：保留压缩包时为 .zip，否则与目标格式一致 */
+function ugoiraExt(format: UgoiraFormat): string {
+  return format === 'zip' ? '.zip' : `.${format}`
+}
+
+/**
+ * 动图任务：先把帧压缩包下载到同目录临时文件，再用 ffmpeg 转码成 mp4 / gif。
+ * 转码成功后才写入最终路径，临时 zip 无论成败都会被清理。
+ */
+async function downloadUgoiraTask(
+  task: QueueTask,
+  format: UgoiraTarget,
+  cookie: string,
+  signal: AbortSignal
+): Promise<number> {
+  const zipPath = path.join(path.dirname(task.dest), `.ugoira-${task.illustId}.zip`)
+  try {
+    await downloadFile(task.url, zipPath, cookie, { signal })
+    await convertUgoira({
+      zipPath,
+      destPath: task.dest,
+      frames: task.frames || [],
+      format,
+      signal
+    })
+    const info = await stat(task.dest)
+    return info.size
+  } finally {
+    await rm(zipPath, { force: true }).catch(() => undefined)
+    await rm(`${zipPath}.part`, { force: true }).catch(() => undefined)
+  }
 }
 
 function emptyProgress(totalWorks: number, startedAt: number): DownloadProgress {
@@ -113,6 +149,7 @@ function createJob(options: DownloadJobOptions, works: PixivWork[], startedAt: n
     outDir: options.outDir,
     rootDir: path.join(options.outDir, safeName(options.tag, 'tag')),
     imageQuality: options.imageQuality || 'regular',
+    ugoiraFormat: options.ugoiraFormat || 'mp4',
     status: 'resolving',
     createdAt: startedAt,
     updatedAt: startedAt,
@@ -135,6 +172,11 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
   const job = options.job ? { ...options.job, works } : createJob(options, works, startedAt)
   const rootDir = job.rootDir
   const quality: ImageQuality = job.imageQuality || options.imageQuality || 'regular'
+  const requestedUgoira: UgoiraFormat = job.ugoiraFormat || options.ugoiraFormat || 'mp4'
+  // 缺少 ffmpeg 时退回保留压缩包，避免动图作品整体下载失败
+  const ugoiraFormat: UgoiraFormat =
+    requestedUgoira !== 'zip' && !isFfmpegAvailable() ? 'zip' : requestedUgoira
+  job.ugoiraFormat = ugoiraFormat
 
   // 续传：上次失败的图片重新排队；已在本地且完整的图片在下面单独校验
   job.tasks.forEach((task) => {
@@ -183,8 +225,8 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
           const authorDir = buildAuthorDir(rootDir, work.userId, work.userName)
           let added = 0
 
-          // 动图（ugoira）：pixiv 只提供帧压缩包，按单任务下载 zip；
-          // 转 mp4 需要 ffmpeg，当前版本先保留原始 zip
+          // 动图（ugoira）：pixiv 只提供帧压缩包。
+          // 保留 zip 时直接落盘；mp4 / gif 先把 zip 下载到临时文件再转码。
           if (Number(work.illustType) === 2) {
             const meta = await fetchUgoiraMeta(illustId, options.cookie, options.signal)
             const dest = buildDest(authorDir, {
@@ -196,6 +238,8 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
               createDate: work.createDate,
               pageIndex: 0,
               url: meta.zipUrl,
+              ext: ugoiraExt(ugoiraFormat),
+              quality,
               template: options.fileNameTemplate
             })
             job.tasks.push({
@@ -204,6 +248,8 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
               dest,
               label: path.relative(rootDir, dest),
               page: 0,
+              frames: meta.frames,
+              ugoira: true,
               status: 'pending',
               bytes: 0
             })
@@ -223,6 +269,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
                 createDate: work.createDate,
                 pageIndex: index,
                 url,
+                quality,
                 template: options.fileNameTemplate
               })
               job.tasks.push({
@@ -308,6 +355,15 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
           if (complete && !(await needsReplacement(task, quality))) {
             task.status = 'exists'
             task.bytes = 0
+          } else if (task.ugoira && ugoiraFormat !== 'zip') {
+            replaced = complete
+            task.bytes = await downloadUgoiraTask(
+              task,
+              ugoiraFormat,
+              options.cookie,
+              options.signal
+            )
+            task.status = 'ok'
           } else {
             replaced = complete
             task.bytes = await downloadFile(task.url, task.dest, options.cookie, {
@@ -373,6 +429,8 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
   const complete =
     !paused && !hasPending && progress.failed === 0 && progress.resolveFailed === 0
   progress.phase = complete ? 'done' : 'paused'
+  // 记下结束时间，界面「用时」停止增长（否则切换标签页触发的重渲染会让数字继续变大）
+  progress.finishedAt = Date.now()
   emit()
   job.status = statusOf(progress.phase)
   job.progress = { ...progress }

@@ -66,6 +66,22 @@ export function recordHistory(entry: HistoryEntry): void {
   })
 }
 
+/** 删除文件后同步移除历史条目，避免索引里残留已不存在的路径 */
+export function forgetHistory(paths: string[]): void {
+  if (paths.length === 0) return
+  void loadHistory().then((store) => {
+    let changed = false
+    paths.forEach((item) => {
+      const key = entryKey(item)
+      if (store.entries[key]) {
+        delete store.entries[key]
+        changed = true
+      }
+    })
+    if (changed) scheduleWrite()
+  })
+}
+
 function scheduleWrite(): void {
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {

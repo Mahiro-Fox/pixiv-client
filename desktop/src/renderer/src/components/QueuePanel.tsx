@@ -12,6 +12,8 @@ import { useState } from 'react'
 import type * as React from 'react'
 import type { FailureItem, QueueStatus, QueueSummary } from '@shared/types'
 import { cn, formatBytes, formatElapsed } from '@renderer/lib/utils'
+import { useI18n } from '@renderer/i18n'
+import type { MessageKey } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
@@ -26,11 +28,11 @@ interface QueuePanelProps {
   onExportFailures: (id: string) => void
 }
 
-const STATUS_TEXT: Record<QueueStatus, string> = {
-  resolving: '解析中',
-  downloading: '下载中',
-  paused: '未完成',
-  done: '已完成'
+const STATUS_TEXT: Record<QueueStatus, MessageKey> = {
+  resolving: 'queue.statusResolving',
+  downloading: 'queue.statusDownloading',
+  paused: 'queue.statusPaused',
+  done: 'queue.statusDone'
 }
 
 const STATUS_VARIANT: Record<
@@ -49,6 +51,7 @@ function jobPercent(job: QueueSummary): number {
 }
 
 export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
+  const { t } = useI18n()
   /** 当前展开失败详情的任务；失败清单按需拉取 */
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [failures, setFailures] = useState<Record<string, FailureItem[]>>({})
@@ -90,9 +93,9 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="flex items-center gap-2">
           <ListRestart className="h-4 w-4 text-primary" />
-          未完成任务
+          {t('queue.title')}
         </CardTitle>
-        <Badge variant="outline">{props.jobs.length} 个可续传</Badge>
+        <Badge variant="outline">{t('queue.resumable', { count: props.jobs.length })}</Badge>
       </CardHeader>
       <CardContent className="scrollbar-thin max-h-64 space-y-2 overflow-y-auto">
         {props.jobs.map((job) => {
@@ -109,24 +112,26 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-medium">
-                    {job.tag} · {job.totalWorks} 个作品
+                    {t('queue.jobWorks', { tag: job.tag, count: job.totalWorks })}
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">{job.rootDir}</p>
                 </div>
-                <Badge variant={STATUS_VARIANT[job.status]}>{STATUS_TEXT[job.status]}</Badge>
+                <Badge variant={STATUS_VARIANT[job.status]}>{t(STATUS_TEXT[job.status])}</Badge>
               </div>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                 <span>
-                  完成 {job.ok + job.exists}/{job.total}（{percent}%）
+                  {t('queue.done', { done: job.ok + job.exists, total: job.total, percent })}
                 </span>
                 {job.failed > 0 ? (
-                  <span className="text-destructive">图片失败 {job.failed}</span>
+                  <span className="text-destructive">{t('queue.imageFailed', { count: job.failed })}</span>
                 ) : null}
                 {job.resolveFailed > 0 ? (
-                  <span className="text-destructive">解析失败 {job.resolveFailed}</span>
+                  <span className="text-destructive">
+                    {t('queue.resolveFailed', { count: job.resolveFailed })}
+                  </span>
                 ) : null}
-                <span>待下载 {job.pending}</span>
+                <span>{t('queue.pending', { count: job.pending })}</span>
                 <span>{formatBytes(job.bytes)}</span>
                 <span>{formatElapsed(job.updatedAt - job.createdAt)}</span>
               </div>
@@ -140,7 +145,9 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   onClick={() => handleResume(job.id)}
                 >
                   {props.running ? <Loader2 className="animate-spin" /> : <Play className="h-3 w-3" />}
-                  {failureCount > 0 ? `重试失败项 ${failureCount}` : '继续'}
+                  {failureCount > 0
+                    ? t('queue.retryFailed', { count: failureCount })
+                    : t('queue.resume')}
                 </Button>
 
                 {failureCount > 0 ? (
@@ -155,7 +162,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     ) : (
                       <ChevronRight className="h-3 w-3" />
                     )}
-                    失败详情
+                    {t('queue.failureDetail')}
                   </Button>
                 ) : null}
 
@@ -167,7 +174,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     onClick={() => props.onExportFailures(job.id)}
                   >
                     <FileDown className="h-3 w-3" />
-                    导出清单
+                    {t('queue.exportFailures')}
                   </Button>
                 ) : null}
 
@@ -179,7 +186,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   onClick={() => props.onRemove(job.id)}
                 >
                   <Trash2 className="h-3 w-3" />
-                  移除
+                  {t('queue.remove')}
                 </Button>
                 <Button
                   size="sm"
@@ -188,7 +195,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   onClick={() => props.onOpenDir(job.rootDir)}
                 >
                   <FolderOpen className="h-3 w-3" />
-                  打开目录
+                  {t('queue.openDir')}
                 </Button>
               </div>
 
@@ -197,16 +204,16 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   {loadingId === job.id ? (
                     <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      正在读取失败清单…
+                      {t('queue.loadingFailures')}
                     </p>
                   ) : list.length === 0 ? (
                     <p className="py-1 text-[11px] text-muted-foreground">
-                      没有失败项（解析失败的作品会在重试时重新解析）
+                      {t('queue.noFailures')}
                     </p>
                   ) : (
                     <>
                       <p className="text-[11px] text-muted-foreground">
-                        共 {list.length} 项，重试时只会重新处理这些内容
+                        {t('queue.failuresCount', { count: list.length })}
                       </p>
                       <ul className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto">
                         {list.map((item, index) => (
@@ -222,7 +229,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                                   : 'bg-destructive/15 text-destructive'
                               )}
                             >
-                              {item.kind === 'work' ? '解析' : '下载'}
+                              {item.kind === 'work' ? t('queue.kindResolve') : t('queue.kindDownload')}
                             </span>
                             <div className="min-w-0">
                               <p className="truncate text-foreground/90">{item.label}</p>

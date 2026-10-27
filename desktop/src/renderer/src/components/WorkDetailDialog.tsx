@@ -1,7 +1,9 @@
 import { Check, ExternalLink, Gem, Image as ImageIcon, ImageOff, Loader2, Plus, X } from 'lucide-react'
+import { useI18n } from '@renderer/i18n'
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import type { ImageQuality, PixivWork, WorkPage } from '@shared/types'
+import { readWorkPages, writeWorkPages } from '@renderer/lib/dialogCache'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { useImagePreview } from './ImagePreview'
@@ -21,6 +23,7 @@ function messageOf(error: unknown): string {
 }
 
 export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Element {
+  const { t } = useI18n()
   const { work } = props
   const preview = useImagePreview()
   const [pages, setPages] = useState<WorkPage[]>([])
@@ -43,7 +46,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
     preview.open(
       pages.map((page, index) => ({
         src: srcOf(page),
-        alt: `${work.title} 第 ${index + 1} 页`
+        alt: t('detail.pageAlt', { title: work.title, page: index + 1 })
       })),
       start
     )
@@ -53,14 +56,27 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
 
   useEffect(() => {
     let alive = true
-    setPages([])
     setError('')
+
+    // 同一个作品短时间内再次打开时直接用缓存，避免重复请求分页接口
+    const cached = readWorkPages(work.id)
+    if (cached) {
+      setPages(cached)
+      setLoading(false)
+      return () => {
+        alive = false
+      }
+    }
+
+    setPages([])
     setLoading(true)
 
     void window.pixiv
       .getWorkPages(work.id)
       .then((result) => {
-        if (alive) setPages(result)
+        if (!alive) return
+        setPages(result)
+        writeWorkPages(work.id, result)
       })
       .catch((reason: unknown) => {
         if (alive) setError(messageOf(reason))
@@ -86,7 +102,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${work.title} 详情`}
+      aria-label={t('detail.ariaLabel', { title: work.title })}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
       onClick={props.onClose}
     >
@@ -101,9 +117,11 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               {work.userName} · ID {work.id}
             </p>
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <Badge variant="outline">{work.pageCount || pages.length} 张</Badge>
+              <Badge variant="outline">
+                {t('detail.pageCount', { count: work.pageCount || pages.length })}
+              </Badge>
               {isUgoira ? (
-                <Badge className="bg-amber-500/80 text-white backdrop-blur">动图</Badge>
+                <Badge className="bg-amber-500/80 text-white backdrop-blur">{t('detail.ugoira')}</Badge>
               ) : null}
               {work.width > 0 && work.height > 0 ? (
                 <Badge variant="outline">
@@ -112,15 +130,19 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               ) : null}
               {pages[0]?.width ? (
                 <Badge variant="outline">
-                  单页 {pages[0].width} × {pages[0].height}
+                  {t('detail.singlePage', { width: pages[0].width, height: pages[0].height })}
                 </Badge>
               ) : null}
               <div className="ml-1 flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
                 {(
                   [
-                    { value: 'regular', label: '常规图', icon: <ImageIcon className="h-3 w-3" /> },
-                    { value: 'original', label: '高清原图', icon: <Gem className="h-3 w-3" /> }
-                  ] as { value: ImageQuality; label: string; icon: React.JSX.Element }[]
+                    { value: 'regular', labelKey: 'detail.qualityRegular', icon: <ImageIcon className="h-3 w-3" /> },
+                    { value: 'original', labelKey: 'detail.qualityOriginal', icon: <Gem className="h-3 w-3" /> }
+                  ] as {
+                      value: ImageQuality
+                      labelKey: 'detail.qualityRegular' | 'detail.qualityOriginal'
+                      icon: React.JSX.Element
+                    }[]
                 ).map((option) => (
                   <button
                     key={option.value}
@@ -133,7 +155,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                     }`}
                   >
                     {option.icon}
-                    {option.label}
+                    {t(option.labelKey)}
                   </button>
                 ))}
               </div>
@@ -144,14 +166,14 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 className="inline-flex items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
               >
                 <ExternalLink className="h-3 w-3" />
-                在 pixiv 打开
+                {t('detail.openOnPixiv')}
               </a>
             </div>
           </div>
           <button
             type="button"
             onClick={props.onClose}
-            aria-label="关闭"
+            aria-label={t('detail.close')}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -161,13 +183,13 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
         <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {isUgoira ? (
             <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-600">
-              动图作品：这里只预览封面帧，下载后保存为 pixiv 提供的帧压缩包（.zip）
+              {t('detail.ugoiraNotice')}
             </div>
           ) : null}
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              正在解析图片地址…
+              {t('detail.resolving')}
             </div>
           ) : error ? (
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -176,7 +198,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
           ) : pages.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <ImageOff className="h-6 w-6" />
-              没有可预览的图片
+              {t('detail.noPreview')}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -191,7 +213,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   >
                     <img
                       src={src}
-                      alt={`${work.title} 第 ${index + 1} 页`}
+                      alt={t('detail.pageAlt', { title: work.title, page: index + 1 })}
                       loading="lazy"
                       className="aspect-[3/4] w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                     />
@@ -207,11 +229,11 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
 
         <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
           <p className="truncate text-[11px] text-muted-foreground">
-            作者目录 {work.userId}_{work.userName}
+            {t('detail.authorDir', { id: work.userId, name: work.userName })}
           </p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={props.onClose}>
-              关闭
+              {t('detail.close')}
             </Button>
             <Button
               variant={props.selected ? 'outline' : 'default'}
@@ -219,7 +241,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               onClick={() => props.onToggle(work.id)}
             >
               {props.selected ? <Check /> : <Plus />}
-              {props.selected ? '已选中' : '加入下载'}
+              {props.selected ? t('detail.selected') : t('detail.addToDownload')}
             </Button>
           </div>
         </footer>

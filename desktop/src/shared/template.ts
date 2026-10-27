@@ -21,10 +21,11 @@ export const TEMPLATE_TOKENS: TemplateToken[] = [
   { token: '{userid}', label: '作者 ID', example: '114638697' },
   { token: '{tag}', label: '标签', example: 'R-18' },
   { token: '{date}', label: '发布日期（YYYY-MM-DD）', example: '2026-01-01' },
+  { token: '{quality}', label: '下载质量（regular / original）', example: 'original' },
   { token: '{ext}', label: '扩展名', example: '.jpg' }
 ]
 
-const TOKEN_RE = /\{(id|page1|page|title|author|userid|tag|date|ext)\}/g
+const TOKEN_RE = /\{(id|page1|page|title|author|userid|tag|date|quality|ext)\}/g
 const INVALID_CHARS = /[\\/:*?"<>|\r\n\t]+/g
 
 /** 清理单个路径片段：替换非法字符、去掉首尾的点/空格/下划线 */
@@ -64,6 +65,8 @@ export interface TemplateVars {
   page: number
   /** 发布日期，ISO 字符串 */
   date?: string
+  /** 下载质量：regular / original，用于让两种质量的文件名共存 */
+  quality?: string
   /** 含点的扩展名，如 .jpg */
   ext: string
 }
@@ -89,6 +92,8 @@ function tokenValue(token: string, vars: TemplateVars): string {
       return String(vars.date || '')
         .slice(0, 10)
         .replace(/[^0-9-]/g, '')
+    case 'quality':
+      return vars.quality === 'original' ? 'original' : 'regular'
     case 'ext':
       return vars.ext || '.jpg'
     default:

@@ -24,6 +24,8 @@ import type {
 } from '@shared/types'
 import { validateTemplate } from '@shared/template'
 import { cn } from '@renderer/lib/utils'
+import { useI18n } from '@renderer/i18n'
+import type { MessageKey } from '@renderer/i18n'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Field, Select } from './ui/field'
@@ -61,6 +63,7 @@ interface TagInputProps {
 
 /** 带搜索建议的标签输入框：防抖 350ms 请求 pixiv 关联标签，支持键盘上下选择 */
 function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Element {
+  const { t } = useI18n()
   const [items, setItems] = useState<TagSuggestion[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -167,7 +170,7 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
         <div className="scrollbar-thin absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-xl">
           <p className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground">
             <Sparkles className="h-3 w-3" />
-            标签建议
+            {t('collect.tagSuggest')}
           </p>
           {items.map((item, index) => (
             <button
@@ -212,6 +215,7 @@ function TagListInput({
   onSuggest,
   placeholder
 }: TagListInputProps): React.JSX.Element {
+  const { t } = useI18n()
   const chips = splitTags(value)
   const [draft, setDraft] = useState('')
   const [items, setItems] = useState<TagSuggestion[]>([])
@@ -322,7 +326,7 @@ function TagListInput({
             {chip}
             <button
               type="button"
-              aria-label={`移除 ${chip}`}
+              aria-label={t('collect.removeTag', { tag: chip })}
               onClick={() => remove(chip)}
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -370,7 +374,7 @@ function TagListInput({
         <div className="scrollbar-thin absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-xl">
           <p className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground">
             <Sparkles className="h-3 w-3" />
-            标签建议
+            {t('collect.tagSuggest')}
           </p>
           {items.map((item, index) => (
             <button
@@ -400,26 +404,49 @@ function TagListInput({
 
 /** 左栏抓取面板：只放与「抓取作品」直接相关的参数与操作 */
 export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
+  const { t } = useI18n()
   const { config, selfUser, hasCookie } = props
 
   // 模板非法时禁用下载，避免生成无法解析的文件名
   const templateError = validateTemplate(config.fileNameTemplate)
 
+  /**
+   * 填了别人的收藏用户 ID 时，私密收藏必然拿不到（pixiv 返回 403 没权限），
+   * 所以直接把类型收敛成公开收藏并锁住私密选项，避免用户白跑一次。
+   * 只在自己 ID 已知且确实不同时才判定为「他人」，
+   * 否则收藏夹资料还没取到时，用户填自己的 ID 会被误锁。
+   */
+  const otherUserId =
+    config.bookmarkUserId.trim() !== '' &&
+    Boolean(selfUser?.id) &&
+    config.bookmarkUserId.trim() !== selfUser?.id
+
+  useEffect(() => {
+    if (otherUserId && config.bookmarkRest !== 'show') {
+      props.onConfigChange({ bookmarkRest: 'show' })
+    }
+  }, [otherUserId, config.bookmarkRest, props])
+
   const setTagMode = (mode: TagMode): void => props.onConfigChange({ tagMode: mode })
 
-  /** 下载质量：常规图（约 1200px）与高清原图，动图统一保存为 zip */
-  const qualityOptions: { value: ImageQuality; label: string; icon: React.JSX.Element }[] = [
-    { value: 'regular', label: '常规图', icon: <ImageIcon className="h-3.5 w-3.5" /> },
-    { value: 'original', label: '高清原图', icon: <Gem className="h-3.5 w-3.5" /> }
+  /** 下载质量：常规图（约 1200px）与高清原图；动图格式在设置弹窗里调整 */
+  const qualityOptions: {
+    value: ImageQuality
+    labelKey: MessageKey
+    icon: React.JSX.Element
+  }[] = [
+    { value: 'regular', labelKey: 'collect.qualityRegular', icon: <ImageIcon className="h-3.5 w-3.5" /> },
+    { value: 'original', labelKey: 'collect.qualityOriginal', icon: <Gem className="h-3.5 w-3.5" /> }
   ]
-  const qualityLabel = config.imageQuality === 'original' ? '高清原图' : '常规图'
+  const qualityLabelKey: MessageKey =
+    config.imageQuality === 'original' ? 'collect.qualityOriginal' : 'collect.qualityRegular'
 
   return (
     <div className="flex h-full flex-col">
       <div className="scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>抓取设置</CardTitle>
+            <CardTitle>{t('collect.settings')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-secondary/50 p-1">
@@ -434,7 +461,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                 )}
               >
                 <UserRound className="h-3.5 w-3.5" />
-                作者标签
+                {t('collect.sourceTag')}
               </button>
               <button
                 type="button"
@@ -447,20 +474,20 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                 )}
               >
                 <Bookmark className="h-3.5 w-3.5" />
-                我的收藏
+                {t('collect.sourceBookmarks')}
               </button>
             </div>
 
             {config.source === 'tag' ? (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="用户 ID">
+                <Field label={t('collect.userId')}>
                   <Input
                     value={config.userId}
                     onChange={(event) => props.onConfigChange({ userId: event.target.value })}
                     placeholder="114638697"
                   />
                 </Field>
-                <Field label="标签">
+                <Field label={t('collect.tag')}>
                   <TagInput
                     value={config.tag}
                     onChange={(value) => props.onConfigChange({ tag: value })}
@@ -471,11 +498,11 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <Field
-                  label="收藏用户 ID"
+                  label={t('collect.bookmarkUserId')}
                   hint={
                     selfUser
-                      ? `当前登录：${selfUser.name}（${selfUser.id}）`
-                      : '留空则使用当前登录账号'
+                      ? t('collect.currentUser', { name: selfUser.name, id: selfUser.id })
+                      : t('collect.bookmarkUserIdFallback')
                   }
                 >
                   <Input
@@ -483,18 +510,23 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     onChange={(event) =>
                       props.onConfigChange({ bookmarkUserId: event.target.value })
                     }
-                    placeholder={selfUser?.id ?? '留空=当前登录'}
+                    placeholder={selfUser?.id ?? t('collect.bookmarkUserIdPlaceholder')}
                   />
                 </Field>
-                <Field label="收藏类型">
+                <Field
+                  label={t('collect.bookmarkType')}
+                  hint={otherUserId ? t('collect.bookmarkOtherUserHint') : undefined}
+                >
                   <Select
                     value={config.bookmarkRest}
                     onChange={(value) =>
                       props.onConfigChange({ bookmarkRest: value as BookmarkRest })
                     }
                   >
-                    <option value="show">公开收藏</option>
-                    <option value="hide">私密收藏</option>
+                    <option value="show">{t('collect.bookmarkShow')}</option>
+                    <option value="hide" disabled={otherUserId}>
+                      {t('collect.bookmarkHide')}
+                    </option>
                   </Select>
                 </Field>
               </div>
@@ -502,7 +534,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
 
             {config.source === 'bookmarks' ? (
               <>
-                <Field label="标签（可选）" hint="只同步该标签下的收藏，留空则全部">
+                <Field label={t('collect.tagOptional')} hint={t('collect.bookmarkTagHint')}>
                   <TagInput
                     value={config.bookmarkTag}
                     onChange={(value) => props.onConfigChange({ bookmarkTag: value })}
@@ -518,7 +550,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     }
                     className="h-3.5 w-3.5 accent-primary"
                   />
-                  只同步未下载的作品（增量同步）
+                  {t('collect.onlyNew')}
                 </label>
               </>
             ) : null}
@@ -527,14 +559,14 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium">
                   <Tags className="h-3.5 w-3.5 text-primary" />
-                  多标签组合
+                  {t('collect.tagCombine')}
                 </span>
                 <div className="flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
                   {(
                     [
-                      { value: 'and', label: '同时满足' },
-                      { value: 'or', label: '任一满足' }
-                    ] as { value: TagMode; label: string }[]
+                      { value: 'and', labelKey: 'collect.tagModeAnd' },
+                      { value: 'or', labelKey: 'collect.tagModeOr' }
+                    ] as { value: TagMode; labelKey: MessageKey }[]
                   ).map((item) => (
                     <button
                       key={item.value}
@@ -547,40 +579,40 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                           : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
-                      {item.label}
+                      {t(item.labelKey)}
                     </button>
                   ))}
                 </div>
               </div>
               <Field
-                label="附加包含标签"
+                label={t('collect.tagExtra')}
                 hint={
                   config.source === 'bookmarks' && !config.bookmarkTag.trim()
-                    ? '收藏标签为空时，将先抓取全部收藏再按标签筛选'
+                    ? t('collect.tagExtraHintBookmark')
                     : config.tagMode === 'and'
-                      ? '作品需同时包含主标签与这些标签'
-                      : '包含任一标签即可；会逐个标签抓取，请求量随标签数增加'
+                      ? t('collect.tagExtraHintAnd')
+                      : t('collect.tagExtraHintOr')
                 }
               >
                 <TagListInput
                   value={config.tagExtra}
                   onChange={(value) => props.onConfigChange({ tagExtra: value })}
                   onSuggest={props.onSuggestTags}
-                  placeholder="输入后回车，例如：オリジナル"
+                  placeholder={t('collect.tagExtraPlaceholder')}
                 />
               </Field>
-              <Field label="排除标签" hint="作品包含任意一个排除标签时丢弃">
+              <Field label={t('collect.tagExclude')} hint={t('collect.tagExcludeHint')}>
                 <TagListInput
                   value={config.tagExclude}
                   onChange={(value) => props.onConfigChange({ tagExclude: value })}
                   onSuggest={props.onSuggestTags}
-                  placeholder="输入后回车，例如：漫画"
+                  placeholder={t('collect.tagExcludePlaceholder')}
                 />
               </Field>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="偏移量">
+              <Field label={t('collect.offset')}>
                 <Input
                   type="number"
                   min={0}
@@ -590,7 +622,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   }
                 />
               </Field>
-              <Field label="每页数量" hint="也是翻页步长">
+              <Field label={t('collect.limit')} hint={t('collect.limitHint')}>
                 <Input
                   type="number"
                   min={1}
@@ -605,7 +637,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="并发数" hint="同时解析/下载的任务数">
+              <Field label={t('collect.workers')} hint={t('collect.workersHint')}>
                 <Input
                   type="number"
                   min={1}
@@ -618,7 +650,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   }
                 />
               </Field>
-              <Field label="请求间隔（秒）">
+              <Field label={t('collect.delay')}>
                 <Input
                   type="number"
                   min={0}
@@ -656,15 +688,15 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           {props.collecting ? <Loader2 className="animate-spin" /> : <RefreshCw />}
           {props.collecting
             ? config.source === 'bookmarks'
-              ? '正在同步收藏夹…'
-              : '正在抓取作品列表…'
+              ? t('collect.syncingBookmarks')
+              : t('collect.collectingWorks')
             : config.source === 'bookmarks'
-              ? '同步收藏夹'
-              : '抓取作品列表'}
+              ? t('collect.syncBookmarks')
+              : t('collect.collectWorks')}
         </Button>
         {config.source === 'bookmarks' && !hasCookie && !config.bookmarkUserId.trim() ? (
           <p className="text-[11px] leading-4 text-muted-foreground/70">
-            同步自己的收藏需要先配置 Cookie，或手动填写收藏用户 ID
+            {t('collect.bookmarkLoginHint')}
           </p>
         ) : null}
         {config.source === 'tag' ? (
@@ -675,18 +707,18 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             onClick={props.onOpenFollowing}
           >
             <Users />
-            从关注列表选择画师
+            {t('collect.fromFollowing')}
           </Button>
         ) : null}
         {config.source === 'tag' && !hasCookie ? (
           <p className="text-[11px] leading-4 text-muted-foreground/70">
-            读取关注列表需要先配置 Cookie
+            {t('collect.followingLoginHint')}
           </p>
         ) : null}
 
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/10 p-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">下载质量</span>
+            <span className="text-[11px] text-muted-foreground">{t('collect.quality')}</span>
             <div className="flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
               {qualityOptions.map((option) => (
                 <button
@@ -701,7 +733,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   )}
                 >
                   {option.icon}
-                  {option.label}
+                  {t(option.labelKey)}
                 </button>
               ))}
             </div>
@@ -718,21 +750,21 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             onClick={props.onDownload}
           >
             {props.running ? <Loader2 className="animate-spin" /> : <Download />}
-            下载{qualityLabel}（{props.selectedCount}）
+            {t('collect.download', { quality: t(qualityLabelKey), count: props.selectedCount })}
           </Button>
           <p className="text-[10px] leading-4 text-muted-foreground/70">
-            常规图约 1200px，高清原图为作品原始尺寸；动图作品统一保存为 .zip
+            {t('collect.qualityNote')}
           </p>
         </div>
         {templateError ? (
           <p className="text-[11px] leading-4 text-destructive">
-            文件名模板无效：{templateError}
+            {t('collect.templateInvalid', { error: templateError })}
           </p>
         ) : null}
         {props.running ? (
           <Button className="w-full" variant="outline" onClick={props.onCancel}>
             <Square className="h-3.5 w-3.5" />
-            暂停下载（可续传）
+            {t('collect.pause')}
           </Button>
         ) : null}
       </div>

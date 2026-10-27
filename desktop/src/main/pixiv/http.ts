@@ -7,8 +7,15 @@ import { acquireSlot, noteRateLimited, noteSuccess, retryAfterMs, sleep } from '
 export { sleep }
 
 export const BASE = 'https://www.pixiv.net'
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+/**
+ * 登录窗口与接口请求共用同一个 UA。
+ * Chromium 版本必须取运行时真实值：写死一个偏低的版本号会和
+ * `navigator.userAgentData` / `sec-ch-ua` 对不上，被 reCAPTCHA
+ * 判定成伪造客户端，导致图片验证无限循环。
+ */
+export const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+  `Chrome/${process.versions.chrome} Safari/537.36`
 const TIMEOUT = 30_000
 const API_ATTEMPTS = 5
 const DOWNLOAD_ATTEMPTS = 4
@@ -30,6 +37,17 @@ function hintOf(error: unknown): RetryHint {
 /** 除 429 外的 4xx 属于确定性错误，重试只会加重限流 */
 function isFatalStatus(status: number): boolean {
   return status >= 400 && status < 500 && status !== 429 && status !== 408
+}
+
+/**
+ * 只有 401 才说明登录状态失效（实测：失效 Cookie 取 /ajax/user/self 返回 401）。
+ * 403 是「没有权限」，例如访问他人的私密收藏，此时登录是好的，
+ * 一并当成失效会误弹「请重新登录」。
+ */
+let authFailureHandler: (() => void) | null = null
+
+export function setAuthFailureHandler(handler: (() => void) | null): void {
+  authFailureHandler = handler
 }
 
 function buildRequest(url: string, cookie: string): Electron.ClientRequest {
@@ -86,10 +104,15 @@ function drain(response: Electron.IncomingMessage): void {
   response.on('data', () => undefined)
 }
 
-export async function fetchJson<T>(url: string, cookie = '', signal?: AbortSignal): Promise<T> {
+export async function fetchJson<T>(
+  url: string,
+  cookie = '',
+  signal?: AbortSignal,
+  attempts = API_ATTEMPTS
+): Promise<T> {
   let lastError: unknown
 
-  for (let attempt = 0; attempt < API_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (signal?.aborted) throw new Error('已取消')
 
     // 全局 API 闸门：冷却 / 并发 / 最小间隔都在这里排队
@@ -104,7 +127,10 @@ export async function fetchJson<T>(url: string, cookie = '', signal?: AbortSigna
         throw fail(`HTTP 429：接口限流，全局冷却 ${Math.round(cooldown / 1000)}s`, true, cooldown)
       }
       if (status < 200 || status >= 300) {
+        if (status === 401) authFailureHandler?.()
         drain(response)
+        // 403 是没权限，最常见的是抓取他人的私密收藏，给一句能看懂的原因
+        if (status === 403) throw fail('HTTP 403：没有权限访问该内容（例如他人的私密收藏）', false)
         throw fail(`HTTP ${status}`, !isFatalStatus(status))
       }
 
@@ -122,7 +148,7 @@ export async function fetchJson<T>(url: string, cookie = '', signal?: AbortSigna
       if (signal?.aborted) throw new Error('已取消')
       const hint = hintOf(error)
       if (!hint.retryable) break
-      if (attempt < API_ATTEMPTS - 1) {
+      if (attempt < attempts - 1) {
         await sleep(hint.waitMs > 0 ? hint.waitMs : 1200 * (attempt + 1))
       }
     } finally {

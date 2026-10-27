@@ -7,7 +7,22 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: pixivfile: https://i.pximg.net https://*.pximg.net; connect-src 'self' ws: http: https:; font-src 'self' data:;"
     />
-    <title>Pixiv 下载器</title>
+    <title>Pixiv Client</title>
+    <script>
+      // 首屏前按上次选择设置主题，避免加载配置期间闪白
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('pixiv-theme') || 'dark'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (error) {
+          /* 读不到本地存储时沿用 html 上的 dark 默认值 */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

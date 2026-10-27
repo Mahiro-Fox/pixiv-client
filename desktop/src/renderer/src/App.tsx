@@ -1,9 +1,11 @@
-import { Images, Library, Loader2, ScrollText, Settings2, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Images, Library, Loader2, LogIn, ScrollText, Settings2, Sparkles, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
+import type { Locale } from '@shared/types'
 import type {
   AppConfig,
   CollectProgress,
+  CookieHealth,
   CookieStatus,
   DownloadItemEvent,
   DownloadProgress,
@@ -14,6 +16,9 @@ import type {
   WorkSort
 } from '@shared/types'
 import { applyWorkFilters, countActiveFilters } from './lib/filters'
+import { applyTheme, watchSystemTheme } from './lib/theme'
+import { I18nProvider, translate, useI18n } from './i18n'
+import type { Translate } from './i18n'
 import { LogPanel } from './components/LogPanel'
 import { ProgressPanel } from './components/ProgressPanel'
 import { QueuePanel } from './components/QueuePanel'
@@ -25,7 +30,6 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { FollowDialog } from './components/FollowDialog'
 import { WorkDetailDialog } from './components/WorkDetailDialog'
 import { WorksGrid } from './components/WorksGrid'
-import { Badge } from './components/ui/badge'
 import { Button } from './components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
 
@@ -37,6 +41,119 @@ function messageOf(error: unknown): string {
 /** 收藏夹来源统一存到「收藏夹」目录，避免标签过滤条件改变目录结构 */
 function worksTag(config: AppConfig): string {
   return config.source === 'bookmarks' ? '收藏夹' : config.tag
+}
+
+/**
+ * 配置读出来之前也要有语言可用，否则启动首屏只能是中文。
+ * 做法和主题一致：在本地存一份，配置到位后由它接管。
+ */
+const LOCALE_STORAGE_KEY = 'pixiv-locale'
+
+function bootLocale(): Locale {
+  const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+  return saved === 'en' || saved === 'ja' ? saved : 'zh-CN'
+}
+
+/**
+ * 顶栏账号区：未登录时是主按钮式的登录入口，已登录时是头像 + 昵称。
+ * 面向不熟悉技术的用户，所以界面上一律不出现 Cookie 字样，
+ * 那套说法只在设置面板里出现。
+ */
+function HeaderAccount(props: {
+  selfUser: SelfUser | null
+  hasCookie: boolean
+  loggingIn: boolean
+  onLogin: () => void
+  onOpenSettings: () => void
+}): React.JSX.Element {
+  const { t } = useI18n()
+
+  if (!props.selfUser) {
+    // 有登录凭据但还没取到账号信息时，不要退化成「登录」按钮，
+    // 否则用户会以为没登录而反复点击
+    if (props.hasCookie) {
+      return (
+        <button
+          type="button"
+          onClick={props.onOpenSettings}
+          className="flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/40"
+        >
+          <User className="h-3.5 w-3.5" />
+          {t('header.loggedIn')}
+        </button>
+      )
+    }
+    return (
+      <Button size="sm" disabled={props.loggingIn} onClick={props.onLogin}>
+        {props.loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
+        {props.loggingIn ? t('header.loggingIn') : t('header.login')}
+      </Button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={props.onOpenSettings}
+      title={props.selfUser.account ? `@${props.selfUser.account}` : props.selfUser.name}
+      className="flex items-center gap-2 rounded-full border border-border/60 py-1 pl-1 pr-2.5 transition-colors hover:bg-secondary/40"
+    >
+      {props.selfUser.avatar ? (
+        <img
+          src={props.selfUser.avatar}
+          alt=""
+          className="h-6 w-6 rounded-full bg-secondary object-cover"
+        />
+      ) : (
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
+          <User className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <span className="max-w-[10rem] truncate text-xs font-medium leading-4">
+        {props.selfUser.name}
+      </span>
+      {props.selfUser.premium ? (
+        <span className="rounded bg-amber-500/15 px-1 text-[10px] leading-4 text-amber-500">
+          {t('header.premium')}
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
+/**
+ * Cookie 失效提醒条。
+ * 之所以单独成组件：I18nProvider 挂在 App 内部，
+ * 只有 provider 下面的组件才拿得到 useI18n。
+ */
+function CookieExpiredBanner(props: {
+  loading: boolean
+  onRelogin: () => void
+  onRecheck: () => void
+  onDismiss: () => void
+}): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      <p className="flex-1 leading-5">{t('cookie.expired')}</p>
+      <Button variant="outline" size="sm" disabled={props.loading} onClick={props.onRelogin}>
+        {props.loading ? <Loader2 className="animate-spin" /> : null}
+        {t('cookie.relogin')}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={props.onRecheck}>
+        {t('cookie.recheck')}
+      </Button>
+      <button
+        type="button"
+        onClick={props.onDismiss}
+        aria-label={t('cookie.dismiss')}
+        className="rounded p-0.5 text-amber-500/70 transition-colors hover:bg-amber-500/15 hover:text-amber-500"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
 }
 
 /** 结果排序；'default' 保留接口原始顺序 */
@@ -69,6 +186,9 @@ export default function App(): React.JSX.Element {
   const [throttle, setThrottle] = useState<ThrottleState[]>([])
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set())
   const [selfUser, setSelfUser] = useState<SelfUser | null>(null)
+  const [cookieHealth, setCookieHealth] = useState<CookieHealth>('valid')
+  const [healthDismissed, setHealthDismissed] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
   const [onlyNew, setOnlyNew] = useState(false)
   const [sort, setSort] = useState<WorkSort>('default')
   const [page, setPage] = useState(1)
@@ -212,11 +332,53 @@ export default function App(): React.JSX.Element {
     return () => {
       alive = false
     }
-  }, [cookie?.hasCookie])
+  }, [cookie?.hasCookie, cookie?.masked])
+
+  // Cookie 体检：配置变化后主动打一次 pixiv 接口，确认它还认得我们。
+  // 'unknown'（请求没打出去）不当成失效，避免代理抖动就弹提醒。
+  useEffect(() => {
+    if (!cookie?.hasCookie) {
+      setCookieHealth('valid')
+      return
+    }
+    let alive = true
+    void window.pixiv.checkCookieHealth().then((health) => {
+      if (alive) setCookieHealth(health)
+    })
+    return () => {
+      alive = false
+    }
+  }, [cookie?.hasCookie, cookie?.masked])
+
+  // 任务跑到一半 Cookie 才失效时，主进程会推这个通知过来
+  useEffect(
+    () =>
+      window.pixiv.onCookieInvalid(() => {
+        setHealthDismissed(false)
+        setCookieHealth('expired')
+      }),
+    []
+  )
 
   const updateConfig = (patch: Partial<AppConfig>): void => {
     setConfig((previous) => (previous ? { ...previous, ...patch } : previous))
   }
+
+  // 主题与语言：配置变化时立即生效；跟随系统时监听系统配色变化
+  const themeMode = config?.theme
+  const locale = config?.locale
+  useEffect(() => {
+    if (!themeMode) return
+    applyTheme(themeMode)
+    if (themeMode !== 'system') return
+    return watchSystemTheme(() => applyTheme('system'))
+  }, [themeMode])
+
+  useEffect(() => {
+    if (!locale) return
+    document.documentElement.lang = locale
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+  }, [locale])
 
   /** 关闭弹窗时把当前配置整份落盘，避免设置在下次抓取前丢失 */
   const persistConfig = (): void => {
@@ -269,11 +431,11 @@ export default function App(): React.JSX.Element {
       if (result.works.length === 0) {
         setError(
           cfg.source === 'bookmarks'
-            ? '收藏夹里没有作品，请检查收藏用户、收藏类型或 Cookie'
-            : '没有取到作品，请检查用户 ID、标签或 Cookie'
+            ? t('app.noWorksBookmarks')
+            : t('app.noWorks')
         )
       } else if (result.failedPages > 0) {
-        setError(`${result.failedPages} 个分页抓取失败，列表可能不完整`)
+        setError(t('app.partialFail', { count: result.failedPages }))
       }
     } catch (reason) {
       setError(messageOf(reason))
@@ -293,7 +455,7 @@ export default function App(): React.JSX.Element {
   const startDownload = async (): Promise<void> => {
     if (!config || running) return
     if (selectedWorks.length === 0) {
-      setError('请先勾选要下载的作品')
+      setError(t('app.selectFirst'))
       return
     }
     setRunning(true)
@@ -309,7 +471,8 @@ export default function App(): React.JSX.Element {
         outDir: config.outDir,
         workers: config.workers,
         delay: config.delay,
-        imageQuality: config.imageQuality
+        imageQuality: config.imageQuality,
+        ugoiraFormat: config.ugoiraFormat
       })
       setDownload(summary)
     } catch (reason) {
@@ -352,7 +515,7 @@ export default function App(): React.JSX.Element {
     try {
       const file = await window.pixiv.exportFailures(id)
       if (file) {
-        setNotice(`失败清单已导出：${file}`)
+        setNotice(t('app.exportFailures', { file }))
         setError('')
       }
     } catch (reason) {
@@ -364,6 +527,35 @@ export default function App(): React.JSX.Element {
     try {
       const status = await window.pixiv.setCookie(raw)
       setCookie(status)
+      setError('')
+    } catch (reason) {
+      setError(messageOf(reason))
+    }
+  }
+
+  /** 应用内登录：弹出 pixiv 登录窗口，成功后自动保存 Cookie；取消则不改动现有配置 */
+  const loginPixiv = async (): Promise<boolean> => {
+    setLoggingIn(true)
+    try {
+      const status = await window.pixiv.loginPixiv()
+      if (!status) return false
+      setCookie(status)
+      setError('')
+      return true
+    } catch (reason) {
+      setError(messageOf(reason))
+      return false
+    } finally {
+      setLoggingIn(false)
+    }
+  }
+
+  /** 清除已保存 Cookie，并重置登录窗口的会话，使下次登录必须重新过一遍验证码 */
+  const clearCookie = async (): Promise<void> => {
+    try {
+      const status = await window.pixiv.clearCookie()
+      setCookie(status)
+      setSelfUser(null)
       setError('')
     } catch (reason) {
       setError(messageOf(reason))
@@ -432,7 +624,7 @@ export default function App(): React.JSX.Element {
         downloaded: Array.from(downloaded)
       })
       if (file) {
-        setNotice(`作品清单已导出：${file}`)
+        setNotice(t('app.exportWorks', { file }))
         setError('')
       }
     } catch (reason) {
@@ -440,22 +632,40 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  // App 自身的函数体在 I18nProvider 之上，useI18n 取不到配置里的语言，
+  // 所以这里直接用纯函数按 locale 取文案（config 未就绪时退回本地缓存）
+  const t: Translate = (key, params) => translate(config?.locale ?? bootLocale(), key, params)
+
   if (!config) {
     return (
       <div className="flex h-screen items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        正在加载配置…
+        {t('app.loadingConfig')}
       </div>
     )
   }
 
   const collectText =
     collecting && collectProgress
-      ? `已抓取 ${collectProgress.loaded}/${collectProgress.total}（${collectProgress.pagesDone}/${collectProgress.pagesTotal} 页）`
+      ? t('app.progress', {
+          loaded: collectProgress.loaded,
+          total: collectProgress.total,
+          done: collectProgress.pagesDone,
+          pages: collectProgress.pagesTotal
+        })
       : null
 
+  const cookieExpired =
+    cookieHealth === 'expired' && Boolean(cookie?.hasCookie) && !healthDismissed
+
+  const recheckCookie = async (): Promise<void> => {
+    setHealthDismissed(false)
+    setCookieHealth(await window.pixiv.checkCookieHealth())
+  }
+
   return (
-    <ImagePreviewProvider>
+    <I18nProvider locale={config.locale}>
+      <ImagePreviewProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-background to-background">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 px-6">
         <div className="flex items-center gap-3">
@@ -463,23 +673,27 @@ export default function App(): React.JSX.Element {
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold leading-5">Pixiv 下载器</h1>
+            <h1 className="text-sm font-semibold leading-5">{t('app.title')}</h1>
             <p className="text-[11px] leading-4 text-muted-foreground">
-              Electron + React + TypeScript 原型
+              {t('app.subtitle')}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant={cookie?.hasCookie ? 'success' : 'destructive'}>
-            {cookie?.hasCookie ? `Cookie 已配置 · ${cookie.masked}` : 'Cookie 未配置'}
-          </Badge>
+          <HeaderAccount
+            selfUser={selfUser}
+            hasCookie={Boolean(cookie?.hasCookie)}
+            loggingIn={loggingIn}
+            onLogin={() => void loginPixiv()}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
           <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
             <Settings2 />
-            设置
+            {t('app.settings')}
           </Button>
           <Button variant="outline" size="sm" onClick={openDir}>
-            打开保存目录
+            {t('app.openDir')}
           </Button>
         </div>
       </header>
@@ -503,6 +717,15 @@ export default function App(): React.JSX.Element {
         </aside>
 
         <section className="flex min-h-0 flex-col gap-3 px-6 py-4">
+          {cookieExpired ? (
+            <CookieExpiredBanner
+              loading={loggingIn}
+              onRelogin={() => void loginPixiv()}
+              onRecheck={() => void recheckCookie()}
+              onDismiss={() => setHealthDismissed(true)}
+            />
+          ) : null}
+
           {notice ? (
             <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
               <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
@@ -511,7 +734,7 @@ export default function App(): React.JSX.Element {
                 type="button"
                 onClick={() => setNotice('')}
                 className="rounded p-0.5 text-emerald-500/70 transition-colors hover:bg-emerald-500/15 hover:text-emerald-500"
-                aria-label="关闭提示"
+                aria-label={t('app.dismissNotice')}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -526,7 +749,7 @@ export default function App(): React.JSX.Element {
                 type="button"
                 onClick={() => setError('')}
                 className="rounded p-0.5 text-destructive/70 transition-colors hover:bg-destructive/15 hover:text-destructive"
-                aria-label="关闭提示"
+                aria-label={t('app.dismissNotice')}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -552,17 +775,17 @@ export default function App(): React.JSX.Element {
               <TabsList>
                 <TabsTrigger value="works">
                   <Images className="h-3.5 w-3.5" />
-                  作品列表
+                  {t('app.tabWorks')}
                   {works.length > 0 ? `（${works.length}）` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="log">
                   <ScrollText className="h-3.5 w-3.5" />
-                  下载日志
+                  {t('app.tabLog')}
                   {items.length > 0 ? `（${items.length}）` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="library">
                   <Library className="h-3.5 w-3.5" />
-                  本地图库
+                  {t('app.tabLibrary')}
                 </TabsTrigger>
               </TabsList>
 
@@ -570,16 +793,18 @@ export default function App(): React.JSX.Element {
                 {collecting ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    {collectText ?? '正在抓取作品列表…'}
+                    {collectText ?? t('app.collectingWorks')}
                   </>
                 ) : null}
                 {running ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    下载任务运行中
+                    {t('app.downloadRunning')}
                   </>
                 ) : null}
-                {total > 0 && !collecting ? <span>接口总计 {total} 个作品</span> : null}
+                {total > 0 && !collecting ? (
+                  <span>{t('app.apiTotal', { total })}</span>
+                ) : null}
               </div>
             </div>
 
@@ -654,6 +879,8 @@ export default function App(): React.JSX.Element {
           selfUser={selfUser}
           onConfigChange={updateConfig}
           onSaveCookie={saveCookie}
+          onLogin={loginPixiv}
+          onClearCookie={clearCookie}
           onPickDir={() => void pickDir()}
           onOpenDir={openDir}
           onClose={() => {
@@ -664,5 +891,6 @@ export default function App(): React.JSX.Element {
       ) : null}
       </div>
     </ImagePreviewProvider>
+    </I18nProvider>
   )
 }

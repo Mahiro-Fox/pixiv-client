@@ -13,6 +13,11 @@ function normalizeKey(filePath: string): string {
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
+/** 可直接作为封面/预览的图片扩展名 */
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp'])
+/** 动图成品可能出现的扩展名：保留压缩包、转码后的视频与 gif */
+const UGOIRA_EXTS = new Set(['.zip', '.mp4', '.gif', '.webm'])
+
 /** 作者目录形如「114638697_画师名」，ID 与作者名都从中还原 */
 function authorOf(dirName: string): { userId: string; userName: string } {
   const match = /^(\d+)_(.+)$/.exec(dirName)
@@ -33,7 +38,8 @@ interface Accumulator {
   id: string
   tag: string
   authorDir: string
-  pages: Map<number, LibraryFile>
+  /** 同一页可能同时有常规图与原图（模板含 {quality}），因此按文件而不是按页收集 */
+  files: LibraryFile[]
   history: HistoryEntry | null
   updatedAt: number
 }
@@ -118,20 +124,18 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
             id: matched.id,
             tag: tagDir.name,
             authorDir: authorDir.name,
-            pages: new Map<number, LibraryFile>(),
+            files: [],
             history: null,
             updatedAt: 0
           } as Accumulator)
 
-        if (!acc.pages.has(matched.page)) {
-          acc.pages.set(matched.page, {
-            page: matched.page,
-            path: filePath,
-            name,
-            bytes: info.size,
-            ext: path.extname(name).toLowerCase()
-          })
-        }
+        acc.files.push({
+          page: matched.page,
+          path: filePath,
+          name,
+          bytes: info.size,
+          ext: path.extname(name).toLowerCase()
+        })
 
         const entry = history.get(normalizeKey(filePath))
         if (entry && (!acc.history || (entry.page === 0 && acc.history.page !== 0))) {
@@ -148,13 +152,18 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
 
   const list: LibraryWork[] = []
   works.forEach((acc) => {
-    const files = [...acc.pages.values()].sort((a, b) => a.page - b.page)
+    // 同页多份文件时把体积更大的排在前面，原图通常更大
+    const files = acc.files
+      .slice()
+      .sort((a, b) => a.page - b.page || b.bytes - a.bytes)
     if (files.length === 0) return
-    const coverFile = files.find((file) => file.ext !== '.zip') || files[0]
+    const coverFile = files
+      .filter((file) => IMAGE_EXTS.has(file.ext))
+      .sort((a, b) => a.page - b.page || b.bytes - a.bytes)[0]
     const author = authorOf(acc.authorDir)
     const historyMeta = acc.history
-    const ugoira = files.some((file) => file.ext === '.zip') || Boolean(historyMeta?.ugoira)
-    const pageCount = files.length
+    const ugoira = files.some((file) => UGOIRA_EXTS.has(file.ext)) || Boolean(historyMeta?.ugoira)
+    const pageCount = new Set(files.map((file) => file.page)).size
 
     list.push({
       id: acc.id,

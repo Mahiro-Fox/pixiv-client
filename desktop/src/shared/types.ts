@@ -26,6 +26,14 @@ export type R18Filter = 'any' | 'only' | 'exclude'
 export type TagMode = 'and' | 'or'
 /** 下载质量：regular 常规图（约 1200px），original 高清原图 */
 export type ImageQuality = 'regular' | 'original'
+/** 动图保存格式：zip 保留帧压缩包，mp4 / gif 转码后保存 */
+export type UgoiraFormat = 'zip' | 'mp4' | 'gif'
+
+/** 动图帧：文件名 + 该帧展示时长（毫秒） */
+export interface UgoiraFrame {
+  file: string
+  delay: number
+}
 
 export interface AppConfig {
   userId: string
@@ -43,6 +51,8 @@ export interface AppConfig {
   outDir: string
   /** 下载质量：常规图 / 高清原图 */
   imageQuality: ImageQuality
+  /** 动图保存格式：zip / mp4 / gif */
+  ugoiraFormat: UgoiraFormat
   /** 作品来源：作者标签 / 收藏夹 */
   source: WorkSource
   /** 文件名模板，变量见 shared/template.ts */
@@ -69,7 +79,23 @@ export interface AppConfig {
   filterR18: R18Filter
   /** 过滤规则：排除 AI 生成作品 */
   filterExcludeAi: boolean
+  /** 接口请求最大并发 */
+  throttleApiConcurrency: number
+  /** 接口两次请求的最小间隔（毫秒） */
+  throttleApiInterval: number
+  /** 图片 CDN 最大并发 */
+  throttleCdnConcurrency: number
+  /** 图片 CDN 两次请求的最小间隔（毫秒） */
+  throttleCdnInterval: number
+  /** 界面主题：亮色 / 暗色 / 跟随系统 */
+  theme: ThemeMode
+  /** 界面语言 */
+  locale: Locale
 }
+
+export type ThemeMode = 'light' | 'dark' | 'system'
+
+export type Locale = 'zh-CN' | 'en' | 'ja'
 
 export type CookieSource = 'env' | 'file' | 'none'
 
@@ -78,6 +104,13 @@ export interface CookieStatus {
   masked: string
   source: CookieSource
 }
+
+/**
+ * Cookie 体检结论。
+ * `unknown` 表示请求没打到 pixiv（超时、代理不通），
+ * 它不能和 `expired` 混为一谈，否则网络抖动会误报成「要重新登录」。
+ */
+export type CookieHealth = 'valid' | 'expired' | 'unknown'
 
 export interface CollectParams {
   userId: string
@@ -97,6 +130,12 @@ export interface CollectParams {
 export interface SelfUser {
   id: string
   name: string
+  /** pixiv 账号名，即 @ 后面的那串 */
+  account: string
+  /** 头像地址；i.pximg.net 有防盗链，主进程已统一补 Referer */
+  avatar: string
+  /** 是否为高级会员 */
+  premium: boolean
 }
 
 export interface FollowUser {
@@ -169,6 +208,8 @@ export interface DownloadParams {
   delay: number
   /** 本次下载质量，缺省使用配置中的 imageQuality */
   imageQuality?: ImageQuality
+  /** 本次动图保存格式，缺省使用配置中的 ugoiraFormat */
+  ugoiraFormat?: UgoiraFormat
 }
 
 export type DownloadPhase = 'idle' | 'resolving' | 'downloading' | 'paused' | 'done'
@@ -185,6 +226,8 @@ export interface DownloadProgress {
   resolvedWorks: number
   totalWorks: number
   startedAt: number
+  /** 结束（完成或暂停）时间；存在时「用时」不再继续增长 */
+  finishedAt?: number
 }
 
 export interface DownloadItemEvent {
@@ -215,6 +258,10 @@ export interface QueueTask {
   /** 原图尺寸，用于按质量校验已存在文件是否满足要求 */
   width?: number
   height?: number
+  /** 动图任务：zip 下载地址之外的帧信息，转码时按顺序与时长编码 */
+  frames?: UgoiraFrame[]
+  /** 是否为动图任务（url 始终是帧压缩包地址） */
+  ugoira?: boolean
   status: QueueTaskStatus
   bytes: number
   error?: string
@@ -227,6 +274,8 @@ export interface QueueJob {
   rootDir: string
   /** 任务创建时选择的下载质量，续传时沿用 */
   imageQuality?: ImageQuality
+  /** 任务创建时的动图格式，续传时沿用 */
+  ugoiraFormat?: UgoiraFormat
   status: QueueStatus
   createdAt: number
   updatedAt: number
@@ -340,6 +389,24 @@ export interface PixivApi {
   setConfig: (patch: Partial<AppConfig>) => Promise<AppConfig>
   getCookie: () => Promise<CookieStatus>
   setCookie: (raw: string) => Promise<CookieStatus>
+  /**
+   * 打开应用内 pixiv 登录窗口，登录成功后自动抓取会话 Cookie 并保存。
+   * 用户取消或直接关窗时返回 null。
+   */
+  loginPixiv: () => Promise<CookieStatus | null>
+  /** 清除已保存的 Cookie，并重置应用内登录窗口的会话 */
+  clearCookie: () => Promise<CookieStatus>
+  /**
+   * Cookie 体检：主动打一次 pixiv 接口判断是否还有效。
+   * 未配置 Cookie 时返回 'expired'。
+   */
+  checkCookieHealth: () => Promise<CookieHealth>
+  /**
+   * 订阅「接口返回 401/403」的通知。
+   * 业务进行中 Cookie 才失效时，靠这个把提醒推给界面。
+   * 返回取消订阅函数。
+   */
+  onCookieInvalid: (handler: () => void) => () => void
   pickDir: () => Promise<string | null>
   openDir: (dir: string) => Promise<void>
   collectWorks: (params: CollectParams) => Promise<CollectResult>
@@ -352,6 +419,8 @@ export interface PixivApi {
   listLibrary: (force?: boolean) => Promise<LibraryResult>
   /** 打开本地图库中某作品所在的文件夹 */
   openLibraryDir: (dir: string) => Promise<void>
+  /** 删除本地图库文件（仅限保存目录内），返回重新扫描后的图库 */
+  deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>
   checkDownloaded: (params: DownloadedParams) => Promise<string[]>
   startDownload: (params: DownloadParams) => Promise<DownloadSummary>
   cancelDownload: () => Promise<boolean>
@@ -363,6 +432,8 @@ export interface PixivApi {
   getThrottle: () => Promise<ThrottleState[]>
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) => () => void
   onThrottle: (callback: (state: ThrottleState) => void) => () => void
+  /** 保存目录被外部增删文件时触发，用于自动刷新图库 */
+  onLibraryChanged: (callback: () => void) => () => void
   onCollectProgress: (callback: (progress: CollectProgress) => void) => () => void
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
   onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void
