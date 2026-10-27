@@ -438,6 +438,8 @@ export interface CollectOptions {
   offset: number
   limit: number
   workers: number
+  /** 最多抓取的作品数（0 表示不限）；批量同步用它避免把整个标签全量拉下来 */
+  maxWorks?: number
   cookie: string
   signal?: AbortSignal
   onProgress?: (progress: CollectProgress) => void
@@ -463,6 +465,7 @@ async function collectPaged(
     offset: number
     limit: number
     workers: number
+    maxWorks?: number
     signal?: AbortSignal
     onProgress?: (progress: CollectProgress) => void
   }
@@ -475,8 +478,11 @@ async function collectPaged(
     return { works: [], total: first.total, failedPages: 0 }
   }
 
+  // maxWorks 只限制「再翻几页」，首页已经发出的请求无法回收
+  const capped = Boolean(options.maxWorks && options.maxWorks > 0)
+  const stopAt = capped ? offset + (options.maxWorks as number) : first.total
   const offsets: number[] = []
-  for (let next = offset + limit; next < first.total; next += limit) {
+  for (let next = offset + limit; next < first.total && next < stopAt; next += limit) {
     offsets.push(next)
   }
 

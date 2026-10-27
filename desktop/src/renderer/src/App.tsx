@@ -1,14 +1,17 @@
-import { AlertTriangle, Images, Library, Loader2, LogIn, ScrollText, Settings2, Sparkles, User, X } from 'lucide-react'
+import { AlertTriangle, Images, Library, ListRestart, Loader2, LogIn, ScrollText, Settings2, Sparkles, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
 import type { Locale } from '@shared/types'
 import type {
   AppConfig,
+  BatchArtist,
+  BatchSyncProgress,
   CollectProgress,
   CookieHealth,
   CookieStatus,
   DownloadItemEvent,
   DownloadProgress,
+  FailureItem,
   PixivWork,
   ProxyConfig,
   ProxyState,
@@ -184,8 +187,11 @@ export default function App(): React.JSX.Element {
   const [collecting, setCollecting] = useState(false)
   const [collectProgress, setCollectProgress] = useState<CollectProgress | null>(null)
   const [download, setDownload] = useState<DownloadProgress | null>(null)
+  const [batch, setBatch] = useState<BatchSyncProgress | null>(null)
   const [items, setItems] = useState<DownloadItemEvent[]>([])
-  const [running, setRunning] = useState(false)
+  /** 正在下载的队列任务 ID（并行下载时可能同时存在多个） */
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set())
+  const running = activeIds.size > 0 || Boolean(batch)
   const [queue, setQueue] = useState<QueueSummary[]>([])
   const [throttle, setThrottle] = useState<ThrottleState[]>([])
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set())
@@ -229,15 +235,37 @@ export default function App(): React.JSX.Element {
 
     const unsubscribers = [
       window.pixiv.onCollectProgress((progress) => setCollectProgress(progress)),
-      window.pixiv.onDownloadProgress((progress) => setDownload(progress)),
+      window.pixiv.onDownloadProgress((progress) => {
+        setDownload(progress)
+        const id = progress.jobId
+        if (!id) return
+        // 结束的任务从运行集合里移除，界面据此显示并行数量
+        const finished = progress.phase === 'done' || progress.phase === 'paused'
+        setActiveIds((previous) => {
+          if (finished) {
+            if (!previous.has(id)) return previous
+            const next = new Set(previous)
+            next.delete(id)
+            return next
+          }
+          return previous.has(id) ? previous : new Set(previous).add(id)
+        })
+      }),
+      window.pixiv.onBatchProgress((progress) => setBatch(progress)),
       window.pixiv.onDownloadItem((item) =>
         setItems((previous) => [item, ...previous].slice(0, 500))
       ),
       window.pixiv.onDownloadDone((summary) => {
         setDownload(summary)
-        setRunning(false)
+        setActiveIds((previous) => {
+          if (!previous.has(summary.jobId)) return previous
+          const next = new Set(previous)
+          next.delete(summary.jobId)
+          return next
+        })
       }),
       window.pixiv.onQueueChanged((jobs) => setQueue(jobs)),
+      window.pixiv.onQueueError((message) => setError(message)),
       window.pixiv.onThrottle((state) =>
         setThrottle((previous) => {
           const next = previous.filter((item) => item.kind !== state.kind)
@@ -411,15 +439,19 @@ export default function App(): React.JSX.Element {
 
   /** patch 用于关注列表等入口「回填参数并立即抓取」 */
   const collect = async (patch?: Partial<AppConfig>): Promise<void> => {
-    if (!config || collecting || running) return
+    // 抓取与下载互不阻塞：下载进行中也能重新抓取作品列表
+    if (!config || collecting) return
     const cfg: AppConfig = { ...config, ...patch }
     if (patch) setConfig(cfg)
 
     setCollecting(true)
     setError('')
     setCollectProgress(null)
-    setDownload(null)
-    setItems([])
+    // 下载进行中时不要清空进度与日志，否则面板会闪回空态并丢掉正在刷的日志
+    if (!running) {
+      setDownload(null)
+      setItems([])
+    }
     try {
       await window.pixiv.setConfig(cfg)
       const result = await window.pixiv.collectWorks({
@@ -475,21 +507,35 @@ export default function App(): React.JSX.Element {
     void collect({ source: 'tag', userId })
   }
 
-  const startDownload = async (): Promise<void> => {
-    if (!config || running) return
-    if (selectedWorks.length === 0) {
-      setError(t('app.selectFirst'))
-      return
-    }
-    setRunning(true)
+  /**
+   * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
+   * 主进程串行执行，这里只负责转进度与汇总结果。
+   */
+  const batchSync = async (artists: BatchArtist[]): Promise<void> => {
+    // 额度是否足够由主进程决定：满了会返回明确错误，这里不再静默拦截
+    if (!config || !artists.length) return
+    setFollowOpen(false)
     setError('')
-    setDownload(null)
-    setItems([])
-    setTab('log')
+    setNotice('')
+    // 批量占一个额度但仍可与其它任务并行，所以不清空已有的进度与日志
+    if (!running) {
+      setDownload(null)
+      setItems([])
+    }
+    setBatch({
+      index: 1,
+      total: artists.length,
+      artist: artists[0],
+      phase: 'collecting',
+      works: 0,
+      files: 0,
+      failed: 0
+    })
+    setTab('tasks')
     try {
       await window.pixiv.setConfig(config)
-      const summary = await window.pixiv.startDownload({
-        works: selectedWorks,
+      const summary = await window.pixiv.batchSync({
+        artists,
         tag: worksTag(config),
         outDir: config.outDir,
         workers: config.workers,
@@ -497,31 +543,88 @@ export default function App(): React.JSX.Element {
         imageQuality: config.imageQuality,
         ugoiraFormat: config.ugoiraFormat
       })
-      setDownload(summary)
+      const failedNames = summary.artists
+        .filter((item) => item.error)
+        .map((item) => item.artist.name)
+      if (summary.aborted) {
+        setNotice(t('batch.aborted'))
+      } else if (failedNames.length === 0) {
+        setNotice(t('batch.done', { ok: summary.ok, failed: 0 }))
+      } else {
+        setError(
+          `${t('batch.done', { ok: summary.ok, failed: summary.failed })}：${failedNames.join('、')}`
+        )
+      }
     } catch (reason) {
       setError(messageOf(reason))
     } finally {
-      setRunning(false)
+      setBatch(null)
     }
   }
 
+  /** 加入下载队列：立即返回，任务由主进程按并行额度自动启动 */
+  const startDownload = async (): Promise<void> => {
+    if (!config) return
+    if (selectedWorks.length === 0) {
+      setError(t('app.selectFirst'))
+      return
+    }
+    setError('')
+    setItems([])
+    setTab('tasks')
+    try {
+      await window.pixiv.setConfig(config)
+      setQueue(
+        await window.pixiv.enqueueDownload({
+          works: selectedWorks,
+          tag: worksTag(config),
+          outDir: config.outDir,
+          workers: config.workers,
+          delay: config.delay,
+          imageQuality: config.imageQuality,
+          ugoiraFormat: config.ugoiraFormat
+        })
+      )
+      setNotice(t('app.enqueued', { count: selectedWorks.length }))
+    } catch (reason) {
+      setError(messageOf(reason))
+    }
+  }
+
+  /** 批量同步是长任务、不进入队列，保留独立的中止入口 */
   const cancelDownload = (): void => {
     void window.pixiv.cancelDownload()
   }
 
-  const resumeQueue = async (id: string): Promise<void> => {
-    if (running) return
-    setRunning(true)
+  /** 暂停单个任务：运行中只中止它自己，排队中直接转为未完成 */
+  const pauseQueue = async (id: string): Promise<void> => {
     setError('')
-    setItems([])
-    setTab('log')
     try {
-      const summary = await window.pixiv.resumeQueue(id)
-      setDownload(summary)
+      setQueue(await window.pixiv.pauseQueue(id))
     } catch (reason) {
       setError(messageOf(reason))
-    } finally {
-      setRunning(false)
+    }
+  }
+
+  /** 继续任务：放回队列后由主进程在额度允许时自动启动 */
+  const resumeQueue = async (id: string): Promise<void> => {
+    setError('')
+    setTab('tasks')
+    try {
+      setQueue(await window.pixiv.resumeQueue(id))
+    } catch (reason) {
+      setError(messageOf(reason))
+    }
+  }
+
+  /** 失败清单逐条重试：只放行被点的那一项，其余失败项保持不变 */
+  const retryFailure = async (id: string, item: FailureItem): Promise<void> => {
+    setError('')
+    setTab('tasks')
+    try {
+      setQueue(await window.pixiv.retryFailure(id, item))
+    } catch (reason) {
+      setError(messageOf(reason))
     }
   }
 
@@ -728,12 +831,11 @@ export default function App(): React.JSX.Element {
             selfUser={selfUser}
             hasCookie={Boolean(cookie?.hasCookie)}
             collecting={collecting}
-            running={running}
+            queued={queue.length > 0}
             selectedCount={selectedWorks.length}
             onConfigChange={updateConfig}
             onCollect={() => void collect()}
             onDownload={() => void startDownload()}
-            onCancel={cancelDownload}
             onSuggestTags={(word) => window.pixiv.suggestTags(word)}
             onOpenFollowing={() => setFollowOpen(true)}
           />
@@ -779,20 +881,6 @@ export default function App(): React.JSX.Element {
             </div>
           ) : null}
 
-          <ProgressPanel progress={download} running={running} throttle={throttle} />
-
-          <QueuePanel
-            jobs={queue}
-            running={running}
-            onResume={(id) => void resumeQueue(id)}
-            onRemove={(id) => void removeQueue(id)}
-            loadFailures={(id) => window.pixiv.listFailures(id)}
-            onExportFailures={(id) => void exportFailures(id)}
-            onOpenDir={(dir) =>
-              void window.pixiv.openDir(dir).catch((reason: unknown) => setError(messageOf(reason)))
-            }
-          />
-
           <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between">
               <TabsList>
@@ -800,6 +888,11 @@ export default function App(): React.JSX.Element {
                   <Images className="h-3.5 w-3.5" />
                   {t('app.tabWorks')}
                   {works.length > 0 ? `（${works.length}）` : ''}
+                </TabsTrigger>
+                <TabsTrigger value="tasks">
+                  <ListRestart className="h-3.5 w-3.5" />
+                  {t('app.tabTasks')}
+                  {queue.length > 0 ? `（${queue.length}）` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="log">
                   <ScrollText className="h-3.5 w-3.5" />
@@ -859,6 +952,36 @@ export default function App(): React.JSX.Element {
               />
             </TabsContent>
 
+            <TabsContent value="tasks" className="min-h-0">
+              {/* 进度与队列集中在这里，主区高度全部留给作品网格 */}
+              <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pb-2 pr-1">
+                <ProgressPanel
+                  jobs={queue}
+                  parallel={activeIds.size}
+                  parallelJobs={config.parallelJobs}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                  throttle={throttle}
+                  batch={batch}
+                  onCancelBatch={cancelDownload}
+                />
+
+                <QueuePanel
+                  jobs={queue}
+                  onResume={(id) => void resumeQueue(id)}
+                  onPause={(id) => void pauseQueue(id)}
+                  onRemove={(id) => void removeQueue(id)}
+                  loadFailures={(id) => window.pixiv.listFailures(id)}
+                  onRetryFailure={retryFailure}
+                  onExportFailures={(id) => void exportFailures(id)}
+                  onOpenDir={(dir) =>
+                    void window.pixiv
+                      .openDir(dir)
+                      .catch((reason: unknown) => setError(messageOf(reason)))
+                  }
+                />
+              </div>
+            </TabsContent>
+
             <TabsContent value="log" className="min-h-0">
               <LogPanel items={items} running={running} />
             </TabsContent>
@@ -881,7 +1004,11 @@ export default function App(): React.JSX.Element {
       ) : null}
 
       {followOpen ? (
-        <FollowDialog onClose={() => setFollowOpen(false)} onPick={pickFollowingUser} />
+        <FollowDialog
+          onClose={() => setFollowOpen(false)}
+          onPick={pickFollowingUser}
+          onBatch={(artists) => void batchSync(artists)}
+        />
       ) : null}
 
       {filterOpen ? (

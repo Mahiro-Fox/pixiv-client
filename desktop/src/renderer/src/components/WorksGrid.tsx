@@ -27,11 +27,11 @@ export function WorkCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onOpen(work)}
+      onClick={() => onToggle(work.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          onOpen(work)
+          onToggle(work.id)
         }
       }}
       className={cn(
@@ -103,7 +103,19 @@ export function WorkCard({
 
       <div className="space-y-1 p-2.5">
         <p className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-4">{work.title}</p>
-        <p className="truncate text-[11px] text-muted-foreground">{work.userName}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-[11px] text-muted-foreground">{work.userName}</p>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onOpen(work)
+            }}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/10"
+          >
+            {t('works.detail')}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -38,6 +38,11 @@ export interface DownloadJobOptions extends DownloadParams {
   imageQuality?: ImageQuality
   /** 传入已有任务快照即表示断点续传 */
   job?: QueueJob
+  /**
+   * 只重试指定的失败项（不传则重试该任务的全部失败项）：
+   * `taskUrls` 匹配图片任务，`illustIds` 匹配解析失败的作品。
+   */
+  retry?: { taskUrls?: string[]; illustIds?: string[] }
   onProgress: (progress: DownloadProgress) => void
   onItem: (item: DownloadItemEvent) => void
 }
@@ -100,8 +105,9 @@ async function downloadUgoiraTask(
   }
 }
 
-function emptyProgress(totalWorks: number, startedAt: number): DownloadProgress {
+function emptyProgress(totalWorks: number, startedAt: number, jobId?: string): DownloadProgress {
   return {
+    jobId,
     phase: 'resolving',
     total: 0,
     done: 0,
@@ -121,6 +127,7 @@ function rebuildProgress(job: QueueJob, startedAt: number): DownloadProgress {
   const counted = job.tasks.filter((task) => task.status !== 'pending')
   const resolvedIds = new Set(job.tasks.map((task) => task.illustId))
   return {
+    jobId: job.id,
     phase: 'downloading',
     total: job.tasks.length,
     done: counted.length,
@@ -142,9 +149,69 @@ function statusOf(phase: DownloadPhase): QueueStatus {
   return 'done'
 }
 
-function createJob(options: DownloadJobOptions, works: PixivWork[], startedAt: number): QueueJob {
+/**
+ * 从作品集合推导任务归属：
+ * 全部来自同一作者时给出「{userId}-{userName}」，否则退化为「N 位作者」。
+ * 作品列表来自收藏夹或多标签时会命中后者。
+ */
+export function artistOf(works: PixivWork[]): { artistId?: string; artistLabel: string } {
+  const authors = new Map<string, string>()
+  for (const work of works) {
+    const id = String(work.userId || '').trim()
+    if (!id) continue
+    if (!authors.has(id)) authors.set(id, work.userName || id)
+  }
+  if (authors.size === 1) {
+    const [id, name] = [...authors.entries()][0]
+    return { artistId: id, artistLabel: `${id}-${name}` }
+  }
+  return { artistLabel: `${authors.size} 位作者` }
+}
+
+/** 排队任务的构造参数：只保存启动所需的最小信息，其余在启动时读当前配置 */
+export interface QueuedJobOptions {
+  works: PixivWork[]
+  tag: string
+  outDir: string
+  imageQuality: ImageQuality
+  ugoiraFormat: UgoiraFormat
+  workers: number
+  delay: number
+  retry?: { taskUrls?: string[]; illustIds?: string[] }
+}
+
+/** 新建一个「排队中」的任务快照，不立即开始下载 */
+export function createQueuedJob(options: QueuedJobOptions): QueueJob {
+  const id = randomUUID()
+  const startedAt = Date.now()
+  const artist = artistOf(options.works)
   return {
-    id: randomUUID(),
+    id,
+    tag: options.tag,
+    outDir: options.outDir,
+    rootDir: path.join(options.outDir, safeName(options.tag, 'tag')),
+    imageQuality: options.imageQuality,
+    ugoiraFormat: options.ugoiraFormat,
+    status: 'queued',
+    createdAt: startedAt,
+    updatedAt: startedAt,
+    works: options.works,
+    tasks: [],
+    resolveFailures: [],
+    progress: { ...emptyProgress(options.works.length, startedAt, id), phase: 'idle' },
+    workers: options.workers,
+    delay: options.delay,
+    retry: options.retry,
+    artistId: artist.artistId,
+    artistLabel: artist.artistLabel
+  }
+}
+
+function createJob(options: DownloadJobOptions, works: PixivWork[], startedAt: number): QueueJob {
+  const id = randomUUID()
+  const artist = artistOf(works)
+  return {
+    id,
     tag: options.tag,
     outDir: options.outDir,
     rootDir: path.join(options.outDir, safeName(options.tag, 'tag')),
@@ -156,7 +223,9 @@ function createJob(options: DownloadJobOptions, works: PixivWork[], startedAt: n
     works,
     tasks: [],
     resolveFailures: [],
-    progress: emptyProgress(works.length, startedAt)
+    progress: emptyProgress(works.length, startedAt, id),
+    artistId: artist.artistId,
+    artistLabel: artist.artistLabel
   }
 }
 
@@ -178,17 +247,24 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
     requestedUgoira !== 'zip' && !isFfmpegAvailable() ? 'zip' : requestedUgoira
   job.ugoiraFormat = ugoiraFormat
 
-  // 续传：上次失败的图片重新排队；已在本地且完整的图片在下面单独校验
+  // 续传：上次失败的图片重新排队；已在本地且完整的图片在下面单独校验。
+  // 指定了 retry 时只放行命中的那一项，其余失败保持原状，避免「重试一条」变成「重试全部」
+  const retryUrls = new Set(options.retry?.taskUrls || [])
+  const retryIllustIds = new Set(options.retry?.illustIds || [])
   job.tasks.forEach((task) => {
-    if (task.status === 'failed') {
-      task.status = 'pending'
-      task.error = undefined
-    }
+    if (task.status !== 'failed') return
+    const targeted = options.retry
+      ? retryUrls.has(task.url) ||
+        (!retryUrls.size && retryIllustIds.has(task.illustId))
+      : true
+    if (!targeted) return
+    task.status = 'pending'
+    task.error = undefined
   })
 
   const progress = resumed
     ? rebuildProgress(job, startedAt)
-    : emptyProgress(works.length, startedAt)
+    : emptyProgress(works.length, startedAt, job.id)
 
   const emit = (): void => options.onProgress({ ...progress })
   const persist = (): void => {
@@ -200,7 +276,13 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
   persist()
 
   const settledIds = new Set(job.tasks.map((task) => task.illustId))
-  const pendingWorks = works.filter((work) => !settledIds.has(String(work.id || '').trim()))
+  let pendingWorks = works.filter((work) => !settledIds.has(String(work.id || '').trim()))
+  // 单条重试时只重新解析被指定的作品，其余解析失败项留到「全部重试」时再处理
+  if (options.retry) {
+    pendingWorks = pendingWorks.filter((work) =>
+      retryIllustIds.has(String(work.id || '').trim())
+    )
+  }
 
   // 这些作品即将重新解析：先清掉它们上一次的解析失败记录，避免重复累积
   const retryIds = new Set(pendingWorks.map((work) => String(work.id || '').trim()))
@@ -392,6 +474,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
         persist()
 
         options.onItem({
+          jobId: job.id,
           status:
             task.status === 'ok' && replaced
               ? 'replaced'
@@ -425,6 +508,9 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
   }
 
   const paused = options.signal.aborted
+  // 单条重试时会出现「本次没处理的解析失败」，进度需以任务里实际残留的失败为准，
+  // 否则会误判为全部完成而把任务从队列移除
+  progress.resolveFailed = (job.resolveFailures || []).length
   const hasPending = job.tasks.some((task) => task.status === 'pending')
   const complete =
     !paused && !hasPending && progress.failed === 0 && progress.resolveFailed === 0

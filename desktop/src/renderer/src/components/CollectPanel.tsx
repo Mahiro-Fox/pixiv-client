@@ -6,7 +6,6 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
-  Square,
   Tags,
   UserRound,
   Users,
@@ -37,12 +36,12 @@ interface CollectPanelProps {
   selfUser: SelfUser | null
   hasCookie: boolean
   collecting: boolean
-  running: boolean
+  /** 队列里是否已有未完成任务：决定按钮文案是「下载」还是「添加到任务队列」 */
+  queued: boolean
   selectedCount: number
   onConfigChange: (patch: Partial<AppConfig>) => void
   onCollect: () => void
   onDownload: () => void
-  onCancel: () => void
   onSuggestTags: (word: string) => Promise<TagSuggestion[]>
   onOpenFollowing: () => void
 }
@@ -480,7 +479,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
 
             {config.source === 'tag' ? (
               <div className="grid grid-cols-2 gap-3">
-                <Field label={t('collect.userId')}>
+                <Field label={t('collect.userId')} required>
                   <Input
                     value={config.userId}
                     onChange={(event) => props.onConfigChange({ userId: event.target.value })}
@@ -678,7 +677,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           variant="secondary"
           disabled={
             props.collecting ||
-            props.running ||
+            (config.source === 'tag' && !config.userId.trim()) ||
             (config.source === 'bookmarks' &&
               !hasCookie &&
               !config.bookmarkUserId.trim())
@@ -741,16 +740,14 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           <Button
             className="w-full"
             disabled={
-              props.running ||
-              props.collecting ||
-              props.selectedCount === 0 ||
-              !hasCookie ||
-              Boolean(templateError)
+              props.collecting || props.selectedCount === 0 || !hasCookie || Boolean(templateError)
             }
             onClick={props.onDownload}
           >
-            {props.running ? <Loader2 className="animate-spin" /> : <Download />}
-            {t('collect.download', { quality: t(qualityLabelKey), count: props.selectedCount })}
+            <Download />
+            {props.queued
+              ? t('collect.enqueue', { count: props.selectedCount })
+              : t('collect.download', { quality: t(qualityLabelKey), count: props.selectedCount })}
           </Button>
           <p className="text-[10px] leading-4 text-muted-foreground/70">
             {t('collect.qualityNote')}
@@ -760,12 +757,6 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           <p className="text-[11px] leading-4 text-destructive">
             {t('collect.templateInvalid', { error: templateError })}
           </p>
-        ) : null}
-        {props.running ? (
-          <Button className="w-full" variant="outline" onClick={props.onCancel}>
-            <Square className="h-3.5 w-3.5" />
-            {t('collect.pause')}
-          </Button>
         ) : null}
       </div>
     </div>

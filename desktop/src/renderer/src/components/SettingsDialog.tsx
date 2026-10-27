@@ -508,7 +508,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   throttleApiConcurrency: DEFAULT_THROTTLE_LIMITS.apiConcurrency,
                   throttleApiInterval: DEFAULT_THROTTLE_LIMITS.apiInterval,
                   throttleCdnConcurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
-                  throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval
+                  throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval,
+                  // 与主进程默认配置保持一致
+                  parallelJobs: 2
                 })
               }
             >
@@ -516,6 +518,22 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
+            <NumberStepper
+              label={t('settings.throttle.parallelJobs')}
+              hint={t('settings.throttle.parallelJobsHint')}
+              decreaseLabel={t('settings.step.decrease', {
+                label: t('settings.throttle.parallelJobs')
+              })}
+              increaseLabel={t('settings.step.increase', {
+                label: t('settings.throttle.parallelJobs')
+              })}
+              value={config.parallelJobs}
+              unit=""
+              min={1}
+              max={4}
+              step={1}
+              onChange={(value) => props.onConfigChange({ parallelJobs: value })}
+            />
             <NumberStepper
               label={t('settings.throttle.apiConcurrency')}
               hint={t('settings.throttle.apiConcurrencyHint')}

@@ -4,6 +4,10 @@ import { rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type {
   AppConfig,
+  BatchArtistResult,
+  BatchSyncParams,
+  BatchSyncProgress,
+  BatchSyncSummary,
   CollectParams,
   CollectProgress,
   DownloadParams,
@@ -14,6 +18,7 @@ import type {
   LibraryResult,
   PixivWork,
   ProxyConfig,
+  QueueJob,
   UgoiraFormat,
   WorkExportParams
 } from '../shared/types'
@@ -31,19 +36,49 @@ import {
 import { findDownloadedIds, safeName } from './pixiv/files'
 import { setAuthFailureHandler } from './pixiv/http'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
-import { runDownloadJob } from './pixiv/jobs'
+import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
 import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
 import { throttleLimitsFromConfig } from '../shared/throttle'
-import { findJob, flushQueue, listFailures, listSummaries, loadStore, removeJob } from './queue'
+import {
+  findJob,
+  flushQueue,
+  listActiveJobs,
+  listFailures,
+  listQueued,
+  listSummaries,
+  loadStore,
+  removeJob,
+  upsertJob
+} from './queue'
 import { scanLibrary } from './library'
 import { forgetHistory } from './history'
 
 interface ActiveRun {
   controller: AbortController
-  promise: Promise<DownloadSummary>
+  /** 单任务与批量同步共用同一套并发额度，二者的返回类型不同 */
+  promise: Promise<unknown>
 }
 
-let activeRun: ActiveRun | null = null
+/**
+ * 正在运行的下载任务。并行上限来自配置 `parallelJobs`；
+ * 键为队列任务 ID（新任务与批量同步用生成的临时键）。
+ */
+const activeRuns = new Map<string, ActiveRun>()
+let runSeq = 0
+
+/** 并行下载时队列面板需要实时计数：合并成一次广播，避免每个文件都推一次 */
+let queuePushTimer: NodeJS.Timeout | null = null
+function scheduleQueuePush(): void {
+  if (queuePushTimer) return
+  queuePushTimer = setTimeout(() => {
+    queuePushTimer = null
+    void pushQueue()
+  }, 800)
+}
+
+function runningSlots(config: AppConfig): number {
+  return Math.max(1, Math.min(4, toInt(config.parallelJobs, 2, 1, 4)))
+}
 
 /** 图库扫描结果短暂缓存，避免切换标签页时重复扫描磁盘 */
 let libraryCache: { at: number; result: LibraryResult } | null = null
@@ -120,12 +155,19 @@ async function pushQueue(sender?: WebContents): Promise<void> {
 
 async function executeJob(
   params: DownloadParams,
-  sender: WebContents,
-  jobId?: string
+  sender?: WebContents,
+  jobId?: string,
+  retry?: { taskUrls?: string[]; illustIds?: string[] }
 ): Promise<DownloadSummary> {
-  if (activeRun) throw new Error('已有下载任务在运行')
-
   const config = await loadConfig()
+  const limit = runningSlots(config)
+  if (jobId && activeRuns.has(jobId)) throw new Error('该任务正在下载中')
+  // 调度器会先把自己登记进 launching，这里要把它自己排除掉，否则串行模式下会误判为已满
+  const self = jobId && launching.has(jobId) ? 1 : 0
+  if (activeRuns.size + launching.size - self >= limit) {
+    throw new Error(`并行任务已达上限（${limit} 个），请等待其中一个完成`)
+  }
+
   const { cookie } = await resolveCookie()
   if (!cookie) throw new Error('未配置 Cookie：R-18 内容会被 pixiv 过滤')
 
@@ -138,7 +180,9 @@ async function executeJob(
 
   const controller = new AbortController()
   const send = (channel: string, payload: unknown): void => {
-    if (!sender.isDestroyed()) sender.send(channel, payload)
+    // 调度器自动启动的任务没有发起窗口，改为广播给所有窗口
+    if (!sender || sender.isDestroyed()) broadcast(channel, payload)
+    else sender.send(channel, payload)
   }
 
   const promise = runDownloadJob({
@@ -153,12 +197,21 @@ async function executeJob(
     cookie,
     signal: controller.signal,
     job: existing,
+    retry,
     fileNameTemplate: config.fileNameTemplate,
-    onProgress: (progress) => send('download:progress', progress),
+    onProgress: (progress) => {
+      send('download:progress', progress)
+      // 队列面板显示每个任务的实时计数，与主进度面板互不干扰
+      scheduleQueuePush()
+    },
     onItem: (item) => send('download:item', item)
   })
 
-  activeRun = { controller, promise }
+  const key = jobId || `run-${++runSeq}`
+  activeRuns.set(key, { controller, promise })
+  // 登记进运行表后立刻退出「待启动」集合，否则运行期间会被两处重复计数，
+  // 并行额度会被虚占一半，导致同时只能跑一个任务
+  if (jobId) launching.delete(jobId)
 
   try {
     const summary = await promise
@@ -167,16 +220,227 @@ async function executeJob(
     libraryCache = null
     return summary
   } finally {
-    activeRun = null
+    activeRuns.delete(key)
+    await pushQueue()
+    // 任务结束腾出额度后，自动把队首任务拉起来
+    void pumpQueue()
+  }
+}
+
+/**
+ * 已交给调度器、但还没登记到 activeRuns 的任务，
+ * 防止同一轮调度里把同一个任务启动两次、或超出并行额度。
+ */
+const launching = new Set<string>()
+let pumping = false
+
+function paramsOfJob(job: QueueJob, config: AppConfig): DownloadParams {
+  return {
+    works: job.works,
+    tag: job.tag,
+    outDir: job.outDir,
+    // 入队时记下的并发与间隔优先：用户中途改设置不影响已排队的任务
+    workers: job.workers ?? config.workers,
+    delay: job.delay ?? config.delay,
+    imageQuality: job.imageQuality,
+    ugoiraFormat: job.ugoiraFormat
+  }
+}
+
+async function launchQueuedJob(job: QueueJob, config: AppConfig): Promise<void> {
+  launching.add(job.id)
+  // 先落盘为 resolving，调度下一轮就不会再取到它；一次性重试范围同时清空
+  upsertJob({ ...job, status: 'resolving', retry: undefined })
+  try {
+    await executeJob(paramsOfJob(job, config), undefined, job.id, job.retry)
+  } catch (error) {
+    const current = findJob(job.id)
+    if (current && !activeRuns.has(job.id)) {
+      upsertJob({
+        ...current,
+        status: 'paused',
+        progress: { ...current.progress, phase: 'paused' }
+      })
+    }
+    broadcast('queue:error', error instanceof Error ? error.message : String(error))
+  } finally {
+    launching.delete(job.id)
+    await pushQueue()
+    void pumpQueue()
+  }
+}
+
+/** 队列调度：只要有并行额度空出来，就自动启动队首任务 */
+async function pumpQueue(): Promise<void> {
+  if (pumping) return
+  pumping = true
+  try {
+    const config = await loadConfig()
+    const limit = runningSlots(config)
+    while (activeRuns.size + launching.size < limit) {
+      const next = listQueued().find((job) => !launching.has(job.id))
+      if (!next) break
+      // launchQueuedJob 在第一个 await 之前就会标记 launching 并改写状态
+      void launchQueuedJob(next, config)
+    }
+  } finally {
+    pumping = false
+  }
+}
+
+/**
+ * 批量同步：逐位画师「抓取 → 下载」。
+ *
+ * 串行执行：多位画师同时翻页最容易把接口打到 429。
+ * 每位画师只取最新的一页（数量上限沿用「每页数量」），
+ * 批量场景下全量拉取既慢又会拖很久。单条画师失败不中断整体。
+ */
+async function executeBatch(
+  params: BatchSyncParams,
+  sender: WebContents
+): Promise<BatchSyncSummary> {
+  const artists = (params.artists || []).filter((item) => item && item.id)
+  if (!artists.length) throw new Error('未选择画师')
+
+  const config = await loadConfig()
+  // 批量同步自身串行处理画师，但同样占用一个并行额度
+  const limit = runningSlots(config)
+  // 调度器刚取出、还没登记到 activeRuns 的任务也要算进额度
+  if (activeRuns.size + launching.size >= limit) {
+    throw new Error(`并行任务已达上限（${limit} 个），请等待其中一个完成`)
+  }
+  const { cookie } = await resolveCookie()
+  if (!cookie) throw new Error('未配置 Cookie：R-18 内容会被 pixiv 过滤')
+
+  const outDir = (params.outDir || config.outDir).trim()
+  if (!outDir) throw new Error('未设置保存目录')
+  if (!path.isAbsolute(outDir)) throw new Error('保存目录必须是绝对路径')
+
+  const controller = new AbortController()
+  const send = (channel: string, payload: unknown): void => {
+    if (!sender.isDestroyed()) sender.send(channel, payload)
+  }
+  const tag = (params.tag || config.tag).trim() || config.tag
+  const perArtist = toInt(config.limit, 48, 1, 100)
+  const key = `batch-${++runSeq}`
+
+  const promise = (async (): Promise<BatchSyncSummary> => {
+    const results: BatchArtistResult[] = []
+    let lastSummary: DownloadSummary | null = null
+
+    for (const [index, artist] of artists.entries()) {
+      if (controller.signal.aborted) break
+      const progress: BatchSyncProgress = {
+        index: index + 1,
+        total: artists.length,
+        artist,
+        phase: 'collecting',
+        works: 0,
+        files: 0,
+        failed: 0
+      }
+      send('batch:progress', progress)
+
+      try {
+        const collected = await collectWorks({
+          userId: artist.id,
+          tag,
+          tagExtra: config.tagExtra,
+          tagExclude: config.tagExclude,
+          tagMode: config.tagMode,
+          offset: 0,
+          limit: perArtist,
+          workers: 1,
+          maxWorks: perArtist,
+          cookie,
+          signal: controller.signal,
+          onProgress: (item) => send('batch:progress', { ...progress, works: item.loaded })
+        })
+        const works = collected.works.slice(0, perArtist)
+        progress.works = works.length
+        send('batch:progress', { ...progress })
+
+        if (works.length === 0) {
+          results.push({ artist, works: 0, files: 0, failed: 0 })
+          send('batch:progress', { ...progress, phase: 'done' })
+          continue
+        }
+
+        const summary = await runDownloadJob({
+          works,
+          tag,
+          outDir,
+          workers: toInt(params.workers, config.workers, 1, 32),
+          delay: Math.max(0, Math.min(5, Number(params.delay) || 0)),
+          imageQuality:
+            (params.imageQuality ?? config.imageQuality) === 'original'
+              ? 'original'
+              : 'regular',
+          ugoiraFormat: toUgoiraFormat(params.ugoiraFormat ?? config.ugoiraFormat),
+          cookie,
+          signal: controller.signal,
+          fileNameTemplate: config.fileNameTemplate,
+          onProgress: (item) => {
+            progress.phase = 'downloading'
+            progress.files = item.done
+            progress.failed = item.failed
+            send('download:progress', item)
+            send('batch:progress', { ...progress })
+          },
+          onItem: (item) => send('download:item', item)
+        })
+        lastSummary = summary
+        results.push({
+          artist,
+          works: works.length,
+          files: summary.done,
+          failed: summary.failed + summary.resolveFailed
+        })
+        send('batch:progress', { ...progress, phase: 'done' })
+      } catch (error) {
+        // 用户取消属于正常收尾，不再记成失败
+        if (controller.signal.aborted) break
+        results.push({
+          artist,
+          works: progress.works,
+          files: progress.files,
+          failed: progress.failed,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        send('batch:progress', { ...progress, phase: 'failed' })
+      }
+    }
+
+    if (lastSummary && !controller.signal.aborted) send('download:done', lastSummary)
+    await pushQueue()
+    libraryCache = null
+
+    const ok = results.filter((item) => !item.error).length
+    return {
+      artists: results,
+      total: artists.length,
+      ok,
+      failed: results.length - ok,
+      aborted: controller.signal.aborted
+    }
+  })()
+
+  activeRuns.set(key, { controller, promise })
+  try {
+    return await promise
+  } finally {
+    activeRuns.delete(key)
+    await pushQueue()
+    // 批量结束后同样释放额度，让排队任务补位
+    void pumpQueue()
   }
 }
 
 /** 退出前调用：中止正在运行的任务并等待其把「已暂停」状态落盘 */
 export async function shutdownActiveJob(): Promise<void> {
-  const run = activeRun
-  if (!run) return
-  run.controller.abort()
-  await run.promise.catch(() => undefined)
+  const runs = [...activeRuns.values()]
+  runs.forEach((run) => run.controller.abort())
+  await Promise.allSettled(runs.map((run) => run.promise))
 }
 
 export function registerIpcHandlers(): void {
@@ -205,6 +469,8 @@ export function registerIpcHandlers(): void {
     // 限流参数改完立即生效，不必等下一次下载；保存目录变化时重建监听
     applyThrottleLimits(throttleLimitsFromConfig(config))
     watchLibraryDir(config.outDir)
+    // 并行任务数调大时，排队中的任务可以立刻补位
+    void pumpQueue()
     return config
   })
 
@@ -311,8 +577,50 @@ export function registerIpcHandlers(): void {
     )
   })
 
-  ipcMain.handle('download:start', (event, params: DownloadParams) =>
-    executeJob(params, event.sender)
+  // 加入队列：校验后立即返回，任务由调度器按并行额度自动启动
+  ipcMain.handle('download:enqueue', async (event, params: DownloadParams) => {
+    const config = await loadConfig()
+    const { cookie } = await resolveCookie()
+    if (!cookie) throw new Error('未配置 Cookie：R-18 内容会被 pixiv 过滤')
+
+    const outDir = (params?.outDir || config.outDir).trim()
+    if (!outDir) throw new Error('未设置保存目录')
+    if (!path.isAbsolute(outDir)) throw new Error('保存目录必须是绝对路径')
+
+    const works = params?.works || []
+    if (works.length === 0) throw new Error('没有选择作品')
+    const tag = (params?.tag || config.tag).trim() || config.tag
+
+    const queued = createQueuedJob({
+      works,
+      tag,
+      outDir,
+      imageQuality:
+        (params.imageQuality ?? config.imageQuality) === 'original' ? 'original' : 'regular',
+      ugoiraFormat: toUgoiraFormat(params.ugoiraFormat ?? config.ugoiraFormat),
+      workers: toInt(params.workers, config.workers, 1, 32),
+      delay: Math.max(0, Math.min(5, Number(params.delay) || 0))
+    })
+
+    // 同一位作者在队列里只允许存在一个任务（含已暂停的），避免重复抓取同一批作品
+    if (queued.artistId) {
+      const sameArtist = listSummaries().find(
+        (job) => job.artistId && job.artistId === queued.artistId
+      )
+      if (sameArtist) {
+        throw new Error(`已存在 ${sameArtist.artistLabel || sameArtist.tag} 用户的任务`)
+      }
+    }
+
+    upsertJob(queued)
+
+    await pushQueue()
+    void pumpQueue()
+    return listSummaries()
+  })
+
+  ipcMain.handle('batch:sync', (event, params: BatchSyncParams) =>
+    executeBatch(params, event.sender)
   )
 
   ipcMain.handle('work:pages', async (_event, illustId: string) => {
@@ -342,8 +650,18 @@ export function registerIpcHandlers(): void {
     )
   })
 
-  ipcMain.handle('download:cancel', () => {
-    activeRun?.controller.abort()
+  ipcMain.handle('download:cancel', async () => {
+    // 并行时「取消」中止所有运行中的任务，逐个落盘为「已暂停」
+    activeRuns.forEach((run) => run.controller.abort())
+    // 排队中的任务一并撤回，否则调度器会立刻把下一个拉起来
+    for (const job of listQueued()) {
+      upsertJob({
+        ...job,
+        status: 'paused',
+        progress: { ...job.progress, phase: 'paused' }
+      })
+    }
+    await pushQueue()
     return true
   })
 
@@ -352,31 +670,65 @@ export function registerIpcHandlers(): void {
     return listSummaries()
   })
 
+  // 继续任务：重新放回队列，由调度器在额度允许时自动启动
   ipcMain.handle('queue:resume', async (event, id: string) => {
     const job = findJob(id)
     if (!job) throw new Error('任务不存在或已完成')
-    const config = await loadConfig()
-    return executeJob(
-      {
-        works: job.works,
-        tag: job.tag,
-        outDir: job.outDir,
-        workers: config.workers,
-        delay: config.delay,
-        imageQuality: job.imageQuality || config.imageQuality,
-        ugoiraFormat: job.ugoiraFormat || config.ugoiraFormat
-      },
-      event.sender,
-      id
-    )
+    if (activeRuns.has(id)) throw new Error('该任务正在下载中')
+    // 整体继续时应重新尝试全部失败项，不能沿用之前「只重试一条」的范围
+    upsertJob({ ...job, status: 'queued', retry: undefined })
+    await pushQueue()
+    void pumpQueue()
+    return listSummaries()
   })
 
-  ipcMain.handle('queue:remove', async (event, id: string) => {
+  // 暂停单个任务：运行中只中止它自己的 controller，排队中直接转为未完成
+  ipcMain.handle('queue:pause', async (_event, id: string) => {
+    const job = findJob(id)
+    if (!job) throw new Error('任务不存在或已完成')
+
+    const run = activeRuns.get(id)
+    if (run) {
+      run.controller.abort()
+    } else {
+      // 还没启动的排队任务没有 controller，直接把快照落成未完成
+      upsertJob({
+        ...job,
+        status: 'paused',
+        progress: { ...job.progress, phase: 'paused' }
+      })
+    }
+
+    await pushQueue()
+    return listSummaries()
+  })
+
+  // 失败清单里逐条重试：只放行被点的那一项，其余失败记录保持不变
+  ipcMain.handle('queue:retry-item', async (event, id: string, item: FailureItem) => {
+    const job = findJob(id)
+    if (!job) throw new Error('任务不存在或已完成')
+    if (activeRuns.has(id)) throw new Error('该任务正在下载中')
+    if (!item || !item.illustId) throw new Error('失败项无效')
+
+    const retry =
+      item.kind === 'work'
+        ? { illustIds: [item.illustId] }
+        : item.url
+          ? { taskUrls: [item.url] }
+          : { illustIds: [item.illustId] }
+
+    upsertJob({ ...job, status: 'queued', retry })
+    await pushQueue()
+    void pumpQueue()
+    return listSummaries()
+  })
+
+  ipcMain.handle('queue:remove', async (_event, id: string) => {
+    if (activeRuns.has(id)) throw new Error('该任务正在下载中')
     removeJob(id)
     await flushQueue()
-    const jobs = listSummaries()
-    broadcast('queue:changed', jobs, event.sender)
-    return jobs
+    await pushQueue()
+    return listSummaries()
   })
 
   ipcMain.handle('queue:failures', async (_event, id: string) => {

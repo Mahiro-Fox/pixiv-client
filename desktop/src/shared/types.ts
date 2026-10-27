@@ -87,6 +87,8 @@ export interface AppConfig {
   throttleCdnConcurrency: number
   /** 图片 CDN 两次请求的最小间隔（毫秒） */
   throttleCdnInterval: number
+  /** 同时运行的下载任务数上限；1 表示串行 */
+  parallelJobs: number
   /** 界面主题：亮色 / 暗色 / 跟随系统 */
   theme: ThemeMode
   /** 界面语言 */
@@ -254,6 +256,8 @@ export interface DownloadParams {
 export type DownloadPhase = 'idle' | 'resolving' | 'downloading' | 'paused' | 'done'
 
 export interface DownloadProgress {
+  /** 所属队列任务 ID；并行下载时界面靠它区分不同任务的进度 */
+  jobId?: string
   phase: DownloadPhase
   total: number
   done: number
@@ -270,6 +274,8 @@ export interface DownloadProgress {
 }
 
 export interface DownloadItemEvent {
+  /** 所属队列任务 ID，便于并行下载时把条目归到对应任务 */
+  jobId?: string
   status: 'ok' | 'exists' | 'replaced' | 'failed'
   label: string
   bytes: number
@@ -283,7 +289,8 @@ export interface DownloadSummary extends DownloadProgress {
   paused: boolean
 }
 
-export type QueueStatus = 'resolving' | 'downloading' | 'paused' | 'done'
+/** queued：已加入队列，等待并行额度空出后由主进程自动启动 */
+export type QueueStatus = 'queued' | 'resolving' | 'downloading' | 'paused' | 'done'
 
 export type QueueTaskStatus = 'pending' | 'ok' | 'exists' | 'failed'
 
@@ -323,6 +330,15 @@ export interface QueueJob {
   progress: DownloadProgress
   /** 解析失败的作品（没有分页任务，续传时会重新解析） */
   resolveFailures?: QueueResolveFailure[]
+  /** 入队时记录的并发与间隔：调度器启动任务时沿用，避免用户中途改设置影响已排队任务 */
+  workers?: number
+  delay?: number
+  /** 失败项逐条重试：排队启动时按此范围重置，启动后清空 */
+  retry?: { taskUrls?: string[]; illustIds?: string[] }
+  /** 单一作者作品的作者 ID；多作者任务为空 */
+  artistId?: string
+  /** 任务归属展示用，单一作者为「{userId}-{userName}」，多作者为「N 位作者」 */
+  artistLabel?: string
 }
 
 export interface QueueResolveFailure {
@@ -347,6 +363,12 @@ export interface QueueSummary {
   tag: string
   rootDir: string
   status: QueueStatus
+  /** 任务当前阶段，用于任务卡片显示「解析中 / 下载中」 */
+  phase: DownloadProgress['phase']
+  /** 单一作者作品的作者 ID，用于入队去重；多作者任务为空 */
+  artistId?: string
+  /** 任务归属展示用，单一作者为「{userId}-{userName}」，多作者为「N 位作者」 */
+  artistLabel?: string
   createdAt: number
   updatedAt: number
   totalWorks: number
@@ -370,6 +392,53 @@ export interface ThrottleState {
   penalty: number
   active: number
   cooldownUntil: number
+}
+
+/** 批量同步选中的画师 */
+export interface BatchArtist {
+  id: string
+  name: string
+}
+
+export interface BatchSyncParams {
+  artists: BatchArtist[]
+  tag: string
+  outDir: string
+  workers: number
+  delay: number
+  imageQuality?: ImageQuality
+  ugoiraFormat?: UgoiraFormat
+}
+
+/** 批量同步进度：始终指向当前正在处理的那位画师 */
+export interface BatchSyncProgress {
+  /** 1 基序号 */
+  index: number
+  total: number
+  artist: BatchArtist
+  phase: 'collecting' | 'downloading' | 'done' | 'failed'
+  /** 已抓取到的作品数 */
+  works: number
+  /** 该画师已处理的文件数 */
+  files: number
+  failed: number
+}
+
+export interface BatchArtistResult {
+  artist: BatchArtist
+  works: number
+  files: number
+  failed: number
+  error?: string
+}
+
+export interface BatchSyncSummary {
+  artists: BatchArtistResult[]
+  total: number
+  ok: number
+  failed: number
+  /** 用户中途取消 */
+  aborted: boolean
 }
 
 /** 下载历史条目：按文件记录，供本地图库补充标题/作者等元数据 */
@@ -461,12 +530,21 @@ export interface PixivApi {
   /** 删除本地图库文件（仅限保存目录内），返回重新扫描后的图库 */
   deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>
   checkDownloaded: (params: DownloadedParams) => Promise<string[]>
-  startDownload: (params: DownloadParams) => Promise<DownloadSummary>
+  /** 加入下载队列：立即返回队列快照，任务由主进程按并行额度自动启动 */
+  enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>
+  /** 批量同步：选中多位画师，按当前标签与过滤规则逐个「抓取 → 下载」 */
+  batchSync: (params: BatchSyncParams) => Promise<BatchSyncSummary>
   cancelDownload: () => Promise<boolean>
+  onBatchProgress: (callback: (progress: BatchSyncProgress) => void) => () => void
   listQueue: () => Promise<QueueSummary[]>
-  resumeQueue: (id: string) => Promise<DownloadSummary>
+  /** 把未完成任务重新放回队列（排队等待额度） */
+  resumeQueue: (id: string) => Promise<QueueSummary[]>
+  /** 暂停单个任务：运行中立即中止，排队中直接转为未完成 */
+  pauseQueue: (id: string) => Promise<QueueSummary[]>
   removeQueue: (id: string) => Promise<QueueSummary[]>
   listFailures: (jobId: string) => Promise<FailureItem[]>
+  /** 重试失败清单中的单条（图片或作品解析），其余失败项保持不变 */
+  retryFailure: (jobId: string, item: FailureItem) => Promise<QueueSummary[]>
   exportFailures: (jobId: string) => Promise<string | null>
   getThrottle: () => Promise<ThrottleState[]>
   /** 读取当前代理配置与生效状态 */
@@ -479,6 +557,8 @@ export interface PixivApi {
   /** 通过当前代理请求一次 pixiv 首页，用于验证连通性 */
   testProxy: () => Promise<ProxyTestResult>
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) => () => void
+  /** 队列任务自动启动失败（如 Cookie 失效、目录非法）时通知界面 */
+  onQueueError: (callback: (message: string) => void) => () => void
   onThrottle: (callback: (state: ThrottleState) => void) => () => void
   /** 保存目录被外部增删文件时触发，用于自动刷新图库 */
   onLibraryChanged: (callback: () => void) => () => void

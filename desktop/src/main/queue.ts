@@ -31,7 +31,9 @@ function queueFile(): string {
 }
 
 function normalizeJob(job: QueueJob): QueueJob {
-  const status: QueueJob['status'] = RUNNING_STATUS.includes(job.status) ? 'paused' : job.status
+  // 上次运行中被中断、或仍在排队没来得及启动的任务，重启后一律视为「已暂停」
+  const interrupted = RUNNING_STATUS.includes(job.status) || job.status === 'queued'
+  const status: QueueJob['status'] = interrupted ? 'paused' : job.status
   return {
     ...job,
     status,
@@ -96,6 +98,9 @@ function toSummary(job: QueueJob): QueueSummary {
     tag: job.tag,
     rootDir: job.rootDir,
     status: job.status,
+    phase: job.progress?.phase ?? 'idle',
+    artistId: job.artistId,
+    artistLabel: job.artistLabel,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     totalWorks: job.works.length,
@@ -137,11 +142,26 @@ export function listFailures(jobId: string): FailureItem[] {
   return [...works, ...images]
 }
 
+/** 排队等待启动的任务，按入队顺序返回 */
+export function listQueued(): QueueJob[] {
+  return store.jobs
+    .filter((job) => job.status === 'queued')
+    .sort((a, b) => a.createdAt - b.createdAt)
+}
+
+/** 仍在流程中的任务（排队 / 解析 / 下载），用于入队去重与运行态判断 */
+export function listActiveJobs(): QueueJob[] {
+  return store.jobs.filter(
+    (job) => job.status === 'queued' || RUNNING_STATUS.includes(job.status)
+  )
+}
+
 export function listSummaries(): QueueSummary[] {
   return store.jobs
     .filter((job) => job.status !== 'done')
     .map(toSummary)
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+    // 按入队顺序固定排列：若按 updatedAt 排序，并行任务每次进度更新都会互换位置
+    .sort((a, b) => a.createdAt - b.createdAt)
 }
 
 function scheduleSave(): void {

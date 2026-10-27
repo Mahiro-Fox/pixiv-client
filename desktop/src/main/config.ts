@@ -76,6 +76,8 @@ export function defaultConfig(): AppConfig {
     throttleApiInterval: DEFAULT_THROTTLE_LIMITS.apiInterval,
     throttleCdnConcurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
     throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval,
+    // 默认允许两个任务并行：既能明显缩短连续下载的总时长，又不会把接口/磁盘打满
+    parallelJobs: 2,
     // 现有界面一直是暗色，首次升级保持原样，用户可自行切换
     theme: 'dark',
     locale: 'zh-CN',

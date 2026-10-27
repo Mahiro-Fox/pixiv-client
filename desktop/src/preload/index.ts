@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   AppConfig,
+  BatchSyncParams,
+  BatchSyncProgress,
+  BatchSyncSummary,
   CollectParams,
   CollectProgress,
   CollectResult,
@@ -65,13 +68,18 @@ const api: PixivApi = {
     ipcRenderer.invoke('library:delete', paths) as Promise<LibraryResult>,
   checkDownloaded: (params: DownloadedParams) =>
     ipcRenderer.invoke('works:downloaded', params) as Promise<string[]>,
-  startDownload: (params: DownloadParams) =>
-    ipcRenderer.invoke('download:start', params) as Promise<DownloadSummary>,
+  enqueueDownload: (params: DownloadParams) =>
+    ipcRenderer.invoke('download:enqueue', params) as Promise<QueueSummary[]>,
+  batchSync: (params: BatchSyncParams) =>
+    ipcRenderer.invoke('batch:sync', params) as Promise<BatchSyncSummary>,
   cancelDownload: () => ipcRenderer.invoke('download:cancel') as Promise<boolean>,
   listQueue: () => ipcRenderer.invoke('queue:list') as Promise<QueueSummary[]>,
-  resumeQueue: (id: string) => ipcRenderer.invoke('queue:resume', id) as Promise<DownloadSummary>,
+  resumeQueue: (id: string) => ipcRenderer.invoke('queue:resume', id) as Promise<QueueSummary[]>,
+  pauseQueue: (id: string) => ipcRenderer.invoke('queue:pause', id) as Promise<QueueSummary[]>,
   removeQueue: (id: string) => ipcRenderer.invoke('queue:remove', id) as Promise<QueueSummary[]>,
   listFailures: (id: string) => ipcRenderer.invoke('queue:failures', id) as Promise<FailureItem[]>,
+  retryFailure: (id: string, item: FailureItem) =>
+    ipcRenderer.invoke('queue:retry-item', id, item) as Promise<QueueSummary[]>,
   exportFailures: (id: string) =>
     ipcRenderer.invoke('queue:export-failures', id) as Promise<string | null>,
   getThrottle: () => ipcRenderer.invoke('throttle:get') as Promise<ThrottleState[]>,
@@ -81,6 +89,8 @@ const api: PixivApi = {
   testProxy: () => ipcRenderer.invoke('proxy:test') as Promise<ProxyTestResult>,
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) =>
     subscribe('queue:changed', callback),
+  onQueueError: (callback: (message: string) => void) =>
+    subscribe('queue:error', callback),
   onThrottle: (callback: (state: ThrottleState) => void) => subscribe('throttle:state', callback),
   onLibraryChanged: (callback: () => void) =>
     subscribe<unknown>('library:changed', () => callback()),
@@ -91,7 +101,9 @@ const api: PixivApi = {
   onDownloadItem: (callback: (item: DownloadItemEvent) => void) =>
     subscribe('download:item', callback),
   onDownloadDone: (callback: (summary: DownloadSummary) => void) =>
-    subscribe('download:done', callback)
+    subscribe('download:done', callback),
+  onBatchProgress: (callback: (progress: BatchSyncProgress) => void) =>
+    subscribe('batch:progress', callback)
 }
 
 contextBridge.exposeInMainWorld('pixiv', api)
