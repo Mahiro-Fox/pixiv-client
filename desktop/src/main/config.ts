@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { AppConfig, CookieSource, CookieStatus } from '../shared/types'
+import type { AppConfig, CookieSource, CookieStatus, ProxyConfig, ProxyProtocol } from '../shared/types'
 import { DEFAULT_FILE_TEMPLATE } from '../shared/template'
 import { DEFAULT_THROTTLE_LIMITS } from '../shared/throttle'
 
@@ -22,6 +22,26 @@ function defaultOutDir(): string {
     return path.resolve(app.getAppPath(), '..', 'pixiv_downloads')
   }
   return path.join(app.getPath('downloads'), 'pixiv_downloads')
+}
+
+const PROXY_PROTOCOLS: ProxyProtocol[] = ['http', 'https', 'socks4', 'socks5']
+
+/** 旧配置没有 proxy 字段，或字段被手改坏时，逐项补齐成可用值 */
+export function normalizeProxy(value: unknown): ProxyConfig {
+  const raw = (value || {}) as Partial<ProxyConfig>
+  const protocol = PROXY_PROTOCOLS.includes(raw.protocol as ProxyProtocol)
+    ? (raw.protocol as ProxyProtocol)
+    : 'http'
+  const port = Number(raw.port)
+  return {
+    enabled: Boolean(raw.enabled),
+    protocol,
+    host: typeof raw.host === 'string' ? raw.host.trim() : '',
+    // 0 表示未填写，交给界面提示；这里只挡掉非法值
+    port: Number.isFinite(port) ? Math.max(0, Math.min(65535, Math.round(port))) : 0,
+    username: typeof raw.username === 'string' ? raw.username.trim() : '',
+    bypassRules: typeof raw.bypassRules === 'string' ? raw.bypassRules.trim() : '<local>'
+  }
 }
 
 export function defaultConfig(): AppConfig {
@@ -58,7 +78,8 @@ export function defaultConfig(): AppConfig {
     throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval,
     // 现有界面一直是暗色，首次升级保持原样，用户可自行切换
     theme: 'dark',
-    locale: 'zh-CN'
+    locale: 'zh-CN',
+    proxy: normalizeProxy({ bypassRules: '<local>' })
   }
 }
 
@@ -67,14 +88,17 @@ export async function loadConfig(): Promise<AppConfig> {
   try {
     const raw = await readFile(configFile(), 'utf-8')
     const parsed = JSON.parse(raw) as Partial<AppConfig>
-    return { ...defaults, ...parsed }
+    // 浅合并对嵌套字段无效：老配置没有 proxy，必须补默认值并逐项校正
+    return { ...defaults, ...parsed, proxy: normalizeProxy(parsed.proxy) }
   } catch {
     return defaults
   }
 }
 
 export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
-  const merged = { ...(await loadConfig()), ...patch }
+  const current = await loadConfig()
+  const merged = { ...current, ...patch }
+  if (patch.proxy) merged.proxy = normalizeProxy({ ...current.proxy, ...patch.proxy })
   await mkdir(app.getPath('userData'), { recursive: true })
   await writeFile(configFile(), JSON.stringify(merged, null, 2), 'utf-8')
   return merged

@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
 import type * as React from 'react'
+import { useI18n } from '@renderer/i18n'
 import { cn } from '@renderer/lib/utils'
 
 interface DialogProps {
@@ -16,6 +17,7 @@ interface DialogProps {
 
 /** 通用弹窗外壳：遮罩 + 卡片 + 标题栏，支持 Esc 与点击遮罩关闭 */
 export function Dialog(props: DialogProps): React.JSX.Element {
+  const { t } = useI18n()
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -48,7 +50,7 @@ export function Dialog(props: DialogProps): React.JSX.Element {
           </div>
           <button
             type="button"
-            aria-label="关闭"
+            aria-label={t('common.close')}
             onClick={props.onClose}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >

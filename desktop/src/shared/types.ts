@@ -91,6 +91,45 @@ export interface AppConfig {
   theme: ThemeMode
   /** 界面语言 */
   locale: Locale
+  /** 应用内网络代理 */
+  proxy: ProxyConfig
+}
+
+export type ProxyProtocol = 'http' | 'https' | 'socks4' | 'socks5'
+
+/**
+ * 应用内代理设置。
+ * 密码不落在这里：只保存账号名，密码由主进程用 `safeStorage` 加密后单独存储。
+ */
+export interface ProxyConfig {
+  enabled: boolean
+  protocol: ProxyProtocol
+  host: string
+  port: number
+  /** HTTP / HTTPS 代理的认证账号；SOCKS 不支持认证 */
+  username: string
+  /** 不走代理的地址列表，格式同 Chromium 的 proxy bypass rules */
+  bypassRules: string
+}
+
+export interface ProxyState {
+  config: ProxyConfig
+  /** 是否已保存代理密码（密码本身不会返回渲染层） */
+  hasPassword: boolean
+  /** 最近一次应用是否成功；关闭代理时恒为 true */
+  applied: boolean
+  /** 最近一次应用失败的原因 */
+  error?: string
+  /** Chromium 解析出的实际路由，如 `PROXY 127.0.0.1:10808`、`DIRECT` */
+  resolved?: string
+}
+
+export interface ProxyTestResult {
+  ok: boolean
+  latencyMs: number
+  /** 收到的 HTTP 状态码；网络层失败时没有 */
+  status?: number
+  message: string
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'
@@ -430,6 +469,15 @@ export interface PixivApi {
   listFailures: (jobId: string) => Promise<FailureItem[]>
   exportFailures: (jobId: string) => Promise<string | null>
   getThrottle: () => Promise<ThrottleState[]>
+  /** 读取当前代理配置与生效状态 */
+  getProxy: () => Promise<ProxyState>
+  /**
+   * 保存并立即应用代理设置。
+   * `password` 传 undefined 表示保持已保存的密码，传空串表示清除密码。
+   */
+  setProxy: (patch: Partial<ProxyConfig>, password?: string) => Promise<ProxyState>
+  /** 通过当前代理请求一次 pixiv 首页，用于验证连通性 */
+  testProxy: () => Promise<ProxyTestResult>
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) => () => void
   onThrottle: (callback: (state: ThrottleState) => void) => () => void
   /** 保存目录被外部增删文件时触发，用于自动刷新图库 */

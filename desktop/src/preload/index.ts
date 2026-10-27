@@ -16,6 +16,9 @@ import type {
   FollowingResult,
   LibraryResult,
   PixivApi,
+  ProxyConfig,
+  ProxyState,
+  ProxyTestResult,
   QueueSummary,
   SelfUser,
   TagSuggestion,
@@ -72,6 +75,10 @@ const api: PixivApi = {
   exportFailures: (id: string) =>
     ipcRenderer.invoke('queue:export-failures', id) as Promise<string | null>,
   getThrottle: () => ipcRenderer.invoke('throttle:get') as Promise<ThrottleState[]>,
+  getProxy: () => ipcRenderer.invoke('proxy:get') as Promise<ProxyState>,
+  setProxy: (patch: Partial<ProxyConfig>, password?: string) =>
+    ipcRenderer.invoke('proxy:set', patch, password) as Promise<ProxyState>,
+  testProxy: () => ipcRenderer.invoke('proxy:test') as Promise<ProxyTestResult>,
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) =>
     subscribe('queue:changed', callback),
   onThrottle: (callback: (state: ThrottleState) => void) => subscribe('throttle:state', callback),

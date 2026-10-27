@@ -13,10 +13,12 @@ import type {
   FollowingParams,
   LibraryResult,
   PixivWork,
+  ProxyConfig,
   UgoiraFormat,
   WorkExportParams
 } from '../shared/types'
 import { clearCookie, getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
+import { applyProxy, getProxyState, saveProxyPassword, testProxy } from './proxy'
 import {
   collectBookmarks,
   collectWorks,
@@ -194,7 +196,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('config:get', () => loadConfig())
 
   ipcMain.handle('config:set', async (_event, patch: Partial<AppConfig>) => {
-    const config = await saveConfig(patch)
+    // 代理走独立的 proxy:set 通道：这里忽略 proxy 字段，
+    // 否则关闭设置弹窗时的整份配置可能覆盖刚保存的代理值
+    const rest = { ...patch }
+    delete rest.proxy
+    const config = await saveConfig(rest)
     libraryCache = null
     // 限流参数改完立即生效，不必等下一次下载；保存目录变化时重建监听
     applyThrottleLimits(throttleLimitsFromConfig(config))
@@ -495,6 +501,21 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('throttle:get', () => throttleStates())
+
+  ipcMain.handle('proxy:get', () => getProxyState())
+
+  // 保存并立即应用：密码 undefined 表示沿用已保存的密码，空串表示清除
+  ipcMain.handle(
+    'proxy:set',
+    async (_event, patch: Partial<ProxyConfig>, password?: string) => {
+      const current = await loadConfig()
+      await saveConfig({ proxy: { ...current.proxy, ...(patch || {}) } })
+      await saveProxyPassword(password)
+      return applyProxy()
+    }
+  )
+
+  ipcMain.handle('proxy:test', () => testProxy())
 }
 
 function workRow(work: PixivWork, downloaded: Set<string>): (string | number)[] {

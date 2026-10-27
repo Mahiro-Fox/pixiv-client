@@ -3,6 +3,7 @@ import { createWriteStream } from 'node:fs'
 import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { acquireSlot, noteRateLimited, noteSuccess, retryAfterMs, sleep } from './throttle'
+import { explainNetError, proxyCredentials } from '../proxy'
 
 export { sleep }
 
@@ -56,6 +57,13 @@ function buildRequest(url: string, cookie: string): Electron.ClientRequest {
   request.setHeader('Referer', `${BASE}/`)
   request.setHeader('Accept-Language', 'zh-CN,zh;q=0.9')
   if (cookie) request.setHeader('Cookie', cookie)
+  // HTTP/HTTPS 代理要求认证时，Chromium 通过这个事件要账号密码；
+  // 没有配置账号就回空凭据，让请求按「认证失败」正常报错
+  request.on('login', (_authInfo, callback) => {
+    const credentials = proxyCredentials()
+    if (credentials) callback(credentials.username, credentials.password)
+    else callback()
+  })
   return request
 }
 
@@ -95,7 +103,7 @@ function open(
     signal?.addEventListener('abort', onAbort, { once: true })
 
     request.on('response', (response) => finish(() => resolve(response)))
-    request.on('error', (error) => finish(() => reject(error)))
+    request.on('error', (error) => finish(() => reject(new Error(explainNetError(error)))))
     request.end()
   })
 }

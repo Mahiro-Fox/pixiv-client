@@ -1,8 +1,8 @@
 import type { Locale } from '@shared/types'
 
 /**
- * 目前只有设置面板接入了国际化。
- * 其他模块的文案在设置面板验收通过后再逐步迁移到这里。
+ * 全部界面文案的单一来源。
+ * zhCN 的 key 推导出 MessageKey 类型，en / ja 必须一一齐全，缺项会编译失败。
  */
 const zhCN = {
   'settings.title': '设置',
@@ -53,6 +53,35 @@ const zhCN = {
   'settings.step.decrease': '减少{label}',
   'settings.step.increase': '增加{label}',
 
+  'settings.proxy.title': '网络代理',
+  'settings.proxy.enable': '启用代理',
+  'settings.proxy.hint':
+    '关闭时沿用系统代理；开启后接口请求、图片下载与登录窗口统一走这里配置的代理',
+  'settings.proxy.protocol': '协议',
+  'settings.proxy.host': '主机',
+  'settings.proxy.port': '端口',
+  'settings.proxy.username': '账号',
+  'settings.proxy.password': '密码',
+  'settings.proxy.passwordPlaceholder': '未设置',
+  'settings.proxy.passwordKeep': '已保存，留空不改',
+  'settings.proxy.passwordClear': '清除密码',
+  'settings.proxy.bypass': '不走代理的地址',
+  'settings.proxy.bypassHint': '逗号分隔，例如 localhost, 127.0.0.1, <local>',
+  'settings.proxy.socksHint': 'SOCKS4 / SOCKS5 不支持账号密码认证，请使用免认证的代理',
+  'settings.proxy.httpsHint':
+    'HTTPS 表示用 TLS 连接代理本身（不是「用代理访问 HTTPS」）。v2rayN / Clash 的本地混合端口是普通 HTTP 代理，请选 HTTP；选错会报 ERR_PROXY_CONNECTION_FAILED，代理端日志会出现 TLS 握手被当成请求方法的报错',
+  'settings.proxy.test': '测试连接',
+  'settings.proxy.testing': '测试中…',
+  'settings.proxy.testOk': '连接正常，耗时 {ms} ms',
+  'settings.proxy.testWarn':
+    '代理已连通，但 pixiv 返回 HTTP {status}（多为出口 IP 或 UA 被风控），耗时 {ms} ms',
+  'settings.proxy.testFail': '连接失败：{message}',
+  'settings.proxy.applied': '已生效',
+  'settings.proxy.notApplied': '未生效',
+  'settings.proxy.invalid': '请填写主机与端口后再启用',
+  'settings.proxy.resolved': 'Chromium 实际路由：{route}',
+  'settings.proxy.applyError': '应用失败：{message}',
+
   'settings.outDir.title': '保存目录',
   'settings.outDir.hint': '按「标签 / 作者」两级存放',
   'settings.outDir.pick': '选择目录',
@@ -61,6 +90,8 @@ const zhCN = {
   'settings.template.title': '文件名模板',
   'settings.template.reset': '恢复默认',
   'settings.template.preview': '预览：',
+  'settings.template.sampleTitle': '示例标题 ~ 100%',
+  'settings.template.sampleAuthor': '画师名',
   'settings.template.note':
     '未写 {ext} 时自动追加扩展名；非法字符会被替换，超过 120 字符会截断。想同时保留常规图与原图，请把 {quality} 写进模板',
   'settings.template.tooltip': '{label}，示例：{example}',
@@ -129,6 +160,8 @@ const zhCN = {
   'app.settings': '设置',
   'app.openDir': '打开保存目录',
   'app.dismissNotice': '关闭提示',
+  /** 通用弹窗关闭按钮的无障碍标签 */
+  'common.close': '关闭',
   'app.tabWorks': '作品列表',
   'app.tabLog': '下载日志',
   'app.tabLibrary': '本地图库',
@@ -413,6 +446,36 @@ const en: Record<MessageKey, string> = {
   'settings.step.decrease': 'Decrease {label}',
   'settings.step.increase': 'Increase {label}',
 
+  'settings.proxy.title': 'Network proxy',
+  'settings.proxy.enable': 'Enable proxy',
+  'settings.proxy.hint':
+    'When off, the system proxy is used. When on, API calls, image downloads and the sign-in window all go through this proxy',
+  'settings.proxy.protocol': 'Protocol',
+  'settings.proxy.host': 'Host',
+  'settings.proxy.port': 'Port',
+  'settings.proxy.username': 'Username',
+  'settings.proxy.password': 'Password',
+  'settings.proxy.passwordPlaceholder': 'Not set',
+  'settings.proxy.passwordKeep': 'Saved — leave blank to keep',
+  'settings.proxy.passwordClear': 'Clear password',
+  'settings.proxy.bypass': 'Bypass list',
+  'settings.proxy.bypassHint': 'Comma separated, e.g. localhost, 127.0.0.1, <local>',
+  'settings.proxy.socksHint':
+    'Chromium does not support username/password auth for SOCKS4 / SOCKS5; use an unauthenticated proxy',
+  'settings.proxy.httpsHint':
+    'HTTPS means a TLS connection to the proxy itself (not "using a proxy for HTTPS"). Local v2rayN / Clash mixed ports are plain HTTP proxies — choose HTTP, otherwise you get ERR_PROXY_CONNECTION_FAILED',
+  'settings.proxy.test': 'Test connection',
+  'settings.proxy.testing': 'Testing…',
+  'settings.proxy.testOk': 'Connected in {ms} ms',
+  'settings.proxy.testWarn':
+    'Proxy reachable, but pixiv returned HTTP {status} (usually exit IP or UA risk control) in {ms} ms',
+  'settings.proxy.testFail': 'Connection failed: {message}',
+  'settings.proxy.applied': 'Active',
+  'settings.proxy.notApplied': 'Not active',
+  'settings.proxy.invalid': 'Fill in host and port before enabling',
+  'settings.proxy.resolved': 'Chromium route: {route}',
+  'settings.proxy.applyError': 'Failed to apply: {message}',
+
   'settings.outDir.title': 'Save folder',
   'settings.outDir.hint': 'Stored as "tag / author"',
   'settings.outDir.pick': 'Choose folder',
@@ -421,6 +484,8 @@ const en: Record<MessageKey, string> = {
   'settings.template.title': 'Filename template',
   'settings.template.reset': 'Reset',
   'settings.template.preview': 'Preview: ',
+  'settings.template.sampleTitle': 'Sample title ~ 100%',
+  'settings.template.sampleAuthor': 'Artist name',
   'settings.template.note':
     'The extension is appended automatically when {ext} is missing; illegal characters are replaced and names are truncated at 120 characters. Add {quality} to keep standard and original files side by side',
   'settings.template.tooltip': '{label}, e.g. {example}',
@@ -490,6 +555,7 @@ const en: Record<MessageKey, string> = {
   'app.settings': 'Settings',
   'app.openDir': 'Open download folder',
   'app.dismissNotice': 'Dismiss',
+  'common.close': 'Close',
   'app.tabWorks': 'Works',
   'app.tabLog': 'Download log',
   'app.tabLibrary': 'Local library',
@@ -788,6 +854,36 @@ const ja: Record<MessageKey, string> = {
   'settings.step.decrease': '{label}を減らす',
   'settings.step.increase': '{label}を増やす',
 
+  'settings.proxy.title': 'ネットワークプロキシ',
+  'settings.proxy.enable': 'プロキシを有効化',
+  'settings.proxy.hint':
+    'オフの場合はシステムのプロキシを使います。オンの場合、API・画像ダウンロード・ログインウィンドウはすべてここの設定を使います',
+  'settings.proxy.protocol': 'プロトコル',
+  'settings.proxy.host': 'ホスト',
+  'settings.proxy.port': 'ポート',
+  'settings.proxy.username': 'ユーザー名',
+  'settings.proxy.password': 'パスワード',
+  'settings.proxy.passwordPlaceholder': '未設定',
+  'settings.proxy.passwordKeep': '保存済み（空欄なら変更しません）',
+  'settings.proxy.passwordClear': 'パスワードを削除',
+  'settings.proxy.bypass': 'プロキシを使わないアドレス',
+  'settings.proxy.bypassHint': 'カンマ区切り、例：localhost, 127.0.0.1, <local>',
+  'settings.proxy.socksHint':
+    'Chromium の SOCKS4 / SOCKS5 はユーザー名・パスワード認証に対応していません。認証不要のプロキシを使ってください',
+  'settings.proxy.httpsHint':
+    'HTTPS はプロキシ自体と TLS で接続する意味です（「HTTPS 通信にプロキシを使う」ではありません）。v2rayN / Clash のローカル混合ポートは通常の HTTP プロキシなので HTTP を選んでください',
+  'settings.proxy.test': '接続テスト',
+  'settings.proxy.testing': 'テスト中…',
+  'settings.proxy.testOk': '接続できました（{ms} ms）',
+  'settings.proxy.testWarn':
+    'プロキシには接続できましたが、pixiv が HTTP {status} を返しました（多くは出口 IP か UA のリスク判定）。{ms} ms',
+  'settings.proxy.testFail': '接続に失敗しました：{message}',
+  'settings.proxy.applied': '有効',
+  'settings.proxy.notApplied': '無効',
+  'settings.proxy.invalid': 'ホストとポートを入力してから有効にしてください',
+  'settings.proxy.resolved': 'Chromium の実効ルート：{route}',
+  'settings.proxy.applyError': '適用に失敗しました：{message}',
+
   'settings.outDir.title': '保存先',
   'settings.outDir.hint': '「タグ / 作者」の二階層で保存',
   'settings.outDir.pick': 'フォルダーを選択',
@@ -796,6 +892,8 @@ const ja: Record<MessageKey, string> = {
   'settings.template.title': 'ファイル名テンプレート',
   'settings.template.reset': '既定に戻す',
   'settings.template.preview': 'プレビュー：',
+  'settings.template.sampleTitle': 'サンプルタイトル ~ 100%',
+  'settings.template.sampleAuthor': '絵師名',
   'settings.template.note':
     '{ext} がない場合は拡張子を自動付加します。不正な文字は置換され、120 文字で切り捨てます。標準画質と原寸を同時に残すには {quality} をテンプレートに入れてください',
   'settings.template.tooltip': '{label}、例：{example}',
@@ -867,6 +965,7 @@ const ja: Record<MessageKey, string> = {
   'app.settings': '設定',
   'app.openDir': '保存先を開く',
   'app.dismissNotice': '閉じる',
+  'common.close': '閉じる',
   'app.tabWorks': '作品一覧',
   'app.tabLog': 'ダウンロードログ',
   'app.tabLibrary': 'ローカルライブラリ',

@@ -10,6 +10,9 @@ import type {
   DownloadItemEvent,
   DownloadProgress,
   PixivWork,
+  ProxyConfig,
+  ProxyState,
+  ProxyTestResult,
   QueueSummary,
   SelfUser,
   ThrottleState,
@@ -174,6 +177,7 @@ function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
 export default function App(): React.JSX.Element {
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [cookie, setCookie] = useState<CookieStatus | null>(null)
+  const [proxy, setProxy] = useState<ProxyState | null>(null)
   const [works, setWorks] = useState<PixivWork[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [total, setTotal] = useState(0)
@@ -218,6 +222,9 @@ export default function App(): React.JSX.Element {
     })
     void window.pixiv.getThrottle().then((states) => {
       if (alive) setThrottle(states)
+    })
+    void window.pixiv.getProxy().then((state) => {
+      if (alive) setProxy(state)
     })
 
     const unsubscribers = [
@@ -363,6 +370,22 @@ export default function App(): React.JSX.Element {
   const updateConfig = (patch: Partial<AppConfig>): void => {
     setConfig((previous) => (previous ? { ...previous, ...patch } : previous))
   }
+
+  /**
+   * 代理改完立即在主进程生效（不必等关闭设置弹窗），
+   * 同时把规范化后的配置同步回本地状态，避免关闭时把旧值写回磁盘。
+   */
+  const saveProxy = async (
+    patch: Partial<ProxyConfig>,
+    password?: string
+  ): Promise<ProxyState> => {
+    const state = await window.pixiv.setProxy(patch, password)
+    setProxy(state)
+    setConfig((previous) => (previous ? { ...previous, proxy: state.config } : previous))
+    return state
+  }
+
+  const testProxy: () => Promise<ProxyTestResult> = () => window.pixiv.testProxy()
 
   // 主题与语言：配置变化时立即生效；跟随系统时监听系统配色变化
   const themeMode = config?.theme
@@ -877,7 +900,10 @@ export default function App(): React.JSX.Element {
           config={config}
           cookie={cookie}
           selfUser={selfUser}
+          proxy={proxy}
           onConfigChange={updateConfig}
+          onSaveProxy={saveProxy}
+          onTestProxy={testProxy}
           onSaveCookie={saveCookie}
           onLogin={loginPixiv}
           onClearCookie={clearCookie}

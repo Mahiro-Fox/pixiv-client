@@ -5,6 +5,7 @@ import { registerIpcHandlers, shutdownActiveJob } from './ipc'
 import { flushHistory } from './history'
 import { flushQueue } from './queue'
 import { loadConfig } from './config'
+import { applyProxy } from './proxy'
 import { USER_AGENT } from './pixiv/http'
 
 const LOCAL_SCHEME = 'pixivfile'
@@ -93,8 +94,10 @@ function createWindow(): void {
 
 registerLocalFileProtocol()
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   installImageReferer()
+  // 先应用代理再建窗口：首屏的接口与图片请求就要走对网络
+  await applyProxy().catch(() => undefined)
   serveLocalFile()
   registerIpcHandlers()
   createWindow()

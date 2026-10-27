@@ -10,6 +10,7 @@ const PIXIV_HOST = /(^|\.)pixiv\.net$/
 const ACCOUNTS_HOST = 'accounts.pixiv.net'
 /** 登录窗口用独立分区：与主界面隔离，登录状态会保留，下次不用重输密码 */
 const LOGIN_PARTITION = 'persist:pixiv-login'
+export { LOGIN_PARTITION }
 
 // reCAPTCHA 会检查 navigator.webdriver 一类的自动化标记，显式关掉提高通过率。
 // 必须在 app ready 之前调用，模块顶层正好满足。

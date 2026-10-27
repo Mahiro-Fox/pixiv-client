@@ -6,6 +6,7 @@ import {
   FolderSearch,
   Gauge,
   Gem,
+  Globe,
   Image as ImageIcon,
   Languages,
   Loader2,
@@ -25,6 +26,10 @@ import type {
   CookieStatus,
   ImageQuality,
   Locale,
+  ProxyConfig,
+  ProxyProtocol,
+  ProxyState,
+  ProxyTestResult,
   SelfUser,
   ThemeMode,
   UgoiraFormat
@@ -41,13 +46,19 @@ import type { Translate } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
+import { Field, Select } from './ui/field'
 import { Input, Textarea } from './ui/input'
 
 interface SettingsDialogProps {
   config: AppConfig
   cookie: CookieStatus | null
   selfUser: SelfUser | null
+  /** 代理配置与生效状态；密码本身不会传给渲染层 */
+  proxy: ProxyState | null
   onConfigChange: (patch: Partial<AppConfig>) => void
+  /** 保存并立即应用代理；password 传 undefined 表示保持原密码，空串表示清除 */
+  onSaveProxy: (patch: Partial<ProxyConfig>, password?: string) => Promise<ProxyState>
+  onTestProxy: () => Promise<ProxyTestResult>
   onSaveCookie: (raw: string) => Promise<void>
   /** 打开应用内 pixiv 登录窗口；返回 false 表示用户取消了登录 */
   onLogin: () => Promise<boolean>
@@ -165,6 +176,79 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
 
+  // 代理表单：文本框在失焦时提交，避免每敲一个字符就重设一次 session
+  const proxyConfig = props.proxy?.config ?? config.proxy
+  const proxyIsSocks =
+    proxyConfig.protocol === 'socks4' || proxyConfig.protocol === 'socks5'
+  const [proxyHost, setProxyHost] = useState(proxyConfig.host)
+  const [proxyPort, setProxyPort] = useState(proxyConfig.port ? String(proxyConfig.port) : '')
+  const [proxyUsername, setProxyUsername] = useState(proxyConfig.username)
+  const [proxyBypass, setProxyBypass] = useState(proxyConfig.bypassRules)
+  const [proxyPassword, setProxyPassword] = useState('')
+  const [proxyBusy, setProxyBusy] = useState(false)
+  const [proxyError, setProxyError] = useState('')
+  const [proxyTesting, setProxyTesting] = useState(false)
+  const [proxyTest, setProxyTest] = useState<ProxyTestResult | null>(null)
+
+  const proxyQueue = useRef<Promise<unknown>>(Promise.resolve())
+
+  // 主进程应用后会把规范化的值回传，这里跟着同步一次
+  useEffect(() => {
+    setProxyHost(proxyConfig.host)
+    setProxyPort(proxyConfig.port ? String(proxyConfig.port) : '')
+    setProxyUsername(proxyConfig.username)
+    setProxyBypass(proxyConfig.bypassRules)
+  }, [proxyConfig.host, proxyConfig.port, proxyConfig.username, proxyConfig.bypassRules])
+
+  /**
+   * 串行提交：失焦与开关点击可能几乎同时触发，两个「读-改-写」
+   * 并发落盘会互相覆盖（例如刚填的主机被开关的旧快照写回）。
+   */
+  const commitProxy = (
+    patch: Partial<ProxyConfig>,
+    password?: string
+  ): Promise<void> => {
+    const task = proxyQueue.current.then(async () => {
+      setProxyBusy(true)
+      setProxyError('')
+      try {
+        await props.onSaveProxy(patch, password)
+      } catch (reason) {
+        setProxyError(reason instanceof Error ? reason.message : String(reason))
+      } finally {
+        setProxyBusy(false)
+      }
+    })
+    proxyQueue.current = task
+    return task
+  }
+
+  /** 密码留空视为不修改，避免用户只是路过输入框就把已保存的密码清掉 */
+  const commitProxyPassword = (): void => {
+    const value = proxyPassword.trim()
+    if (!value) return
+    setProxyPassword('')
+    void commitProxy({}, value)
+  }
+
+  const runProxyTest = async (): Promise<void> => {
+    setProxyTesting(true)
+    setProxyTest(null)
+    try {
+      setProxyTest(await props.onTestProxy())
+    } catch (reason) {
+      setProxyTest({
+        ok: false,
+        latencyMs: 0,
+        message: reason instanceof Error ? reason.message : String(reason)
+      })
+    } finally {
+      setProxyTesting(false)
+    }
+  }
+
+  const proxyIncomplete = !proxyConfig.host || proxyConfig.port <= 0
+
   // Cookie 存在且能解析出账号，才算真正「已登录」
   const loggedIn = Boolean(props.cookie?.hasCookie && props.selfUser)
 
@@ -266,8 +350,8 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const templateError = validateTemplate(config.fileNameTemplate)
   const templatePreview = renderFileName(config.fileNameTemplate || DEFAULT_FILE_TEMPLATE, {
     id: '122784064',
-    title: '示例标题 ~ 100%',
-    author: props.selfUser?.name || '画师名',
+    title: t('settings.template.sampleTitle'),
+    author: props.selfUser?.name || t('settings.template.sampleAuthor'),
     userid: config.userId || '114638697',
     tag: worksTagOf(config),
     page: 1,
@@ -569,6 +653,203 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               {t('settings.template.note')}
             </p>
           )}
+        </section>
+
+        <section className="space-y-2.5 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <Globe className="h-4 w-4 text-primary" />
+              {t('settings.proxy.title')}
+            </h3>
+            <div className="flex items-center gap-2">
+              {proxyConfig.enabled ? (
+                <Badge variant={props.proxy?.applied ? 'success' : 'destructive'}>
+                  {props.proxy?.applied
+                    ? t('settings.proxy.applied')
+                    : t('settings.proxy.notApplied')}
+                </Badge>
+              ) : null}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={proxyConfig.enabled}
+                aria-label={t('settings.proxy.enable')}
+                onClick={() => void commitProxy({ enabled: !proxyConfig.enabled })}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  proxyConfig.enabled ? 'bg-primary' : 'bg-border'
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow-sm transition-transform ${
+                    proxyConfig.enabled ? 'translate-x-4' : ''
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            {t('settings.proxy.hint')}
+          </p>
+          {props.proxy?.resolved ? (
+            <p className="text-[11px] leading-4 text-muted-foreground/70">
+              {t('settings.proxy.resolved', { route: props.proxy.resolved })}
+            </p>
+          ) : null}
+
+          <div className="grid grid-cols-3 gap-2">
+            <Field label={t('settings.proxy.protocol')}>
+              <Select
+                value={proxyConfig.protocol}
+                onChange={(value) =>
+                  void commitProxy({ protocol: value as ProxyProtocol })
+                }
+              >
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks4">SOCKS4</option>
+                <option value="socks5">SOCKS5</option>
+              </Select>
+            </Field>
+            <div className="col-span-2">
+              <Field label={t('settings.proxy.host')}>
+                <Input
+                  value={proxyHost}
+                  spellCheck={false}
+                  placeholder="127.0.0.1"
+                  onChange={(event) => setProxyHost(event.target.value)}
+                  onBlur={() => {
+                    const value = proxyHost.trim()
+                    if (value !== proxyConfig.host) void commitProxy({ host: value })
+                  }}
+                />
+              </Field>
+            </div>
+          </div>
+          {proxyConfig.protocol === 'https' ? (
+            <p className="text-[11px] leading-4 text-amber-500">
+              {t('settings.proxy.httpsHint')}
+            </p>
+          ) : null}
+
+          <div className="grid grid-cols-3 gap-2">
+            <Field label={t('settings.proxy.port')}>
+              <Input
+                value={proxyPort}
+                inputMode="numeric"
+                placeholder="7890"
+                onChange={(event) => setProxyPort(event.target.value.replace(/[^\d]/g, ''))}
+                onBlur={() => {
+                  const value = Math.max(0, Math.min(65535, Number(proxyPort) || 0))
+                  if (value !== proxyConfig.port) void commitProxy({ port: value })
+                }}
+              />
+            </Field>
+            <Field label={t('settings.proxy.username')}>
+              <Input
+                value={proxyUsername}
+                spellCheck={false}
+                disabled={proxyIsSocks}
+                onChange={(event) => setProxyUsername(event.target.value)}
+                onBlur={() => {
+                  const value = proxyUsername.trim()
+                  if (value !== proxyConfig.username) void commitProxy({ username: value })
+                }}
+              />
+            </Field>
+            <Field label={t('settings.proxy.password')}>
+              <Input
+                type="password"
+                value={proxyPassword}
+                disabled={proxyIsSocks}
+                placeholder={
+                  props.proxy?.hasPassword
+                    ? t('settings.proxy.passwordKeep')
+                    : t('settings.proxy.passwordPlaceholder')
+                }
+                onChange={(event) => setProxyPassword(event.target.value)}
+                onBlur={commitProxyPassword}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitProxyPassword()
+                }}
+              />
+            </Field>
+          </div>
+          {proxyIsSocks ? (
+            <p className="text-[11px] leading-4 text-amber-500">
+              {t('settings.proxy.socksHint')}
+            </p>
+          ) : null}
+
+          <Field label={t('settings.proxy.bypass')} hint={t('settings.proxy.bypassHint')}>
+            <Input
+              value={proxyBypass}
+              spellCheck={false}
+              placeholder="localhost, 127.0.0.1, <local>"
+              onChange={(event) => setProxyBypass(event.target.value)}
+              onBlur={() => {
+                const value = proxyBypass.trim()
+                if (value !== proxyConfig.bypassRules) void commitProxy({ bypassRules: value })
+              }}
+            />
+          </Field>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              disabled={proxyTesting || proxyBusy}
+              onClick={() => void runProxyTest()}
+            >
+              {proxyTesting ? <Loader2 className="animate-spin" /> : <Globe />}
+              {proxyTesting ? t('settings.proxy.testing') : t('settings.proxy.test')}
+            </Button>
+            {props.proxy?.hasPassword ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={proxyBusy}
+                onClick={() => void commitProxy({}, '')}
+              >
+                <Trash2 />
+                {t('settings.proxy.passwordClear')}
+              </Button>
+            ) : null}
+          </div>
+
+          {proxyConfig.enabled && proxyIncomplete ? (
+            <p className="text-[11px] leading-4 text-amber-500">
+              {t('settings.proxy.invalid')}
+            </p>
+          ) : null}
+          {proxyConfig.enabled && props.proxy?.error ? (
+            <p className="text-[11px] leading-4 text-destructive">
+              {t('settings.proxy.applyError', { message: props.proxy.error })}
+            </p>
+          ) : null}
+          {proxyError ? (
+            <p className="text-[11px] leading-4 text-destructive">{proxyError}</p>
+          ) : null}
+          {proxyTest ? (
+            <p
+              className={`text-[11px] leading-4 ${
+                !proxyTest.ok
+                  ? 'text-destructive'
+                  : proxyTest.status && proxyTest.status >= 400
+                    ? 'text-amber-500'
+                    : 'text-emerald-500'
+              }`}
+            >
+              {!proxyTest.ok
+                ? t('settings.proxy.testFail', { message: proxyTest.message })
+                : proxyTest.status && proxyTest.status >= 400
+                  ? t('settings.proxy.testWarn', {
+                      status: proxyTest.status,
+                      ms: proxyTest.latencyMs
+                    })
+                  : t('settings.proxy.testOk', { ms: proxyTest.latencyMs })}
+            </p>
+          ) : null}
         </section>
 
         <section className="space-y-2.5 border-t border-border/60 pt-4">
