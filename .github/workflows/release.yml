@@ -1,0 +1,46 @@
+name: Release
+
+# 推送形如 v0.1.0 的 tag 时触发。
+# 注意：tag 必须与 desktop/package.json 的 version 一致，
+# electron-builder 会用 package.json 的版本号决定上传到哪个 Release。
+on:
+  push:
+    tags:
+      - 'v*'
+
+# electron-builder 需要写权限才能创建 Release 并上传安装包
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # npm ci 会执行 ffmpeg-static 的 postinstall，从网络拉取随包的 ffmpeg.exe
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # dist:publish = build + electron-builder --publish always
+      # electron-builder.yml 里的 publish 指向本仓库，GITHUB_TOKEN 由 Actions 注入
+      - name: Build and publish
+        run: npm run dist:publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
