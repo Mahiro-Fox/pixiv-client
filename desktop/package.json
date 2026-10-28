@@ -1,6 +1,6 @@
 {
   "name": "pixiv-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Pixiv 标签作品抓取与下载桌面端（Electron + React + TypeScript 原型）",
   "author": "Mahiro-Fox",
