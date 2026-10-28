@@ -15,6 +15,8 @@ interface WorkDetailDialogProps {
   selected: boolean
   onToggle: (id: string) => void
   onClose: () => void
+  /** 搜索结果只做预览，不提供「加入下载」，默认显示 */
+  showSelection?: boolean
 }
 
 function messageOf(error: unknown): string {
@@ -235,14 +237,16 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
             <Button variant="ghost" size="sm" onClick={props.onClose}>
               {t('detail.close')}
             </Button>
-            <Button
-              variant={props.selected ? 'outline' : 'default'}
-              size="sm"
-              onClick={() => props.onToggle(work.id)}
-            >
-              {props.selected ? <Check /> : <Plus />}
-              {props.selected ? t('detail.selected') : t('detail.addToDownload')}
-            </Button>
+            {props.showSelection === false ? null : (
+              <Button
+                variant={props.selected ? 'outline' : 'default'}
+                size="sm"
+                onClick={() => props.onToggle(work.id)}
+              >
+                {props.selected ? <Check /> : <Plus />}
+                {props.selected ? t('detail.selected') : t('detail.addToDownload')}
+              </Button>
+            )}
           </div>
         </footer>
       </div>

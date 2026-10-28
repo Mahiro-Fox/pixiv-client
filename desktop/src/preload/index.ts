@@ -27,17 +27,27 @@ import type {
   NovelSearchResult,
   NovelSeriesDetail,
   NovelTextSearchResult,
+  OAuthCredentials,
+  OAuthStatus,
   PixivApi,
   ProxyConfig,
   ProxyState,
   ProxyTestResult,
   QueueSummary,
+  SearchWork,
   SelfUser,
   TagSuggestion,
   ThrottleState,
   UpdateStatus,
+  UserContentParams,
+  UserContentResult,
+  UserProfile,
+  UserSearchParams,
+  UserSearchResult,
   WorkExportParams,
-  WorkPage
+  WorkPage,
+  WorkSearchParams,
+  WorkSearchResult
 } from '../shared/types'
 
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
@@ -57,6 +67,10 @@ const api: PixivApi = {
     ipcRenderer.invoke('cookie:login') as Promise<CookieStatus | null>,
   clearCookie: () => ipcRenderer.invoke('cookie:clear') as Promise<CookieStatus>,
   checkCookieHealth: () => ipcRenderer.invoke('cookie:health') as Promise<CookieHealth>,
+  getOAuthStatus: () => ipcRenderer.invoke('oauth:status') as Promise<OAuthStatus>,
+  saveOAuthCredentials: (credentials: OAuthCredentials) =>
+    ipcRenderer.invoke('oauth:save', credentials) as Promise<OAuthStatus>,
+  clearOAuth: () => ipcRenderer.invoke('oauth:clear') as Promise<OAuthStatus>,
   onCookieInvalid: (handler: () => void) => subscribe<unknown>('cookie:invalid', () => handler()),
   pickDir: () => ipcRenderer.invoke('dialog:pick-dir') as Promise<string | null>,
   openDir: (dir: string) => ipcRenderer.invoke('shell:open-dir', dir) as Promise<void>,
@@ -69,8 +83,20 @@ const api: PixivApi = {
     ipcRenderer.invoke('works:export', params) as Promise<string | null>,
   getWorkPages: (illustId: string) =>
     ipcRenderer.invoke('work:pages', illustId) as Promise<WorkPage[]>,
+  getWorkDetail: (illustId: string) =>
+    ipcRenderer.invoke('work:detail', illustId) as Promise<SearchWork | null>,
+  getTrendingTags: () =>
+    ipcRenderer.invoke('search:trendingTags') as Promise<TagSuggestion[]>,
   suggestTags: (word: string) =>
     ipcRenderer.invoke('tags:suggest', word) as Promise<TagSuggestion[]>,
+  searchWorks: (params: WorkSearchParams) =>
+    ipcRenderer.invoke('search:works', params) as Promise<WorkSearchResult>,
+  searchUsers: (params: UserSearchParams) =>
+    ipcRenderer.invoke('search:users', params) as Promise<UserSearchResult>,
+  getUserProfile: (userId: string) =>
+    ipcRenderer.invoke('user:profile', userId) as Promise<UserProfile>,
+  getUserContent: (params: UserContentParams) =>
+    ipcRenderer.invoke('user:content', params) as Promise<UserContentResult>,
   searchNovels: (params: NovelSearchParams) =>
     ipcRenderer.invoke('novel:search', params) as Promise<NovelSearchResult>,
   getNovelDetail: (novelId: string) =>

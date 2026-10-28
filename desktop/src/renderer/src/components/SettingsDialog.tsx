@@ -9,6 +9,7 @@ import {
   Gem,
   Globe,
   Image as ImageIcon,
+  KeyRound,
   Languages,
   Loader2,
   LogIn,
@@ -28,6 +29,8 @@ import type {
   CookieStatus,
   ImageQuality,
   Locale,
+  OAuthCredentials,
+  OAuthStatus,
   ProxyConfig,
   ProxyProtocol,
   ProxyState,
@@ -67,6 +70,11 @@ interface SettingsDialogProps {
   onLogin: () => Promise<boolean>
   /** 清除已保存的 Cookie，并重置登录窗口的会话 */
   onClearCookie: () => Promise<void>
+  /** App API（OAuth）连接状态；写操作需要它 */
+  oauth: OAuthStatus | null
+  /** 保存并校验凭据：主进程会先刷新一次，失败不落盘 */
+  onSaveOAuth: (credentials: OAuthCredentials) => Promise<void>
+  onClearOAuth: () => Promise<void>
   onPickDir: () => void
   onOpenDir: () => void
   onClose: () => void
@@ -192,6 +200,15 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [loginCancelled, setLoginCancelled] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
+  /** App API 凭据表单：一次填三项，保存时主进程会先刷新校验 */
+  const [oauthForm, setOAuthForm] = useState<OAuthCredentials>({
+    clientId: '',
+    clientSecret: '',
+    refreshToken: ''
+  })
+  const [savingOAuth, setSavingOAuth] = useState(false)
+  const [oauthError, setOAuthError] = useState('')
+  const [confirmingOAuthClear, setConfirmingOAuthClear] = useState(false)
 
   // 版本与更新：主进程在启动后会自动检查，这里只负责展示与手动触发
   const [version, setVersion] = useState('')
@@ -335,6 +352,31 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
       setLoginCancelled(false)
     } finally {
       setClearing(false)
+    }
+  }
+
+  const saveOAuth = async (): Promise<void> => {
+    setSavingOAuth(true)
+    setOAuthError('')
+    try {
+      await props.onSaveOAuth(oauthForm)
+      // 保存成功后清空表单，避免密钥长时间留在界面里
+      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
+    } catch (reason) {
+      setOAuthError(String(reason instanceof Error ? reason.message : reason))
+    } finally {
+      setSavingOAuth(false)
+    }
+  }
+
+  const clearOAuth = async (): Promise<void> => {
+    setSavingOAuth(true)
+    try {
+      await props.onClearOAuth()
+      setConfirmingOAuthClear(false)
+      setOAuthError('')
+    } finally {
+      setSavingOAuth(false)
     }
   }
 
@@ -1031,6 +1073,110 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             {savingCookie ? <Loader2 className="animate-spin" /> : <Cookie />}
             {t('settings.cookie.save')}
           </Button>
+        </section>
+
+        <section className="space-y-2.5 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <KeyRound className="h-4 w-4 text-primary" />
+              {t('settings.oauth.title')}
+            </h3>
+            <Badge variant={props.oauth?.connected ? 'success' : 'destructive'}>
+              {props.oauth?.connected
+                ? t('settings.oauth.connected')
+                : t('settings.oauth.notConnected')}
+            </Badge>
+          </div>
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            {props.oauth?.connected
+              ? t('settings.oauth.connectedHint', {
+                  userId: props.oauth.userId ?? '-',
+                  tail: props.oauth.tail
+                })
+              : t('settings.oauth.hint')}
+          </p>
+          {props.oauth?.connected ? (
+            confirmingOAuthClear ? (
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-[11px] leading-4 text-amber-500">
+                  {t('settings.oauth.clearConfirm')}
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={savingOAuth}
+                  onClick={() => void clearOAuth()}
+                >
+                  {savingOAuth ? <Loader2 className="animate-spin" /> : null}
+                  {t('settings.oauth.clearOk')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={savingOAuth}
+                  onClick={() => setConfirmingOAuthClear(false)}
+                >
+                  {t('settings.cookie.clearCancel')}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setConfirmingOAuthClear(true)}
+              >
+                <Trash2 />
+                {t('settings.oauth.clear')}
+              </Button>
+            )
+          ) : (
+            <>
+              <Input
+                value={oauthForm.clientId}
+                onChange={(event) =>
+                  setOAuthForm((previous) => ({ ...previous, clientId: event.target.value }))
+                }
+                placeholder={t('settings.oauth.clientId')}
+                spellCheck={false}
+              />
+              <Input
+                type="password"
+                value={oauthForm.clientSecret}
+                onChange={(event) =>
+                  setOAuthForm((previous) => ({ ...previous, clientSecret: event.target.value }))
+                }
+                placeholder={t('settings.oauth.clientSecret')}
+                spellCheck={false}
+              />
+              <Textarea
+                value={oauthForm.refreshToken}
+                onChange={(event) =>
+                  setOAuthForm((previous) => ({ ...previous, refreshToken: event.target.value }))
+                }
+                placeholder={t('settings.oauth.refreshToken')}
+                spellCheck={false}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={
+                  savingOAuth ||
+                  !oauthForm.clientId.trim() ||
+                  !oauthForm.clientSecret.trim() ||
+                  !oauthForm.refreshToken.trim()
+                }
+                onClick={() => void saveOAuth()}
+              >
+                {savingOAuth ? <Loader2 className="animate-spin" /> : <KeyRound />}
+                {t('settings.oauth.save')}
+              </Button>
+              {oauthError ? (
+                <p className="text-[11px] leading-4 text-red-500">{oauthError}</p>
+              ) : null}
+            </>
+          )}
         </section>
 
         <section className="space-y-2 border-t border-border/60 pt-4">

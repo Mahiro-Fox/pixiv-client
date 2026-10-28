@@ -1,21 +1,29 @@
 import {
   AlertTriangle,
   BookOpen,
+  Download,
   FolderOpen,
   Images,
   Library,
   ListRestart,
   Loader2,
-  LogIn,
   ScrollText,
   Settings2,
   Sparkles,
-  User,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type * as React from "react";
-import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import type { Locale } from "@shared/types";
 import type {
   AppConfig,
@@ -24,6 +32,8 @@ import type {
   CollectProgress,
   CookieHealth,
   CookieStatus,
+  OAuthCredentials,
+  OAuthStatus,
   DownloadItemEvent,
   DownloadProgress,
   FailureItem,
@@ -48,14 +58,20 @@ import { FilterDialog } from "./components/FilterDialog";
 import { ImagePreviewProvider } from "./components/ImagePreview";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
-import { FollowDialog } from "./components/FollowDialog";
 import { WorkDetailDialog } from "./components/WorkDetailDialog";
 import { WorksGrid } from "./components/WorksGrid";
+import { AccountMenu } from "./components/AccountMenu";
+import { SearchBox } from "./components/SearchBox";
 import { NovelSearchPage } from "./pages/NovelSearchPage";
 import { NovelSeriesPage } from "./pages/NovelSeriesPage";
 import { NovelReaderPage } from "./pages/NovelReaderPage";
 import { NovelLibraryPage } from "./pages/NovelLibraryPage";
 import { NovelLocalReaderPage } from "./pages/NovelLocalReaderPage";
+import { WorksSearchPage } from "./pages/WorksSearchPage";
+import { UsersPage } from "./pages/UsersPage";
+import { UsersFollowingPage } from "./pages/UsersFollowingPage";
+import { UserDetailPage } from "./pages/UserDetailPage";
+import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
@@ -78,77 +94,6 @@ const LOCALE_STORAGE_KEY = "pixiv-locale";
 function bootLocale(): Locale {
   const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY);
   return saved === "en" || saved === "ja" ? saved : "zh-CN";
-}
-
-/**
- * 顶栏账号区：未登录时是主按钮式的登录入口，已登录时是头像 + 昵称。
- * 面向不熟悉技术的用户，所以界面上一律不出现 Cookie 字样，
- * 那套说法只在设置面板里出现。
- */
-function HeaderAccount(props: {
-  selfUser: SelfUser | null;
-  hasCookie: boolean;
-  loggingIn: boolean;
-  onLogin: () => void;
-  onOpenSettings: () => void;
-}): React.JSX.Element {
-  const { t } = useI18n();
-
-  if (!props.selfUser) {
-    // 有登录凭据但还没取到账号信息时，不要退化成「登录」按钮，
-    // 否则用户会以为没登录而反复点击
-    if (props.hasCookie) {
-      return (
-        <button
-          type="button"
-          onClick={props.onOpenSettings}
-          className="flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/40"
-        >
-          <User className="h-3.5 w-3.5" />
-          {t("header.loggedIn")}
-        </button>
-      );
-    }
-    return (
-      <Button size="sm" disabled={props.loggingIn} onClick={props.onLogin}>
-        {props.loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
-        {props.loggingIn ? t("header.loggingIn") : t("header.login")}
-      </Button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={props.onOpenSettings}
-      title={
-        props.selfUser.account
-          ? `@${props.selfUser.account}`
-          : props.selfUser.name
-      }
-      className="flex items-center gap-2 rounded-full border border-border/60 py-1 pl-1 pr-2.5 transition-colors hover:bg-secondary/40"
-    >
-      {props.selfUser.avatar ? (
-        <img
-          src={props.selfUser.avatar}
-          alt=""
-          className="h-6 w-6 rounded-full bg-secondary object-cover"
-        />
-      ) : (
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
-          <User className="h-3.5 w-3.5" />
-        </span>
-      )}
-      <span className="max-w-[10rem] truncate text-xs font-medium leading-4">
-        {props.selfUser.name}
-      </span>
-      {props.selfUser.premium ? (
-        <span className="rounded bg-amber-500/15 px-1 text-[10px] leading-4 text-amber-500">
-          {t("header.premium")}
-        </span>
-      ) : null}
-    </button>
-  );
 }
 
 /**
@@ -209,8 +154,16 @@ function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
 }
 
 export default function App(): React.JSX.Element {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const currentWord = searchParams.get("word") || "";
+  /** 顶栏搜索框的受控值；与 URL 的 word 保持同步 */
+  const [keyword, setKeyword] = useState(currentWord);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [cookie, setCookie] = useState<CookieStatus | null>(null);
+  /** App API 凭据状态；写操作（收藏、关注）依赖它 */
+  const [oauth, setOAuth] = useState<OAuthStatus | null>(null);
   const [proxy, setProxy] = useState<ProxyState | null>(null);
   const [works, setWorks] = useState<PixivWork[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -235,21 +188,56 @@ export default function App(): React.JSX.Element {
   const [sort, setSort] = useState<WorkSort>("default");
   const [page, setPage] = useState(1);
   const [preview, setPreview] = useState<PixivWork | null>(null);
-  const [followOpen, setFollowOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState("works");
 
+  /** 顶栏导航与搜索框共用：按路由判断当前栏目 */
+  const section: "illust" | "manga" | "novel" | "users" = location.pathname.startsWith(
+    "/manga",
+  )
+    ? "manga"
+    : location.pathname.startsWith("/novel")
+      ? "novel"
+      : location.pathname.startsWith("/user")
+        ? "users"
+        : "illust";
+  const sectionPath = `/${section}`;
+
+  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词
+  useEffect(() => {
+    setKeyword(currentWord);
+  }, [currentWord]);
+
+  const submitSearch = (value?: string): void => {
+    const word = (value ?? keyword).trim();
+    if (value !== undefined) setKeyword(value);
+    navigate(
+      word
+        ? `${sectionPath}?word=${encodeURIComponent(word)}`
+        : sectionPath,
+    );
+  };
+
+  /** 顶部导航跳转时带上当前关键词，实现搜索词与栏目同步 */
+  const linkWithWord = (path: string): string =>
+    currentWord ? `${path}?word=${encodeURIComponent(currentWord)}` : path;
+
   useEffect(() => {
     let alive = true;
 
-    void Promise.all([window.pixiv.getConfig(), window.pixiv.getCookie()])
-      .then(([loadedConfig, loadedCookie]) => {
+    void Promise.all([
+      window.pixiv.getConfig(),
+      window.pixiv.getCookie(),
+      window.pixiv.getOAuthStatus(),
+    ])
+      .then(([loadedConfig, loadedCookie, loadedOAuth]) => {
         if (!alive) return;
         setConfig(loadedConfig);
         setCookie(loadedCookie);
+        setOAuth(loadedOAuth);
       })
       .catch((reason: unknown) => {
         if (alive) setError(messageOf(reason));
@@ -551,26 +539,17 @@ export default function App(): React.JSX.Element {
     }
   };
 
-  /** 关注列表选中画师：回填用户 ID 并自动抓取作品 */
-  const pickFollowingUser = (userId: string): void => {
-    setFollowOpen(false);
-    if (!config) return;
-    setConfig({ ...config, source: "tag", userId });
-    void collect({ source: "tag", userId });
-  };
-
   /**
    * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
    * 主进程串行执行，这里只负责转进度与汇总结果。
    *
-   * ⚠️ 入口已临时屏蔽：FollowDialog 的勾选逻辑与批量同步按钮已注释，
+   * ⚠️ 入口已临时屏蔽：改版后关注列表改为独立页面，不再提供勾选批量同步，
    * 因此这段逻辑目前不会被触发，但整条链路（batchSync / batch 进度 / 进度条）
    * 保留不动，待需求完善后恢复入口即可复用，请勿删除。
    */
   const batchSync = async (artists: BatchArtist[]): Promise<void> => {
     // 额度是否足够由主进程决定：满了会返回明确错误，这里不再静默拦截
     if (!config || !artists.length) return;
-    setFollowOpen(false);
     setError("");
     setNotice("");
     // 批量占一个额度但仍可与其它任务并行，所以不清空已有的进度与日志
@@ -715,6 +694,18 @@ export default function App(): React.JSX.Element {
     }
   };
 
+  /** 保存 App API 凭据：主进程先刷新校验，失败会抛出，由设置面板就地展示 */
+  const saveOAuthCredentials = async (
+    credentials: OAuthCredentials,
+  ): Promise<void> => {
+    setOAuth(await window.pixiv.saveOAuthCredentials(credentials));
+  };
+
+  /** 清除 App API 凭据；不影响 Cookie，只影响写操作 */
+  const clearOAuth = async (): Promise<void> => {
+    setOAuth(await window.pixiv.clearOAuth());
+  };
+
   /** 应用内登录：弹出 pixiv 登录窗口，成功后自动保存 Cookie；取消则不改动现有配置 */
   const loginPixiv = async (): Promise<boolean> => {
     setLoggingIn(true);
@@ -851,107 +842,127 @@ export default function App(): React.JSX.Element {
     setCookieHealth(await window.pixiv.checkCookieHealth());
   };
 
+  /** 顶栏导航项统一样式 */
+  const navClass = (isActive: boolean): string =>
+    `flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+      isActive
+        ? "bg-primary/15 text-primary"
+        : "text-muted-foreground hover:bg-secondary/50"
+    }`;
+
   return (
     <I18nProvider locale={config.locale}>
       <ImagePreviewProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-background to-background">
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 px-6">
-            <div className="flex items-center gap-3">
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 px-4">
+            <div className="flex shrink-0 items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
-              <div>
-                <h1 className="text-sm font-semibold leading-5">
-                  {t("app.title")}
-                </h1>
-                <p className="text-[11px] leading-4 text-muted-foreground">
-                  {t("app.subtitle")}
-                </p>
-              </div>
-
-              {/* 插画与小说是两套独立工作流，用路由分开，避免状态互相干扰 */}
-              <nav className="ml-3 flex items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
-                <NavLink
-                  to="/illust"
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`
-                  }
-                >
-                  <Images className="h-3.5 w-3.5" />
-                  {t("nav.illust")}
-                </NavLink>
-                <NavLink
-                  to="/novel"
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`
-                  }
-                >
-                  <BookOpen className="h-3.5 w-3.5" />
-                  {t("nav.novel")}
-                </NavLink>
-                <NavLink
-                  to="/gallery"
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`
-                  }
-                >
-                  <Library className="h-3.5 w-3.5" />
-                  {t("nav.gallery")}
-                </NavLink>
-                <NavLink
-                  to="/library"
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`
-                  }
-                >
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  {t("nav.library")}
-                </NavLink>
-              </nav>
+              <h1 className="text-sm font-semibold leading-5">
+                {t("app.title")}
+              </h1>
             </div>
 
-            <div className="flex items-center gap-2">
-              <HeaderAccount
+            {/* 插画 / 漫画 / 小说 / 用户：切换栏目时保留搜索框里的关键词 */}
+            <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
+              <NavLink
+                to={linkWithWord("/illust")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Images className="h-3.5 w-3.5" />
+                {t("nav.illust")}
+              </NavLink>
+              <NavLink
+                to={linkWithWord("/manga")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                {t("nav.manga")}
+              </NavLink>
+              <NavLink
+                to={linkWithWord("/novel")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <ScrollText className="h-3.5 w-3.5" />
+                {t("nav.novel")}
+              </NavLink>
+              <NavLink
+                to={linkWithWord("/users")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Users className="h-3.5 w-3.5" />
+                {t("nav.users")}
+              </NavLink>
+            </nav>
+
+            {/* 下载工作台 / 图库 / 书库：图标入口，文案放 title 里节省顶栏宽度 */}
+            <nav className="flex shrink-0 items-center gap-0.5">
+              <NavLink
+                to="/workbench"
+                title={t("nav.workbench")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </NavLink>
+              <NavLink
+                to="/gallery"
+                title={t("nav.gallery")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Library className="h-3.5 w-3.5" />
+              </NavLink>
+              <NavLink
+                to="/library"
+                title={t("nav.library")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+              </NavLink>
+            </nav>
+
+            {/* 全局搜索：回车在当前栏目下搜索，词同步到 URL；下拉含历史 / 联想 / 热门标签 */}
+            <SearchBox
+              value={keyword}
+              onChange={setKeyword}
+              onSubmit={submitSearch}
+              placeholder={t("app.searchPlaceholder")}
+            />
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              <AccountMenu
                 selfUser={selfUser}
                 hasCookie={Boolean(cookie?.hasCookie)}
                 loggingIn={loggingIn}
                 onLogin={() => void loginPixiv()}
+                onOpenFollowing={() => navigate("/users/following")}
+                onOpenFavorites={() => navigate("/favorites")}
+                onOpenHistory={() => navigate("/history")}
                 onOpenSettings={() => setSettingsOpen(true)}
               />
               <Button
                 variant="outline"
                 size="sm"
+                title={t("app.settings")}
                 onClick={() => setSettingsOpen(true)}
               >
                 <Settings2 />
-                {t("app.settings")}
               </Button>
-              <Button variant="outline" size="sm" onClick={openDir}>
-                {t("app.openDir")}
+              <Button
+                variant="outline"
+                size="sm"
+                title={t("app.openDir")}
+                onClick={openDir}
+              >
+                <FolderOpen />
               </Button>
             </div>
           </header>
 
           <Routes>
-            {/* 插画工作台保持原来的四标签结构，只是从默认页变成 /illust */}
+            {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
             <Route
-              path="/illust"
+              path="/workbench"
               element={
                 <>
                   <main className="grid min-h-0 flex-1 grid-cols-[380px_1fr]">
@@ -967,7 +978,6 @@ export default function App(): React.JSX.Element {
                         onCollect={() => void collect()}
                         onDownload={() => void startDownload()}
                         onSuggestTags={(word) => window.pixiv.suggestTags(word)}
-                        onOpenFollowing={() => setFollowOpen(true)}
                       />
                     </aside>
 
@@ -1125,12 +1135,38 @@ export default function App(): React.JSX.Element {
                 </>
               }
             />
+            <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
+            <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
             <Route path="/novel" element={<NovelSearchPage />} />
             <Route
               path="/novel/series/:seriesId"
               element={<NovelSeriesPage />}
             />
             <Route path="/novel/local" element={<NovelLocalReaderPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/following" element={<UsersFollowingPage />} />
+            <Route path="/user/:userId" element={<UserDetailPage />} />
+            {/* 预备入口：先占路由，功能后续实现 */}
+            <Route
+              path="/favorites"
+              element={
+                <PlaceholderPage
+                  titleKey="placeholder.favorites"
+                  descKey="placeholder.favoritesDesc"
+                  points={['placeholder.favoritesPoint1', 'placeholder.favoritesPoint2']}
+                />
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <PlaceholderPage
+                  titleKey="placeholder.history"
+                  descKey="placeholder.historyDesc"
+                  points={['placeholder.historyPoint1', 'placeholder.historyPoint2']}
+                />
+              }
+            />
             {/* 本地图库独立成页，不再塞在插画的标签里 */}
             <Route
               path="/gallery"
@@ -1152,15 +1188,6 @@ export default function App(): React.JSX.Element {
               selected={selected.has(preview.id)}
               onToggle={toggleWork}
               onClose={() => setPreview(null)}
-            />
-          ) : null}
-
-          {followOpen ? (
-            // 批量同步入口已屏蔽（见 FollowDialog 内注释），onBatch 回调保留以便恢复
-            <FollowDialog
-              onClose={() => setFollowOpen(false)}
-              onPick={pickFollowingUser}
-              onBatch={(artists) => void batchSync(artists)}
             />
           ) : null}
 
@@ -1187,6 +1214,9 @@ export default function App(): React.JSX.Element {
               onSaveCookie={saveCookie}
               onLogin={loginPixiv}
               onClearCookie={clearCookie}
+              oauth={oauth}
+              onSaveOAuth={saveOAuthCredentials}
+              onClearOAuth={clearOAuth}
               onPickDir={() => void pickDir()}
               onOpenDir={openDir}
               onClose={() => {

@@ -18,11 +18,15 @@ import type {
   LibraryResult,
   NovelDownloadParams,
   NovelSearchParams,
+  OAuthCredentials,
   PixivWork,
   ProxyConfig,
   QueueJob,
   UgoiraFormat,
-  WorkExportParams
+  UserContentParams,
+  UserSearchParams,
+  WorkExportParams,
+  WorkSearchParams
 } from '../shared/types'
 import { clearCookie, getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
 import { applyProxy, getProxyState, saveProxyPassword, testProxy } from './proxy'
@@ -48,7 +52,10 @@ import {
   searchNovelLibraryText
 } from './pixiv/novelLibrary'
 import { setAuthFailureHandler } from './pixiv/http'
+import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
+import { fetchUserContent, fetchUserProfile, searchUsers } from './pixiv/user'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
+import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
 import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
 import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
 import { throttleLimitsFromConfig } from '../shared/throttle'
@@ -516,6 +523,18 @@ export function registerIpcHandlers(): void {
     return probeCookieHealth(cookie)
   })
 
+  // App API（OAuth）凭据：写操作（收藏、关注）走 app-api.pixiv.net + Bearer
+  ipcMain.handle('oauth:status', () => getOAuthStatus())
+  ipcMain.handle('oauth:save', async (_event, credentials: unknown) => {
+    const value = (credentials ?? {}) as Partial<OAuthCredentials>
+    return saveOAuthCredentials({
+      clientId: String(value.clientId ?? ''),
+      clientSecret: String(value.clientSecret ?? ''),
+      refreshToken: String(value.refreshToken ?? '')
+    })
+  })
+  ipcMain.handle('oauth:clear', () => clearOAuth())
+
   ipcMain.handle('dialog:pick-dir', async () => {
     const config = await loadConfig()
     const result = await dialog.showOpenDialog({
@@ -594,6 +613,76 @@ export function registerIpcHandlers(): void {
     )
   })
 
+  // 插画 / 漫画搜索：只做参数清洗，排序与分级由 API 层再白名单校验
+  ipcMain.handle('search:works', async (_event, params: WorkSearchParams) => {
+    const word = String(params?.word || '').trim().slice(0, 100)
+    if (!word) {
+      return {
+        works: [],
+        total: 0,
+        lastPage: 1,
+        relatedTags: [],
+        tagTranslation: {},
+        chips: [],
+        bookmarkRanges: []
+      }
+    }
+    const { cookie } = await resolveCookie()
+    return searchWorks(
+      {
+        kind: params?.kind === 'manga' ? 'manga' : 'illust',
+        word,
+        order: params?.order ?? 'date_d',
+        mode:
+          params?.mode === 'safe' || params?.mode === 'r18' ? params.mode : 'all',
+        page: toInt(params?.page, 1, 1, 1000),
+        csw: Boolean(params?.csw),
+        blt: toInt(params?.blt, 0, 0, 100000),
+        scope: params?.scope === 'tag_tc' ? 'tag_tc' : 'tag',
+        includeManga: Boolean(params?.includeManga)
+      },
+      cookie
+    )
+  })
+
+  ipcMain.handle('search:users', async (_event, params: UserSearchParams) => {
+    const word = String(params?.word || '').trim().slice(0, 100)
+    if (!word) return { users: [], total: 0 }
+    const { cookie } = await resolveCookie()
+    return searchUsers(
+      {
+        word,
+        page: toInt(params?.page, 1, 1, 1000),
+        postedOnly: params?.postedOnly !== false
+      },
+      cookie
+    )
+  })
+
+  ipcMain.handle('user:profile', async (_event, userId: string) => {
+    const id = String(userId || '').trim()
+    if (!/^\d+$/.test(id)) throw new Error('用户 ID 无效')
+    const { cookie } = await resolveCookie()
+    return fetchUserProfile(id, cookie)
+  })
+
+  ipcMain.handle('user:content', async (_event, params: UserContentParams) => {
+    const id = String(params?.userId || '').trim()
+    if (!/^\d+$/.test(id)) throw new Error('用户 ID 无效')
+    const tab = params?.tab
+    if (!['illust', 'manga', 'novel', 'bookmarks'].includes(tab)) throw new Error('栏目无效')
+    const { cookie } = await resolveCookie()
+    return fetchUserContent(
+      {
+        userId: id,
+        tab,
+        page: toInt(params?.page, 1, 1, 1000),
+        limit: toInt(params?.limit, 48, 1, 100)
+      },
+      cookie
+    )
+  })
+
   // 加入队列：校验后立即返回，任务由调度器按并行额度自动启动
   ipcMain.handle('download:enqueue', async (event, params: DownloadParams) => {
     const config = await loadConfig()
@@ -645,6 +734,20 @@ export function registerIpcHandlers(): void {
     if (!/^\d+$/.test(id)) throw new Error('作品 ID 无效')
     const { cookie } = await resolveCookie()
     return fetchWorkPages(id, cookie)
+  })
+
+  // 只带 id 的缩略图（用户列表四图）按 id 补全详情
+  ipcMain.handle('work:detail', async (_event, illustId: string) => {
+    const id = String(illustId || '').trim()
+    if (!/^\d+$/.test(id)) return null
+    const { cookie } = await resolveCookie()
+    return fetchWorkDetail(id, cookie)
+  })
+
+  // 搜索框下拉里的热门标签（首页推荐作品聚合）
+  ipcMain.handle('search:trendingTags', async () => {
+    const { cookie } = await resolveCookie()
+    return fetchTrendingTags(cookie)
   })
 
   // 小说搜索：只做入口参数清洗，排序/分级/匹配方式由 API 层再白名单校验一次

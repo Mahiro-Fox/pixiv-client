@@ -145,7 +145,8 @@ interface SeriesContentResponse {
   }
 }
 
-function toNovel(raw: RawNovel): NovelWork {
+/** 用户主页等其它模块也要把小说原始数据转成 NovelWork，故导出 */
+export function toNovel(raw: RawNovel): NovelWork {
   return {
     id: String(raw.id ?? '').trim(),
     title: raw.title || '无题',

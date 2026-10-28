@@ -33,6 +33,7 @@
 | --- | --- |
 | 配置管理 | 作品来源切换、用户 ID / 收藏用户 ID、标签、起始偏移、每页数量、并发数、请求间隔、保存目录的编辑与持久化 |
 | 账号凭据 | Cookie 的保存、来源识别、当前登录账号自动识别、状态展示与脱敏 |
+| App API 凭据 | 写操作（收藏、关注）所需的 client_id / client_secret / refresh_token 录入、校验、续期与清除 |
 | 作品抓取 | 作者标签分页抓取 / 收藏夹全量同步，实时显示抓取进度；支持多标签组合搜索 |
 | 作品浏览 | 卡片网格、分页、全选本页、点击卡片切换选中、详情按钮、只看未下载、已下载标记、R-18/AI 标记、排序、导出清单、标签搜索建议 |
 | 关注列表 | 读取当前账号关注的画师，展示头像/名称/ID/简介，点击卡片勾选、按名称/简介/ID 搜索、全选本页；支持勾选多位画师批量「抓取 + 下载」 |
@@ -117,6 +118,31 @@
 - 配置 Cookie 后自动调用用户信息接口识别当前登录账号（昵称 + ID），用于收藏夹同步。
 - 「下载选中作品」在未配置 Cookie 时禁用，因为未登录状态下 R-18 作品会被 pixiv 过滤。
 - **不读取系统浏览器（Chrome/Edge）的 Cookie**：Chrome 127 起启用 App-Bound Encryption，密钥绑定浏览器自身进程，第三方程序即便读到密文也无法解密；Google 还在推进 DBSC（设备绑定会话凭据）。此外读取浏览器凭据属于杀软重点拦截行为，不做也不建议做。
+
+### 3.2.1 App API 凭据（OAuth，写操作用）
+
+**入口**：设置弹窗「App API 凭据（写操作）」区块。
+
+**背景**：pixiv 的写操作（收藏、关注）只挂在 `app-api.pixiv.net`，认证方式是 `Authorization: Bearer {access_token}`，与读取数据用的 `www.pixiv.net` + Cookie 是两套体系。因此额外需要一层 OAuth 凭据。
+
+**需求**
+
+- 录入三项：`client_id`、`client_secret`、`refresh_token`。全部由用户自行填写并只保存在本地 `userData/oauth.json`，**程序源码不内置任何密钥**。
+- 保存即校验：点击「保存并验证」时先调用 `POST https://oauth.secure.pixiv.net/auth/token`（`grant_type=refresh_token`）刷新一次，成功才落盘，失败则原凭据不变并就地显示原因。
+  - `invalid_grant` → 「refresh_token 无效或已被吊销，请重新导入」。
+  - `invalid_client` → 「client_id 或 client_secret 不正确」。
+- access_token 在过期前 60 秒自动续期；pixiv 每次刷新会下发新的 `refresh_token`，需同步更新落盘。
+- 并发去重：多个写操作同时触发续期时只发一次刷新请求。
+- token 端点要求 Android 客户端 UA（`PixivAndroidApp/...`），不能沿用网页 UA。
+- App API 的 401 不得触发「Cookie 失效」提示，两者互不影响。
+- 状态展示：已连接时显示 pixiv 用户 id 与 refresh_token 后四位；未连接时显示说明文案。
+- 清除凭据需二次确认；清除只影响写操作，不影响 Cookie 与读取能力。
+- 请求节流：App API 默认 800ms 冷却（429 上报后延长），批量收藏 / 关注必须串行，不能像只读接口那样并发。
+
+**当前边界**
+
+- 本轮只落地凭据层（获取、校验、续期、清除）与设置界面；收藏 / 关注的实际请求与按钮尚未接入，见 [SHELVED.md](./SHELVED.md) 的「OAuth 层已实现」与「下一步」。
+- 未实现 PKCE 授权码登录（官方网页登录拿不到 refresh_token，需从已有客户端或抓包获得）。
 
 ### 3.3 作品抓取
 

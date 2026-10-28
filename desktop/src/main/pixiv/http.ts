@@ -51,12 +51,42 @@ export function setAuthFailureHandler(handler: (() => void) | null): void {
   authFailureHandler = handler
 }
 
-function buildRequest(url: string, cookie: string): Electron.ClientRequest {
-  const request = net.request({ url, method: 'GET', redirect: 'follow' })
+interface RequestOptions {
+  method?: 'GET' | 'POST'
+  form?: Record<string, string>
+  /** 额外 header，同名会覆盖默认值（App API 需要 Android UA） */
+  headers?: Record<string, string>
+  /** 非 2xx 时读取响应体拼进错误信息（OAuth 要区分 invalid_grant） */
+  readErrorBody?: boolean
+  /** 401 是否视为 Cookie 失效；App API 的 401 与 Cookie 无关 */
+  notifyAuthFailure?: boolean
+}
+
+/** 表单编码；没有 form 时返回 undefined，请求体为空 */
+function encodeForm(form: Record<string, string> | undefined): string | undefined {
+  return form ? new URLSearchParams(form).toString() : undefined
+}
+
+function buildRequest(
+  url: string,
+  cookie: string,
+  options: RequestOptions = {}
+): Electron.ClientRequest {
+  const request = net.request({
+    url,
+    method: options.method ?? 'GET',
+    redirect: 'follow'
+  })
   request.setHeader('User-Agent', USER_AGENT)
   request.setHeader('Referer', `${BASE}/`)
   request.setHeader('Accept-Language', 'zh-CN,zh;q=0.9')
   if (cookie) request.setHeader('Cookie', cookie)
+  if (options.form) {
+    request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+  }
+  for (const [name, value] of Object.entries(options.headers ?? {})) {
+    request.setHeader(name, value)
+  }
   // HTTP/HTTPS 代理要求认证时，Chromium 通过这个事件要账号密码；
   // 没有配置账号就回空凭据，让请求按「认证失败」正常报错
   request.on('login', (_authInfo, callback) => {
@@ -71,10 +101,12 @@ function open(
   url: string,
   cookie: string,
   signal?: AbortSignal,
-  timeoutMs = TIMEOUT
+  timeoutMs = TIMEOUT,
+  options: RequestOptions = {}
 ): Promise<Electron.IncomingMessage> {
   return new Promise((resolve, reject) => {
-    const request = buildRequest(url, cookie)
+    const request = buildRequest(url, cookie, options)
+    const body = encodeForm(options.form)
     let settled = false
     let timer: ReturnType<typeof setTimeout>
 
@@ -104,7 +136,7 @@ function open(
 
     request.on('response', (response) => finish(() => resolve(response)))
     request.on('error', (error) => finish(() => reject(new Error(explainNetError(error)))))
-    request.end()
+    request.end(body)
   })
 }
 
@@ -112,11 +144,24 @@ function drain(response: Electron.IncomingMessage): void {
   response.on('data', () => undefined)
 }
 
-export async function fetchJson<T>(
+/** 读完整个响应体；JSON 解析与错误摘要共用 */
+async function readText(response: Electron.IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = []
+  await new Promise<void>((resolve, reject) => {
+    response.on('end', () => resolve())
+    response.on('aborted', () => reject(new Error('连接中断')))
+    response.on('error', reject)
+    response.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)))
+  })
+  return Buffer.concat(chunks).toString('utf-8')
+}
+
+async function requestJson<T>(
   url: string,
-  cookie = '',
-  signal?: AbortSignal,
-  attempts = API_ATTEMPTS
+  cookie: string,
+  signal: AbortSignal | undefined,
+  attempts: number,
+  options: RequestOptions = {}
 ): Promise<T> {
   let lastError: unknown
 
@@ -126,7 +171,7 @@ export async function fetchJson<T>(
     // 全局 API 闸门：冷却 / 并发 / 最小间隔都在这里排队
     const release = await acquireSlot('api', signal)
     try {
-      const response = await open(url, cookie, signal)
+      const response = await open(url, cookie, signal, TIMEOUT, options)
       const status = response.statusCode
 
       if (status === 429) {
@@ -135,22 +180,22 @@ export async function fetchJson<T>(
         throw fail(`HTTP 429：接口限流，全局冷却 ${Math.round(cooldown / 1000)}s`, true, cooldown)
       }
       if (status < 200 || status >= 300) {
-        if (status === 401) authFailureHandler?.()
-        drain(response)
+        if (status === 401 && options.notifyAuthFailure !== false) authFailureHandler?.()
         // 403 是没权限，最常见的是抓取他人的私密收藏，给一句能看懂的原因
-        if (status === 403) throw fail('HTTP 403：没有权限访问该内容（例如他人的私密收藏）', false)
+        if (status === 403) {
+          drain(response)
+          throw fail('HTTP 403：没有权限访问该内容（例如他人的私密收藏）', false)
+        }
+        if (options.readErrorBody) {
+          const detail = (await readText(response)).replace(/\s+/g, ' ').slice(0, 200)
+          throw fail(`HTTP ${status}${detail ? `：${detail}` : ''}`, !isFatalStatus(status))
+        }
+        drain(response)
         throw fail(`HTTP ${status}`, !isFatalStatus(status))
       }
 
-      const chunks: Buffer[] = []
-      await new Promise<void>((resolve, reject) => {
-        response.on('end', () => resolve())
-        response.on('aborted', () => reject(new Error('连接中断')))
-        response.on('error', reject)
-        response.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)))
-      })
       noteSuccess('api')
-      return JSON.parse(Buffer.concat(chunks).toString('utf-8')) as T
+      return JSON.parse(await readText(response)) as T
     } catch (error) {
       lastError = error
       if (signal?.aborted) throw new Error('已取消')
@@ -165,6 +210,28 @@ export async function fetchJson<T>(
   }
 
   throw new Error(`请求失败：${url}（${String(lastError)}）`)
+}
+
+export async function fetchJson<T>(
+  url: string,
+  cookie = '',
+  signal?: AbortSignal,
+  attempts = API_ATTEMPTS
+): Promise<T> {
+  return requestJson<T>(url, cookie, signal, attempts)
+}
+
+/**
+ * 表单 POST（`application/x-www-form-urlencoded`），用于 OAuth token 端点。
+ * 复用同一套代理、超时与限流通道。
+ */
+export async function postFormJson<T>(
+  url: string,
+  form: Record<string, string>,
+  options: RequestOptions = {}
+): Promise<T> {
+  // 刷新 token 属于幂等操作，但失败后重试意义不大，只留一次网络抖动重试
+  return requestJson<T>(url, '', undefined, 2, { ...options, method: 'POST', form })
 }
 
 export interface DownloadOptions {

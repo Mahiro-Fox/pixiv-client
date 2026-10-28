@@ -8,7 +8,6 @@ import {
   Sparkles,
   Tags,
   UserRound,
-  Users,
   X
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -44,7 +43,6 @@ interface CollectPanelProps {
   onCollect: () => void
   onDownload: () => void
   onSuggestTags: (word: string) => Promise<TagSuggestion[]>
-  onOpenFollowing: () => void
 }
 
 /** 把「逗号/空格/顿号」分隔的标签串拆成列表（与主进程解析规则一致） */
@@ -697,17 +695,6 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           <p className="text-[11px] leading-4 text-muted-foreground/70">
             {t('collect.bookmarkLoginHint')}
           </p>
-        ) : null}
-        {config.source === 'tag' ? (
-          <Button
-            className="w-full"
-            variant="outline"
-            disabled={props.collecting || !hasCookie}
-            onClick={props.onOpenFollowing}
-          >
-            <Users />
-            {t('collect.fromFollowing')}
-          </Button>
         ) : null}
         {config.source === 'tag' && !hasCookie ? (
           <p className="text-[11px] leading-4 text-muted-foreground/70">

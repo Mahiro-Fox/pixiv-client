@@ -9,6 +9,7 @@ import type {
   TagMode,
   TagSuggestion,
   UgoiraFrame,
+  UserWorkThumb,
   WorkPage
 } from '../../shared/types'
 import { buildTagQuery, hasTagFilter, matchesTagQuery } from '../../shared/tags'
@@ -60,6 +61,12 @@ interface ListResponse {
   }
 }
 
+/** 关注列表里每项都自带该用户前 4 个插画 / 小说的缩略图信息 */
+interface FollowThumb {
+  id?: string | number
+  url?: string
+}
+
 interface FollowingResponse {
   error?: boolean
   message?: string
@@ -70,6 +77,8 @@ interface FollowingResponse {
       userComment?: string
       profileImageUrl?: string
       profileImageSmallUrl?: string
+      illusts?: FollowThumb[]
+      novels?: FollowThumb[]
     }[]
     total?: number
   }
@@ -270,6 +279,21 @@ export async function probeCookieHealth(cookie: string): Promise<CookieHealth> {
   }
 }
 
+/** 关注列表项里的作品缩略图：插画优先，不足四个用小说封面补 */
+function followWorks(
+  illusts: FollowThumb[] | undefined,
+  novels: FollowThumb[] | undefined
+): UserWorkThumb[] {
+  return [...(illusts || []), ...(novels || [])]
+    .map((item) => {
+      const id = String(item?.id ?? '').trim()
+      const url = item?.url || ''
+      return id && url ? { id, url } : null
+    })
+    .filter((thumb): thumb is UserWorkThumb => thumb !== null)
+    .slice(0, 4)
+}
+
 /** 关注列表；userId 留空时自动解析当前登录账号 */
 export async function fetchFollowing(
   userId: string,
@@ -298,7 +322,8 @@ export async function fetchFollowing(
       id: String(user.userId ?? '').trim(),
       name: user.userName || '未知用户',
       comment: user.userComment || '',
-      avatar: user.profileImageSmallUrl || user.profileImageUrl || ''
+      avatar: user.profileImageSmallUrl || user.profileImageUrl || '',
+      works: followWorks(user.illusts, user.novels)
     }))
     .filter((user) => user.id)
 

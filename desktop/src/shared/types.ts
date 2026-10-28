@@ -147,6 +147,33 @@ export interface CookieStatus {
 }
 
 /**
+ * App API（OAuth）连接状态。
+ * 写操作（收藏、关注）走 `app-api.pixiv.net` + Bearer，与 Cookie 读取链路是两套凭据。
+ */
+export interface OAuthStatus {
+  /** 凭据齐全且可用（已保存并校验通过） */
+  connected: boolean
+  /** client_id / client_secret 是否已填 */
+  hasClient: boolean
+  /** refresh_token 末四位，用于确认当前是哪一份凭据 */
+  tail: string
+  /** access_token 过期时间戳（毫秒）；未换取过则为 null */
+  expiresAt: number | null
+  /** pixiv 用户 id，刷新 token 时一并返回 */
+  userId: string | null
+}
+
+/**
+ * App API 凭据，全部由用户自行填写并保存在本地，源码不含任何密钥。
+ * client_id / client_secret 取自 pixiv 官方 Android 客户端，需用户自行获取。
+ */
+export interface OAuthCredentials {
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+}
+
+/**
  * Cookie 体检结论。
  * `unknown` 表示请求没打到 pixiv（超时、代理不通），
  * 它不能和 `expired` 混为一谈，否则网络抖动会误报成「要重新登录」。
@@ -184,6 +211,8 @@ export interface FollowUser {
   name: string
   comment: string
   avatar: string
+  /** 关注列表接口每个用户自带的前 4 个作品缩略图 */
+  works?: UserWorkThumb[]
 }
 
 export interface FollowingParams {
@@ -662,6 +691,152 @@ export interface NovelTextSearchResult {
   scanned: number
 }
 
+/** 作品搜索栏目：插画 / 漫画（小说走 NovelSearchParams） */
+export type WorkSearchKind = 'illust' | 'manga'
+
+/** 作品搜索排序，与 pixiv 的 order 参数一致 */
+export type WorkSearchOrder =
+  | 'date_d'
+  | 'date'
+  | 'popular_d'
+  | 'popular_male_d'
+  | 'popular_female_d'
+
+/** 作品搜索分级：all 全部，safe 仅全年龄，r18 仅 R-18（需登录） */
+export type WorkSearchMode = 'all' | 'safe' | 'r18'
+
+/** 搜索范围：s_tag 仅标签，s_tag_tc 标签 + 标题 + 说明 */
+export type WorkSearchScope = 'tag' | 'tag_tc'
+
+export interface WorkSearchParams {
+  kind: WorkSearchKind
+  word: string
+  order: WorkSearchOrder
+  mode: WorkSearchMode
+  page: number
+  /** 按作者整合（csw=1） */
+  csw?: boolean
+  /** 收藏数下限，0 或省略表示不限（blt） */
+  blt?: number
+  /** 搜索范围 */
+  scope?: WorkSearchScope
+  /** 插画搜索时把漫画结果一并合并进来（对应「包含漫画」） */
+  includeManga?: boolean
+}
+
+/**
+ * 接口返回的筛选建议（suggestChips）。
+ * pixiv 给的是网页路由 url，这里已解析成相对当前搜索的参数增量，
+ * 前端只需按 params 切换 URL 状态即可，不用关心它的原始 url。
+ */
+export interface WorkSearchChip {
+  id: string
+  label: string
+  premium: boolean
+  params: {
+    order?: WorkSearchOrder
+    mode?: 'safe' | 'r18'
+    csw?: '1'
+    blt?: string
+    scope?: WorkSearchScope
+    includeManga?: '1'
+  }
+}
+
+/** 搜索结果作品：比 PixivWork 多出列表专用的缩略图与收藏数 */
+export interface SearchWork {
+  id: string
+  title: string
+  userId: string
+  userName: string
+  /** 列表缩略图（约 250px） */
+  thumbnail: string
+  /** 作者头像 */
+  profileImageUrl: string
+  pageCount: number
+  width: number
+  height: number
+  xRestrict: number
+  illustType: number
+  tags: string[]
+  createDate: string
+  bookmarkCount: number
+  aiType: number
+}
+
+export interface WorkSearchResult {
+  works: SearchWork[]
+  total: number
+  /** 接口允许翻到的最后一页 */
+  lastPage: number
+  relatedTags: string[]
+  /** 标签翻译：标签 -> 当前展示语言文本（无译文时不包含该键） */
+  tagTranslation: Record<string, string>
+  /** 接口给出的筛选建议，随当前筛选状态变化 */
+  chips: WorkSearchChip[]
+  /** 可选的收藏数下限（bookmarkRanges），用于「高收藏数作品」类筛选 */
+  bookmarkRanges: number[]
+}
+
+export interface UserSearchParams {
+  word: string
+  page: number
+  /** 只看投稿过作品的用户；false 为全部用户 */
+  postedOnly: boolean
+}
+
+/** 用户搜索结果里的前四个作品缩略图 */
+export interface UserWorkThumb {
+  id: string
+  url: string
+}
+
+export interface UserSearchItem {
+  id: string
+  name: string
+  comment: string
+  avatar: string
+  /** 该用户的前四个作品缩略图 */
+  works: UserWorkThumb[]
+}
+
+export interface UserSearchResult {
+  users: UserSearchItem[]
+  total: number
+}
+
+/** 用户详情页的栏目 */
+export type UserContentTab = 'illust' | 'manga' | 'novel' | 'bookmarks'
+
+export interface UserProfile {
+  id: string
+  name: string
+  comment: string
+  avatar: string
+  background: string
+  premium: boolean
+  /** 关注数 */
+  following: number
+  /** 各栏目作品数（来自 profile/all） */
+  counts: { illust: number; manga: number; novel: number }
+}
+
+export interface UserContentParams {
+  userId: string
+  tab: UserContentTab
+  page: number
+  limit?: number
+}
+
+export interface UserContentResult {
+  /** 插画 / 漫画 / 收藏的作品 */
+  works: SearchWork[]
+  /** 小说栏目 */
+  novels: NovelWork[]
+  total: number
+  hasMore: boolean
+}
+
 /**
  * 自动更新状态：由主进程推送，渲染层只负责展示。
  * `unsupported` 表示开发环境或非打包运行，此时不做更新检查。
@@ -695,6 +870,12 @@ export interface PixivApi {
   loginPixiv: () => Promise<CookieStatus | null>
   /** 清除已保存的 Cookie，并重置应用内登录窗口的会话 */
   clearCookie: () => Promise<CookieStatus>
+  /** App API 连接状态（写操作凭据） */
+  getOAuthStatus: () => Promise<OAuthStatus>
+  /** 保存并校验凭据：立即刷新一次，失败则不落盘 */
+  saveOAuthCredentials: (credentials: OAuthCredentials) => Promise<OAuthStatus>
+  /** 清除 OAuth 凭据（不影响 Cookie） */
+  clearOAuth: () => Promise<OAuthStatus>
   /**
    * Cookie 体检：主动打一次 pixiv 接口判断是否还有效。
    * 未配置 Cookie 时返回 'expired'。
@@ -713,6 +894,10 @@ export interface PixivApi {
   getFollowing: (params: FollowingParams) => Promise<FollowingResult>
   exportWorks: (params: WorkExportParams) => Promise<string | null>
   getWorkPages: (illustId: string) => Promise<WorkPage[]>
+  /** 只有作品 id 时按 id 补全详情（标题/作者/标签等），失败返回 null */
+  getWorkDetail: (illustId: string) => Promise<SearchWork | null>
+  /** 搜索框下拉用的热门标签 */
+  getTrendingTags: () => Promise<TagSuggestion[]>
   suggestTags: (word: string) => Promise<TagSuggestion[]>
   /** 扫描本地图库（下载目录），返回按作品聚合的结果；force 为 true 时忽略缓存 */
   listLibrary: (force?: boolean) => Promise<LibraryResult>
@@ -757,6 +942,14 @@ export interface PixivApi {
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
   onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void
   onDownloadDone: (callback: (summary: DownloadSummary) => void) => () => void
+  /** 作品搜索（插画 / 漫画） */
+  searchWorks: (params: WorkSearchParams) => Promise<WorkSearchResult>
+  /** 用户搜索 */
+  searchUsers: (params: UserSearchParams) => Promise<UserSearchResult>
+  /** 用户主页基础信息与各栏目作品数 */
+  getUserProfile: (userId: string) => Promise<UserProfile>
+  /** 用户主页各栏目的作品列表 */
+  getUserContent: (params: UserContentParams) => Promise<UserContentResult>
   /** 小说搜索：关键词/标签，支持排序、分级与翻页 */
   searchNovels: (params: NovelSearchParams) => Promise<NovelSearchResult>
   /** 小说详情（含正文原始标记文本） */
