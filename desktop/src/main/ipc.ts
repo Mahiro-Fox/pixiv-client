@@ -8,6 +8,7 @@ import type {
   BatchSyncParams,
   BatchSyncProgress,
   BatchSyncSummary,
+  BookmarkInput,
   CollectParams,
   CollectProgress,
   DownloadParams,
@@ -15,16 +16,22 @@ import type {
   DownloadedParams,
   FailureItem,
   FollowingParams,
+  FollowInput,
   LibraryResult,
   NovelDownloadParams,
   NovelSearchParams,
   OAuthCredentials,
+  OAuthClientInput,
   PixivWork,
   ProxyConfig,
   QueueJob,
+  RankingParams,
+  RecommendUsersParams,
+  RecommendWorksParams,
   UgoiraFormat,
   UserContentParams,
   UserSearchParams,
+  ViewRecordInput,
   WorkExportParams,
   WorkSearchParams
 } from '../shared/types'
@@ -53,12 +60,17 @@ import {
 } from './pixiv/novelLibrary'
 import { setAuthFailureHandler } from './pixiv/http'
 import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
+import { fetchRanking } from './pixiv/ranking'
+import { fetchRecommendedUsers, fetchRecommendedWorks } from './pixiv/recommend'
+import { getBookmarkState, getFollowState, setBookmark, setFollow } from './pixiv/write'
 import { fetchUserContent, fetchUserProfile, searchUsers } from './pixiv/user'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
+import { loginOAuthWithPKCE } from './pixiv/oauthLogin'
 import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
 import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
 import { throttleLimitsFromConfig } from '../shared/throttle'
+import { blockRulesOf, filterBlocked, isBlocked } from '../shared/block'
 import {
   findJob,
   flushQueue,
@@ -72,6 +84,7 @@ import {
 } from './queue'
 import { scanLibrary } from './library'
 import { forgetHistory } from './history'
+import { clearViews, listViews, recordView } from './viewHistory'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate } from './updater'
 
 interface ActiveRun {
@@ -156,6 +169,17 @@ function toInt(value: unknown, fallback: number, min: number, max: number): numb
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(min, Math.min(max, Math.round(parsed)))
+}
+
+/**
+ * 全局屏蔽：所有作品来源在返回前统一过一遍规则，
+ * 保证「能在界面上看到的」和「能被下载的」是同一批作品。
+ */
+function withoutBlocked<T extends { userId?: string; userName?: string; tags?: Array<string | { tag?: string }> }>(
+  works: T[],
+  config: AppConfig
+): T[] {
+  return filterBlocked(works, blockRulesOf(config))
 }
 
 /** 动图格式只接受三个合法值，其它输入回退到 mp4 */
@@ -377,7 +401,7 @@ async function executeBatch(
           signal: controller.signal,
           onProgress: (item) => send('batch:progress', { ...progress, works: item.loaded })
         })
-        const works = collected.works.slice(0, perArtist)
+        const works = withoutBlocked(collected.works, config).slice(0, perArtist)
         progress.works = works.length
         send('batch:progress', { ...progress })
 
@@ -534,6 +558,14 @@ export function registerIpcHandlers(): void {
     })
   })
   ipcMain.handle('oauth:clear', () => clearOAuth())
+  ipcMain.handle('oauth:login', async (event, client: unknown) => {
+    const value = (client ?? {}) as Partial<OAuthClientInput>
+    const parent = BrowserWindow.fromWebContents(event.sender)
+    return loginOAuthWithPKCE(parent, {
+      clientId: String(value.clientId ?? '').slice(0, 200),
+      clientSecret: String(value.clientSecret ?? '').slice(0, 200)
+    })
+  })
 
   ipcMain.handle('dialog:pick-dir', async () => {
     const config = await loadConfig()
@@ -577,19 +609,21 @@ export function registerIpcHandlers(): void {
         }
         userId = self.id
       }
-      return collectBookmarks({
+      const collected = await collectBookmarks({
         ...common,
         userId,
         tag: (params.bookmarkTag ?? config.bookmarkTag).trim(),
         rest: params.bookmarkRest === 'hide' ? 'hide' : 'show'
       })
+      return { ...collected, works: withoutBlocked(collected.works, config) }
     }
 
-    return collectWorks({
+    const collected = await collectWorks({
       ...common,
       userId: params.userId || config.userId,
       tag: common.tag || config.tag
     })
+    return { ...collected, works: withoutBlocked(collected.works, config) }
   })
 
   ipcMain.handle('user:self', async () => {
@@ -628,7 +662,7 @@ export function registerIpcHandlers(): void {
       }
     }
     const { cookie } = await resolveCookie()
-    return searchWorks(
+    const result = await searchWorks(
       {
         kind: params?.kind === 'manga' ? 'manga' : 'illust',
         word,
@@ -643,6 +677,8 @@ export function registerIpcHandlers(): void {
       },
       cookie
     )
+    const config = await loadConfig()
+    return { ...result, works: withoutBlocked(result.works, config) }
   })
 
   ipcMain.handle('search:users', async (_event, params: UserSearchParams) => {
@@ -672,16 +708,76 @@ export function registerIpcHandlers(): void {
     const tab = params?.tab
     if (!['illust', 'manga', 'novel', 'bookmarks'].includes(tab)) throw new Error('栏目无效')
     const { cookie } = await resolveCookie()
-    return fetchUserContent(
+    const config = await loadConfig()
+    const result = await fetchUserContent(
       {
         userId: id,
         tab,
         page: toInt(params?.page, 1, 1, 1000),
-        limit: toInt(params?.limit, 48, 1, 100)
+        limit: toInt(params?.limit, 48, 1, 100),
+        bookmarkRest: params?.bookmarkRest === 'hide' ? 'hide' : 'show',
+        bookmarkTag: params?.bookmarkTag
       },
       cookie
     )
+    return { ...result, works: withoutBlocked(result.works, config) }
   })
+
+  // 官方排行榜：网页端接口，未登录也能取到全年龄榜单
+  ipcMain.handle('ranking:list', async (_event, params: RankingParams) => {
+    const { cookie } = await resolveCookie()
+    const config = await loadConfig()
+    const result = await fetchRanking(
+      {
+        kind: params?.kind === 'manga' ? 'manga' : 'illust',
+        mode: params?.mode ?? 'daily',
+        page: toInt(params?.page, 1, 1, 10),
+        date: String(params?.date || '').trim()
+      },
+      cookie
+    )
+    return { ...result, works: withoutBlocked(result.works, config) }
+  })
+
+  // 推荐作品：已连接 App API 时个性化推荐，否则网页发现兜底
+  ipcMain.handle('recommend:works', async (_event, params: RecommendWorksParams) => {
+    const config = await loadConfig()
+    const result = await fetchRecommendedWorks({
+      kind: params?.kind === 'manga' ? 'manga' : 'illust',
+      nextUrl: typeof params?.nextUrl === 'string' ? params.nextUrl.slice(0, 2000) : '',
+      mode: params?.mode === 'safe' || params?.mode === 'r18' ? params.mode : 'all'
+    })
+    return { ...result, works: withoutBlocked(result.works, config) }
+  })
+
+  // 推荐画师：只走 App API；未连接时前端会提前提示，不会走到这里
+  ipcMain.handle('recommend:users', async (_event, params: RecommendUsersParams) => {
+    const config = await loadConfig()
+    const result = await fetchRecommendedUsers({
+      nextUrl: typeof params?.nextUrl === 'string' ? params.nextUrl.slice(0, 2000) : ''
+    })
+    const rules = blockRulesOf(config)
+    return {
+      ...result,
+      users: result.users.filter(
+        (user) => !isBlocked({ userId: user.id, userName: user.name }, rules)
+      )
+    }
+  })
+
+  // 写操作：收藏 / 关注都走 App API，凭据缺失时在 write.ts 里统一报错
+  ipcMain.handle('write:bookmarkState', async (_event, workId: string) =>
+    getBookmarkState(workId)
+  )
+  ipcMain.handle('write:setBookmark', async (_event, workId: string, input: BookmarkInput) =>
+    setBookmark(workId, input)
+  )
+  ipcMain.handle('write:followState', async (_event, userId: string) =>
+    getFollowState(userId)
+  )
+  ipcMain.handle('write:setFollow', async (_event, userId: string, input: FollowInput) =>
+    setFollow(userId, input)
+  )
 
   // 加入队列：校验后立即返回，任务由调度器按并行额度自动启动
   ipcMain.handle('download:enqueue', async (event, params: DownloadParams) => {
@@ -1054,6 +1150,13 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('throttle:get', () => throttleStates())
+
+  // 浏览记录：打开作品详情时写一条，页面按时间倒序读取
+  ipcMain.handle('viewHistory:list', async () => listViews())
+  ipcMain.handle('viewHistory:record', async (_event, entry: ViewRecordInput) => {
+    await recordView(entry)
+  })
+  ipcMain.handle('viewHistory:clear', async () => clearViews())
 
   ipcMain.handle('app:version', () => app.getVersion())
 

@@ -14,10 +14,12 @@ import { postFormJson } from './http'
  * 后续通过 `getAccessToken()` 取凭据。
  *
  * 凭据（client_id / client_secret / refresh_token）全部由用户自行填入并
- * 存在本地，源码里不放任何密钥。官方网页登录拿不到 refresh_token，
- * 需要用户从已有客户端或抓包得到；PKCE 授权码登录是后续可选增强。
+ * 存在本地，源码里不放任何密钥。refresh_token 可以手填，也可以点设置里的
+ * 「通过 pixiv 登录获取」走 PKCE 授权码流程自动换取（见 `oauthLogin.ts`）。
  */
 const OAUTH_TOKEN_URL = 'https://oauth.secure.pixiv.net/auth/token'
+/** PKCE 授权码换 token 时回传的地址，必须与授权页一致 */
+export const OAUTH_REDIRECT_URI = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback'
 /** token 端点要求 Android 客户端 UA，不能沿用网页 UA */
 const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)'
 /** 提前 60 秒续期，避免请求发出时刚好过期 */
@@ -132,6 +134,78 @@ async function refreshTokens(credentials: OAuthCredentials): Promise<TokenRecord
 
 export async function getOAuthStatus(): Promise<OAuthStatus> {
   return statusOf(await load())
+}
+
+interface AuthorizationInput {
+  clientId: string
+  clientSecret: string
+  code: string
+  codeVerifier: string
+}
+
+/**
+ * PKCE 授权码 → 令牌。
+ * 与 refresh 流程共用 token 端点，但 grant_type 换成 authorization_code，
+ * 并回传 code_verifier 与 redirect_uri。
+ */
+async function requestTokensByCode(input: AuthorizationInput): Promise<TokenRecord> {
+  const form = {
+    grant_type: 'authorization_code',
+    code: input.code,
+    code_verifier: input.codeVerifier,
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    redirect_uri: OAUTH_REDIRECT_URI,
+    include_policy: 'true'
+  }
+
+  let response: TokenResponse
+  try {
+    response = await postFormJson<TokenResponse>(OAUTH_TOKEN_URL, form, {
+      headers: { 'User-Agent': APP_USER_AGENT },
+      readErrorBody: true,
+      notifyAuthFailure: false
+    })
+  } catch (reason) {
+    const text = String(reason)
+    if (text.includes('invalid_grant')) {
+      throw new Error('授权码无效或已过期，请重新登录授权')
+    }
+    if (text.includes('invalid_client')) {
+      throw new Error('client_id 或 client_secret 不正确')
+    }
+    throw reason
+  }
+
+  if (!response.access_token || !response.refresh_token) {
+    throw new Error('授权失败：响应里没有 access_token 或 refresh_token')
+  }
+
+  return {
+    clientId: input.clientId,
+    clientSecret: input.clientSecret,
+    refreshToken: response.refresh_token,
+    accessToken: response.access_token,
+    expiresAt: Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
+    userId: response.user?.id ? String(response.user.id) : null
+  }
+}
+
+/**
+ * 用授权页拿到的 code 完成登录，成功即落盘。
+ * 返回的状态与 `saveOAuthCredentials` 一致，界面可直接复用同一套展示。
+ */
+export async function completePixivAuthorization(
+  input: AuthorizationInput
+): Promise<OAuthStatus> {
+  const record = await requestTokensByCode({
+    clientId: input.clientId.trim(),
+    clientSecret: input.clientSecret.trim(),
+    code: input.code.trim(),
+    codeVerifier: input.codeVerifier
+  })
+  await persist(record)
+  return statusOf(record)
 }
 
 /**

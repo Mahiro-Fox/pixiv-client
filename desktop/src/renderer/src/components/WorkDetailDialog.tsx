@@ -1,8 +1,8 @@
-import { Check, ExternalLink, Gem, Image as ImageIcon, ImageOff, Loader2, Plus, X } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Check, ExternalLink, Gem, Image as ImageIcon, ImageOff, Loader2, Plus, X } from 'lucide-react'
 import { useI18n } from '@renderer/i18n'
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
-import type { ImageQuality, PixivWork, WorkPage } from '@shared/types'
+import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage } from '@shared/types'
 import { readWorkPages, writeWorkPages } from '@renderer/lib/dialogCache'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -33,10 +33,82 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const [error, setError] = useState('')
   const [quality, setQuality] = useState<ImageQuality>(props.quality)
 
+  /** 收藏依赖 App API 凭据；未连接时整块控件不渲染 */
+  const [oauthConnected, setOauthConnected] = useState(false)
+  const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
+  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
+  const [bookmarkBusy, setBookmarkBusy] = useState(false)
+  const [writeError, setWriteError] = useState('')
+
+  // 打开时读取一次收藏状态；切换作品要重置，避免显示上一件的状态
+  useEffect(() => {
+    let alive = true
+    setBookmark(null)
+    setWriteError('')
+    void window.pixiv
+      .getOAuthStatus()
+      .then(async (status) => {
+        if (!alive) return
+        setOauthConnected(status.connected)
+        if (!status.connected) return
+        const state = await window.pixiv.getBookmarkState(work.id)
+        if (!alive) return
+        setBookmark(state)
+        setPrivacy(state.restrict)
+      })
+      .catch((reason: unknown) => {
+        if (alive) setWriteError(messageOf(reason))
+      })
+    return () => {
+      alive = false
+    }
+  }, [work.id])
+
+  const applyBookmark = async (input: BookmarkInput): Promise<void> => {
+    if (bookmarkBusy) return
+    setBookmarkBusy(true)
+    setWriteError('')
+    try {
+      const next = await window.pixiv.setBookmark(work.id, input)
+      setBookmark(next)
+      setPrivacy(next.restrict)
+    } catch (reason) {
+      setWriteError(messageOf(reason))
+    } finally {
+      setBookmarkBusy(false)
+    }
+  }
+
+  /** 已收藏时切换可见性需要重新提交；未收藏时只记下待用的选择 */
+  const choosePrivacy = (value: BookmarkPrivacy): void => {
+    if (bookmark?.bookmarked) {
+      void applyBookmark({ bookmarked: true, restrict: value })
+      return
+    }
+    setPrivacy(value)
+  }
+
   // 详情弹窗的预览质量默认跟随全局设置，切换作品时重置
   useEffect(() => {
     setQuality(props.quality)
   }, [props.quality, work.id])
+
+  // 打开详情即写入浏览记录；同一作品重复打开只更新时间，不产生多条
+  useEffect(() => {
+    if (!work.userId) return
+    void window.pixiv
+      .recordView({
+        id: work.id,
+        title: work.title,
+        userId: work.userId,
+        userName: work.userName,
+        url: work.url,
+        pageCount: work.pageCount,
+        xRestrict: work.xRestrict,
+        illustType: work.illustType
+      })
+      .catch(() => undefined)
+  }, [work])
 
   const srcOf = (page: WorkPage): string => {
     if (quality === 'original') return page.original || page.regular || page.url
@@ -229,11 +301,58 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
           )}
         </div>
 
+        {writeError ? (
+          <div className="shrink-0 border-t border-destructive/30 bg-destructive/10 px-5 py-2 text-[11px] text-destructive">
+            {writeError}
+          </div>
+        ) : null}
+
         <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
           <p className="truncate text-[11px] text-muted-foreground">
             {t('detail.authorDir', { id: work.userId, name: work.userName })}
           </p>
           <div className="flex items-center gap-2">
+            {oauthConnected ? (
+              <>
+                <Button
+                  variant={bookmark?.bookmarked ? 'default' : 'outline'}
+                  size="sm"
+                  disabled={bookmarkBusy}
+                  onClick={() =>
+                    void applyBookmark({
+                      bookmarked: !bookmark?.bookmarked,
+                      restrict: privacy
+                    })
+                  }
+                >
+                  {bookmarkBusy ? (
+                    <Loader2 className="animate-spin" />
+                  ) : bookmark?.bookmarked ? (
+                    <BookmarkCheck />
+                  ) : (
+                    <Bookmark />
+                  )}
+                  {bookmark?.bookmarked ? t('detail.bookmarked') : t('detail.bookmark')}
+                </Button>
+                <div className="flex overflow-hidden rounded-md border border-border/70">
+                  {(['public', 'private'] as BookmarkPrivacy[]).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={bookmarkBusy}
+                      onClick={() => choosePrivacy(value)}
+                      className={
+                        privacy === value
+                          ? 'bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary'
+                          : 'px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/50'
+                      }
+                    >
+                      {value === 'public' ? t('detail.bookmarkPublic') : t('detail.bookmarkPrivate')}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
             <Button variant="ghost" size="sm" onClick={props.onClose}>
               {t('detail.close')}
             </Button>

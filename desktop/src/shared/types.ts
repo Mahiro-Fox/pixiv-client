@@ -21,6 +21,26 @@ export interface PixivWork {
 
 export type WorkSource = 'tag' | 'bookmarks'
 export type BookmarkRest = 'show' | 'hide'
+/** 写操作的可见性：公开 / 私密（pixiv App API 的 restrict） */
+export type BookmarkPrivacy = 'public' | 'private'
+
+/** 作品收藏状态；restrict 在取消收藏后仍保留上一次的选择 */
+export interface BookmarkState {
+  bookmarked: boolean
+  restrict: BookmarkPrivacy
+}
+
+export interface BookmarkInput {
+  bookmarked: boolean
+  /** 收藏时的可见性；取消收藏时忽略 */
+  restrict?: BookmarkPrivacy
+}
+
+export interface FollowInput {
+  followed: boolean
+  /** 关注时的可见性；取关时忽略 */
+  restrict?: BookmarkPrivacy
+}
 export type R18Filter = 'any' | 'only' | 'exclude'
 /** 多标签组合方式：and 同时满足，or 任一满足 */
 export type TagMode = 'and' | 'or'
@@ -79,6 +99,10 @@ export interface AppConfig {
   filterR18: R18Filter
   /** 过滤规则：排除 AI 生成作品 */
   filterExcludeAi: boolean
+  /** 全局屏蔽：作品标签，逗号或空格分隔；搜索、用户作品、收藏与下载均生效 */
+  blockTags: string
+  /** 全局屏蔽：用户 ID 或作者名，逗号或空格分隔 */
+  blockUsers: string
   /** 接口请求最大并发 */
   throttleApiConcurrency: number
   /** 接口两次请求的最小间隔（毫秒） */
@@ -171,6 +195,12 @@ export interface OAuthCredentials {
   clientId: string
   clientSecret: string
   refreshToken: string
+}
+
+/** PKCE 授权登录只需要客户端常量，refresh_token 由授权流程自动获得 */
+export interface OAuthClientInput {
+  clientId: string
+  clientSecret: string
 }
 
 /**
@@ -485,6 +515,37 @@ export interface HistoryEntry {
   at: number
 }
 
+/** 浏览记录条目：同一作品只保留一条，重复打开时更新为最近一次 */
+export interface ViewHistoryEntry {
+  /** 作品 ID */
+  id: string
+  title: string
+  userId: string
+  userName: string
+  /** 250px 缩略图地址 */
+  thumbnail: string
+  pageCount: number
+  /** 0 全年龄，1 R-18，2 R-18G */
+  xRestrict: number
+  /** 0 插画，1 漫画，2 动图 */
+  illustType: number
+  /** 最近一次浏览时间戳（毫秒） */
+  at: number
+}
+
+/** 写入浏览记录时只需要作品的展示信息，时间由主进程补 */
+export interface ViewRecordInput {
+  id: string
+  title: string
+  userId: string
+  userName: string
+  /** 原图或任意尺寸地址，主进程会统一收敛成缩略图 */
+  url: string
+  pageCount: number
+  xRestrict?: number
+  illustType?: number
+}
+
 export interface LibraryFile {
   page: number
   path: string
@@ -762,6 +823,8 @@ export interface SearchWork {
   createDate: string
   bookmarkCount: number
   aiType: number
+  /** 排行榜名次；只有排行榜来源才带该字段 */
+  rank?: number
 }
 
 export interface WorkSearchResult {
@@ -805,6 +868,62 @@ export interface UserSearchResult {
   total: number
 }
 
+/** 排行榜榜单类型，与 pixiv ranking.php 的 mode 参数一致 */
+export type RankingMode =
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'rookie'
+  | 'original'
+  | 'male'
+  | 'female'
+
+export interface RankingParams {
+  kind: WorkSearchKind
+  mode: RankingMode
+  page: number
+  /** YYYYMMDD；留空表示最新一期 */
+  date?: string
+}
+
+export interface RankingResult {
+  works: SearchWork[]
+  page: number
+  lastPage: number
+  total: number
+  /** 本期榜单对应的日期（YYYYMMDD） */
+  date: string
+  /** 可翻到的下一期日期；空字符串表示没有 */
+  nextDate: string
+}
+
+export interface RecommendWorksParams {
+  kind: WorkSearchKind
+  /** 上一批返回的 nextUrl；首屏留空 */
+  nextUrl?: string
+  /** 未连接 App API 时，网页发现接口使用的分级 */
+  mode?: WorkSearchMode
+}
+
+export interface RecommendWorksResult {
+  works: SearchWork[]
+  /** 继续加载的地址；空字符串表示没有更多 */
+  nextUrl: string
+  /** app = 个性化推荐，web = 网页发现兜底 */
+  source: 'app' | 'web'
+}
+
+export interface RecommendUsersParams {
+  /** 上一批返回的 nextUrl；首屏留空 */
+  nextUrl?: string
+}
+
+export interface RecommendUsersResult {
+  users: UserSearchItem[]
+  /** 继续加载的地址；空字符串表示没有更多 */
+  nextUrl: string
+}
+
 /** 用户详情页的栏目 */
 export type UserContentTab = 'illust' | 'manga' | 'novel' | 'bookmarks'
 
@@ -826,6 +945,10 @@ export interface UserContentParams {
   tab: UserContentTab
   page: number
   limit?: number
+  /** 收藏栏目专用：公开 / 私密收藏，缺省为公开 */
+  bookmarkRest?: BookmarkRest
+  /** 收藏栏目专用：只取该标签下的收藏，留空为全部 */
+  bookmarkTag?: string
 }
 
 export interface UserContentResult {
@@ -874,6 +997,11 @@ export interface PixivApi {
   getOAuthStatus: () => Promise<OAuthStatus>
   /** 保存并校验凭据：立即刷新一次，失败则不落盘 */
   saveOAuthCredentials: (credentials: OAuthCredentials) => Promise<OAuthStatus>
+  /**
+   * 打开 pixiv 授权页登录，用 PKCE 授权码自动换取并保存 refresh_token。
+   * 用户关闭窗口或拒绝授权时返回 null。
+   */
+  loginOAuth: (client: OAuthClientInput) => Promise<OAuthStatus | null>
   /** 清除 OAuth 凭据（不影响 Cookie） */
   clearOAuth: () => Promise<OAuthStatus>
   /**
@@ -898,6 +1026,12 @@ export interface PixivApi {
   getWorkDetail: (illustId: string) => Promise<SearchWork | null>
   /** 搜索框下拉用的热门标签 */
   getTrendingTags: () => Promise<TagSuggestion[]>
+  /** 官方排行榜：插画 / 漫画 × 日 / 周 / 月 / 新人 / 原创 / 男性向 / 女性向 */
+  listRanking: (params: RankingParams) => Promise<RankingResult>
+  /** 推荐作品：已连接 App API 时个性化推荐，否则网页发现兜底 */
+  listRecommendedWorks: (params: RecommendWorksParams) => Promise<RecommendWorksResult>
+  /** 推荐画师：走 App API，需要 OAuth 凭据 */
+  listRecommendedUsers: (params: RecommendUsersParams) => Promise<RecommendUsersResult>
   suggestTags: (word: string) => Promise<TagSuggestion[]>
   /** 扫描本地图库（下载目录），返回按作品聚合的结果；force 为 true 时忽略缓存 */
   listLibrary: (force?: boolean) => Promise<LibraryResult>
@@ -905,6 +1039,20 @@ export interface PixivApi {
   openLibraryDir: (dir: string) => Promise<void>
   /** 删除本地图库文件（仅限保存目录内），返回重新扫描后的图库 */
   deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>
+  /** 浏览记录：按最近浏览时间倒序，同一作品只保留最后一条 */
+  listViewHistory: () => Promise<ViewHistoryEntry[]>
+  /** 记录一次作品浏览；只有作品 ID 与作者齐全时才写入 */
+  recordView: (entry: ViewRecordInput) => Promise<void>
+  /** 清空浏览记录，返回清空后的列表 */
+  clearViewHistory: () => Promise<ViewHistoryEntry[]>
+  /** 读取作品收藏状态（App API） */
+  getBookmarkState: (workId: string) => Promise<BookmarkState>
+  /** 收藏 / 取消收藏作品，返回最新状态 */
+  setBookmark: (workId: string, input: BookmarkInput) => Promise<BookmarkState>
+  /** 读取是否已关注该画师（App API） */
+  getFollowState: (userId: string) => Promise<boolean>
+  /** 关注 / 取关画师，返回最新状态 */
+  setFollow: (userId: string, input: FollowInput) => Promise<boolean>
   checkDownloaded: (params: DownloadedParams) => Promise<string[]>
   /** 加入下载队列：立即返回队列快照，任务由主进程按并行额度自动启动 */
   enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>

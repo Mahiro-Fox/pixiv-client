@@ -29,7 +29,9 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
       filterExcludeTags: '',
       filterExcludeKeywords: '',
       filterR18: 'any',
-      filterExcludeAi: false
+      filterExcludeAi: false,
+      blockTags: '',
+      blockUsers: ''
     })
   }
 
@@ -152,6 +154,25 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
             placeholder={t('filter.excludeTagsPlaceholder')}
           />
         </Field>
+
+        {/* 与上面的「排除标签」不同：屏蔽是全局的，搜索、用户主页、收藏里都不再出现 */}
+        <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-3">
+          <p className="text-[11px] text-muted-foreground">{t('filter.blockHint')}</p>
+          <Field label={t('filter.blockTags')} hint={t('filter.blockTagsHint')}>
+            <Input
+              value={config.blockTags}
+              onChange={(event) => props.onConfigChange({ blockTags: event.target.value })}
+              placeholder={t('filter.blockTagsPlaceholder')}
+            />
+          </Field>
+          <Field label={t('filter.blockUsers')} hint={t('filter.blockUsersHint')}>
+            <Input
+              value={config.blockUsers}
+              onChange={(event) => props.onConfigChange({ blockUsers: event.target.value })}
+              placeholder={t('filter.blockUsersPlaceholder')}
+            />
+          </Field>
+        </div>
       </div>
     </Dialog>
   )

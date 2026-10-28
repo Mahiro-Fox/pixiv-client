@@ -1,16 +1,4 @@
-import {
-  ArrowLeft,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  FileDown,
-  FolderOpen,
-  Loader2,
-  Minus,
-  Plus,
-  List,
-  X
-} from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, FileDown, FolderOpen, Loader2, List, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -35,6 +23,7 @@ import {
 } from '@renderer/lib/novel'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
+import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
 
 function messageOf(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
@@ -45,8 +34,6 @@ function dirOf(file: string): string {
   const index = Math.max(file.lastIndexOf('\\'), file.lastIndexOf('/'))
   return index > 0 ? file.slice(0, index) : file
 }
-
-const THEMES: ReaderSettings['theme'][] = ['light', 'sepia', 'dark']
 
 export function NovelReaderPage(): React.JSX.Element {
   const { t } = useI18n()
@@ -157,13 +144,6 @@ export function NovelReaderPage(): React.JSX.Element {
     }
   }
 
-  const changeFont = (delta: number): void => {
-    setSettings((previous) => ({
-      ...previous,
-      fontSize: Math.max(14, Math.min(26, previous.fontSize + delta))
-    }))
-  }
-
   const themeClass =
     settings.theme === 'dark'
       ? 'bg-[#15161a] text-[#c8c8d0]'
@@ -216,44 +196,10 @@ export function NovelReaderPage(): React.JSX.Element {
         <span className="shrink-0 text-[11px] text-muted-foreground">
           {t('novel.progress', { percent })}
         </span>
-        <div className="flex items-center gap-0.5 rounded-md border border-border/60">
-          <button
-            type="button"
-            onClick={() => changeFont(-1)}
-            className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={t('novel.fontSmaller')}
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <span className="min-w-[1.6rem] text-center text-[10px] text-muted-foreground">
-            {settings.fontSize}
-          </span>
-          <button
-            type="button"
-            onClick={() => changeFont(1)}
-            className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={t('novel.fontBigger')}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-0.5 rounded-md border border-border/60 p-0.5">
-          {THEMES.map((theme) => (
-            <button
-              key={theme}
-              type="button"
-              onClick={() => setSettings((previous) => ({ ...previous, theme }))}
-              title={t(`novel.theme.${theme}` as const)}
-              className={`h-4 w-4 rounded-sm border ${
-                theme === 'light'
-                  ? 'border-black/15 bg-[#fbfbfa]'
-                  : theme === 'sepia'
-                    ? 'border-black/15 bg-[#f4ecd8]'
-                    : 'border-white/20 bg-[#15161a]'
-              } ${settings.theme === theme ? 'ring-1 ring-primary' : ''}`}
-            />
-          ))}
-        </div>
+        <NovelReaderSettings
+          settings={settings}
+          onChange={(patch) => setSettings((previous) => ({ ...previous, ...patch }))}
+        />
         {seriesId ? (
           <Button variant="ghost" size="sm" onClick={() => setTocOpen(true)}>
             <List />
@@ -298,8 +244,12 @@ export function NovelReaderPage(): React.JSX.Element {
         className={`scrollbar-thin min-h-0 flex-1 overflow-y-auto ${themeClass}`}
       >
         <article
-          className="novel-body mx-auto max-w-3xl px-10 py-10"
-          style={{ fontSize: `${settings.fontSize}px`, lineHeight: 2 }}
+          className="novel-body mx-auto px-10 py-10"
+          style={{
+            fontSize: `${settings.fontSize}px`,
+            lineHeight: settings.lineHeight,
+            maxWidth: `${settings.maxWidth}px`
+          }}
         >
           <header className="mb-8 border-b border-[rgba(128,128,128,0.22)] pb-6">
             <div className="mb-2 flex items-center gap-2">

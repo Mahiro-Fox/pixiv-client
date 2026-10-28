@@ -64,10 +64,28 @@ export function renderNovelPage(raw: string, embedded: Record<string, string>): 
 
 export interface ReaderSettings {
   fontSize: number
+  /** 行高倍数 */
+  lineHeight: number
+  /** 正文最大宽度（px） */
+  maxWidth: number
   theme: 'light' | 'sepia' | 'dark'
 }
 
-export const READER_DEFAULT: ReaderSettings = { fontSize: 18, theme: 'sepia' }
+/** 阅读宽度的三档：窄 / 标准 / 宽 */
+export const READER_WIDTHS = [640, 768, 896] as const
+
+export const READER_DEFAULT: ReaderSettings = {
+  fontSize: 18,
+  lineHeight: 2,
+  maxWidth: 768,
+  theme: 'sepia'
+}
+
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(min, Math.min(max, parsed))
+}
 
 export function loadReaderSettings(): ReaderSettings {
   try {
@@ -78,8 +96,17 @@ export function loadReaderSettings(): ReaderSettings {
       parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'sepia'
         ? parsed.theme
         : READER_DEFAULT.theme
-    const fontSize = Math.max(14, Math.min(26, Number(parsed.fontSize) || READER_DEFAULT.fontSize))
-    return { fontSize, theme }
+    return {
+      fontSize: Math.round(clamp(parsed.fontSize, 14, 26, READER_DEFAULT.fontSize)),
+      // 行高按 0.1 取整，避免出现 1.9999999 这样的显示
+      lineHeight: Math.round(clamp(parsed.lineHeight, 1.4, 2.6, READER_DEFAULT.lineHeight) * 10) / 10,
+      maxWidth: READER_WIDTHS.includes(
+        clamp(parsed.maxWidth, 640, 896, READER_DEFAULT.maxWidth) as (typeof READER_WIDTHS)[number]
+      )
+        ? clamp(parsed.maxWidth, 640, 896, READER_DEFAULT.maxWidth)
+        : READER_DEFAULT.maxWidth,
+      theme
+    }
   } catch {
     return READER_DEFAULT
   }

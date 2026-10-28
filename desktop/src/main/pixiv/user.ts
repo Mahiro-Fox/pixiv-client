@@ -1,4 +1,5 @@
 import type {
+  BookmarkRest,
   NovelWork,
   SearchWork,
   UserContentParams,
@@ -25,7 +26,8 @@ const PROFILE_WORKS_URL =
 const PROFILE_NOVELS_URL =
   BASE + '/ajax/user/{id}/profile/novels?{ids}&work_category=novel&is_first_page=1&lang=zh'
 const BOOKMARKS_URL =
-  BASE + '/ajax/user/{id}/illusts/bookmarks?tag=&offset={offset}&limit={limit}&rest=show&lang=zh'
+  BASE +
+  '/ajax/user/{id}/illusts/bookmarks?tag={tag}&offset={offset}&limit={limit}&rest={rest}&lang=zh'
 // i=1 只搜「投稿过作品」的用户，i=0 为全部用户；翻页用 p（不传默认第一页）
 const USER_SEARCH_URL =
   BASE + '/ajax/search/users?nick={nick}&s_mode=s_usr&p={page}&i={scope}&lang=zh'
@@ -274,9 +276,13 @@ export async function fetchUserContent(
   const tab: UserContentTab = params.tab
 
   if (tab === 'bookmarks') {
+    const rest: BookmarkRest = params.bookmarkRest === 'hide' ? 'hide' : 'show'
+    const tag = String(params.bookmarkTag || '').trim()
     const url = BOOKMARKS_URL.replace('{id}', encodeURIComponent(userId))
       .replace('{offset}', String((page - 1) * limit))
       .replace('{limit}', String(limit))
+      .replace('{rest}', rest)
+      .replace('{tag}', encodeURIComponent(tag))
     const data = await fetchJson<BookmarksResponse>(url, cookie, signal)
     if (data.error) throw new Error(`收藏接口报错：${data.message || '未知错误'}`)
 

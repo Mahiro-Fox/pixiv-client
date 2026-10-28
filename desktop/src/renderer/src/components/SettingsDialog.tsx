@@ -74,6 +74,8 @@ interface SettingsDialogProps {
   oauth: OAuthStatus | null
   /** 保存并校验凭据：主进程会先刷新一次，失败不落盘 */
   onSaveOAuth: (credentials: OAuthCredentials) => Promise<void>
+  /** 打开 pixiv 授权页，用 PKCE 自动换取 refresh_token；返回 false 表示用户取消 */
+  onLoginOAuth: (clientId: string, clientSecret: string) => Promise<boolean>
   onClearOAuth: () => Promise<void>
   onPickDir: () => void
   onOpenDir: () => void
@@ -208,6 +210,8 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   })
   const [savingOAuth, setSavingOAuth] = useState(false)
   const [oauthError, setOAuthError] = useState('')
+  /** 授权登录的结果提示（成功 / 取消），与错误分开显示 */
+  const [oauthNotice, setOAuthNotice] = useState('')
   const [confirmingOAuthClear, setConfirmingOAuthClear] = useState(false)
 
   // 版本与更新：主进程在启动后会自动检查，这里只负责展示与手动触发
@@ -358,10 +362,34 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const saveOAuth = async (): Promise<void> => {
     setSavingOAuth(true)
     setOAuthError('')
+    setOAuthNotice('')
     try {
       await props.onSaveOAuth(oauthForm)
       // 保存成功后清空表单，避免密钥长时间留在界面里
       setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
+    } catch (reason) {
+      setOAuthError(String(reason instanceof Error ? reason.message : reason))
+    } finally {
+      setSavingOAuth(false)
+    }
+  }
+
+  /** 打开 pixiv 授权页登录：把 code 换成的 refresh_token 直接落盘，无需手填 */
+  const loginOAuth = async (): Promise<void> => {
+    setSavingOAuth(true)
+    setOAuthError('')
+    setOAuthNotice('')
+    try {
+      const ok = await props.onLoginOAuth(
+        oauthForm.clientId.trim(),
+        oauthForm.clientSecret.trim()
+      )
+      if (!ok) {
+        setOAuthNotice(t('settings.oauth.loginCanceled'))
+        return
+      }
+      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
+      setOAuthNotice(t('settings.oauth.loginDone'))
     } catch (reason) {
       setOAuthError(String(reason instanceof Error ? reason.message : reason))
     } finally {
@@ -1172,6 +1200,22 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 {savingOAuth ? <Loader2 className="animate-spin" /> : <KeyRound />}
                 {t('settings.oauth.save')}
               </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full"
+                disabled={savingOAuth || !oauthForm.clientId.trim() || !oauthForm.clientSecret.trim()}
+                onClick={() => void loginOAuth()}
+              >
+                {savingOAuth ? <Loader2 className="animate-spin" /> : <LogIn />}
+                {t('settings.oauth.login')}
+              </Button>
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                {t('settings.oauth.loginHint')}
+              </p>
+              {oauthNotice ? (
+                <p className="text-[11px] leading-4 text-emerald-500">{oauthNotice}</p>
+              ) : null}
               {oauthError ? (
                 <p className="text-[11px] leading-4 text-red-500">{oauthError}</p>
               ) : null}

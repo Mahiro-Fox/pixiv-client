@@ -48,6 +48,11 @@ export function SearchWorkCard(props: {
           />
         ) : null}
         <div className="absolute left-1 top-1 flex gap-1">
+          {work.rank && work.rank > 0 ? (
+            <Badge className="bg-primary/90 px-1 py-0 text-[10px] text-primary-foreground">
+              #{work.rank}
+            </Badge>
+          ) : null}
           {work.xRestrict >= 1 ? (
             <Badge variant="destructive" className="bg-red-500/85 px-1 py-0 text-[10px] text-white">
               R-18

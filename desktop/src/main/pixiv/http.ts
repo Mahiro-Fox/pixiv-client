@@ -195,7 +195,10 @@ async function requestJson<T>(
       }
 
       noteSuccess('api')
-      return JSON.parse(await readText(response)) as T
+      const text = (await readText(response)).trim()
+      // 写操作的 DELETE 端点偶尔返回空体，按成功处理，避免 JSON.parse 抛错
+      if (!text) return undefined as T
+      return JSON.parse(text) as T
     } catch (error) {
       lastError = error
       if (signal?.aborted) throw new Error('已取消')
@@ -222,6 +225,22 @@ export async function fetchJson<T>(
 }
 
 /**
+ * 带自定义请求头的 GET（App API 用）。
+ * 不传 Cookie，401 也不触发「Cookie 失效」提醒 —— token 与 Cookie 是两套凭据。
+ */
+export async function fetchJsonWithHeaders<T>(
+  url: string,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+  attempts = API_ATTEMPTS
+): Promise<T> {
+  return requestJson<T>(url, '', signal, attempts, {
+    headers,
+    notifyAuthFailure: false
+  })
+}
+
+/**
  * 表单 POST（`application/x-www-form-urlencoded`），用于 OAuth token 端点。
  * 复用同一套代理、超时与限流通道。
  */
@@ -232,6 +251,27 @@ export async function postFormJson<T>(
 ): Promise<T> {
   // 刷新 token 属于幂等操作，但失败后重试意义不大，只留一次网络抖动重试
   return requestJson<T>(url, '', undefined, 2, { ...options, method: 'POST', form })
+}
+
+/**
+ * 带自定义请求头的表单 POST（App API 写操作用）。
+ * 非 2xx 时读取响应体，pixiv 会在 message 里给出具体原因；
+ * 401 与 Cookie 无关，不触发「请重新登录」提醒。
+ */
+export async function postFormWithHeaders<T>(
+  url: string,
+  form: Record<string, string>,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+  attempts = 2
+): Promise<T> {
+  return requestJson<T>(url, '', signal, attempts, {
+    method: 'POST',
+    form,
+    headers,
+    readErrorBody: true,
+    notifyAuthFailure: false
+  })
 }
 
 export interface DownloadOptions {

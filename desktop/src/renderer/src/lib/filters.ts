@@ -1,4 +1,5 @@
 import type { AppConfig, PixivWork } from '@shared/types'
+import { blockRulesOf, isBlocked } from '@shared/block'
 
 /** 把「逗号/空格/顿号」分隔的输入拆成小写词条 */
 function splitTerms(raw: string): string[] {
@@ -27,8 +28,12 @@ export function applyWorkFilters(works: PixivWork[], config: AppConfig): FilterO
   const excludeKeywords = splitTerms(config.filterExcludeKeywords)
   const r18 = config.filterR18 || 'any'
   const excludeAi = Boolean(config.filterExcludeAi)
+  // 全局屏蔽在主进程已过滤一遍，这里再拦一次，改完规则时已加载的列表立即生效
+  const blocks = blockRulesOf(config)
 
   const keep = (work: PixivWork): boolean => {
+    if (isBlocked(work, blocks)) return false
+
     const pages = Number(work.pageCount || 0)
     if (minPages > 0 && pages < minPages) return false
     if (maxPages > 0 && pages > maxPages) return false
@@ -74,7 +79,9 @@ export function countActiveFilters(config: AppConfig): number {
     Boolean(config.filterExcludeTags.trim()),
     Boolean(config.filterExcludeKeywords.trim()),
     config.filterR18 !== 'any',
-    config.filterExcludeAi
+    config.filterExcludeAi,
+    Boolean(config.blockTags.trim()),
+    Boolean(config.blockUsers.trim())
   ].filter(Boolean).length
 }
 

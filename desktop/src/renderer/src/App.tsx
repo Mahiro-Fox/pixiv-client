@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BookOpen,
+  Compass,
   Download,
   FolderOpen,
   Images,
@@ -10,6 +11,7 @@ import {
   ScrollText,
   Settings2,
   Sparkles,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
@@ -71,7 +73,10 @@ import { WorksSearchPage } from "./pages/WorksSearchPage";
 import { UsersPage } from "./pages/UsersPage";
 import { UsersFollowingPage } from "./pages/UsersFollowingPage";
 import { UserDetailPage } from "./pages/UserDetailPage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { FavoritesPage } from "./pages/FavoritesPage";
+import { HistoryPage } from "./pages/HistoryPage";
+import { RankingPage } from "./pages/RankingPage";
+import { RecommendPage } from "./pages/RecommendPage";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
@@ -701,6 +706,17 @@ export default function App(): React.JSX.Element {
     setOAuth(await window.pixiv.saveOAuthCredentials(credentials));
   };
 
+  /** 打开 pixiv 授权页，用 PKCE 自动换取并保存 refresh_token；取消返回 false */
+  const loginOAuth = async (
+    clientId: string,
+    clientSecret: string,
+  ): Promise<boolean> => {
+    const status = await window.pixiv.loginOAuth({ clientId, clientSecret });
+    if (!status) return false;
+    setOAuth(status);
+    return true;
+  };
+
   /** 清除 App API 凭据；不影响 Cookie，只影响写操作 */
   const clearOAuth = async (): Promise<void> => {
     setOAuth(await window.pixiv.clearOAuth());
@@ -893,6 +909,20 @@ export default function App(): React.JSX.Element {
               >
                 <Users className="h-3.5 w-3.5" />
                 {t("nav.users")}
+              </NavLink>
+              <NavLink
+                to="/ranking"
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                {t("nav.ranking")}
+              </NavLink>
+              <NavLink
+                to="/recommend"
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Compass className="h-3.5 w-3.5" />
+                {t("nav.recommend")}
               </NavLink>
             </nav>
 
@@ -1146,26 +1176,12 @@ export default function App(): React.JSX.Element {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/following" element={<UsersFollowingPage />} />
             <Route path="/user/:userId" element={<UserDetailPage />} />
-            {/* 预备入口：先占路由，功能后续实现 */}
-            <Route
-              path="/favorites"
-              element={
-                <PlaceholderPage
-                  titleKey="placeholder.favorites"
-                  descKey="placeholder.favoritesDesc"
-                  points={['placeholder.favoritesPoint1', 'placeholder.favoritesPoint2']}
-                />
-              }
-            />
+            <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/ranking" element={<RankingPage />} />
+            <Route path="/recommend" element={<RecommendPage />} />
             <Route
               path="/history"
-              element={
-                <PlaceholderPage
-                  titleKey="placeholder.history"
-                  descKey="placeholder.historyDesc"
-                  points={['placeholder.historyPoint1', 'placeholder.historyPoint2']}
-                />
-              }
+              element={<HistoryPage />}
             />
             {/* 本地图库独立成页，不再塞在插画的标签里 */}
             <Route
@@ -1216,6 +1232,7 @@ export default function App(): React.JSX.Element {
               onClearCookie={clearCookie}
               oauth={oauth}
               onSaveOAuth={saveOAuthCredentials}
+              onLoginOAuth={loginOAuth}
               onClearOAuth={clearOAuth}
               onPickDir={() => void pickDir()}
               onOpenDir={openDir}

@@ -3,6 +3,7 @@ import { join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers, shutdownActiveJob } from './ipc'
 import { flushHistory } from './history'
+import { flushViews } from './viewHistory'
 import { flushQueue } from './queue'
 import { loadConfig } from './config'
 import { applyProxy } from './proxy'
@@ -121,6 +122,7 @@ app.on('before-quit', (event) => {
     await shutdownActiveJob()
     await flushQueue()
     await flushHistory()
+    await flushViews()
     app.quit()
   })()
 })

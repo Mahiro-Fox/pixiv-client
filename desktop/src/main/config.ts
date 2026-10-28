@@ -72,6 +72,8 @@ export function defaultConfig(): AppConfig {
     filterExcludeKeywords: '',
     filterR18: 'any',
     filterExcludeAi: false,
+    blockTags: '',
+    blockUsers: '',
     throttleApiConcurrency: DEFAULT_THROTTLE_LIMITS.apiConcurrency,
     throttleApiInterval: DEFAULT_THROTTLE_LIMITS.apiInterval,
     throttleCdnConcurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,

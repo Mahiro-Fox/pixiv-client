@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ExternalLink, Loader2, User as UserIcon } from 'lucide-react'
+import { ArrowLeft, Bookmark, ExternalLink, Loader2, User as UserIcon, UserCheck, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -45,6 +45,57 @@ export function UserDetailPage(): React.JSX.Element {
   const [error, setError] = useState('')
   /** 未登录时收藏接口必然失败，先取登录状态，避免把接口原始报错抛给用户 */
   const [hasCookie, setHasCookie] = useState<boolean | null>(null)
+
+  /** 关注 / 取关依赖 App API 凭据；自己的主页不显示按钮 */
+  const [oauthConnected, setOauthConnected] = useState(false)
+  const [selfId, setSelfId] = useState('')
+  const [followed, setFollowed] = useState(false)
+  const [followReady, setFollowReady] = useState(false)
+  const [followBusy, setFollowBusy] = useState(false)
+  const [writeError, setWriteError] = useState('')
+
+  useEffect(() => {
+    if (!userId) return
+    let alive = true
+    setFollowReady(false)
+    setFollowed(false)
+    setWriteError('')
+    void Promise.all([
+      window.pixiv.getOAuthStatus(),
+      // 未配置 Cookie 时取不到自己，按「不是本人」处理即可
+      window.pixiv.getSelfUser().catch(() => null)
+    ])
+      .then(async ([status, self]) => {
+        if (!alive) return
+        setOauthConnected(status.connected)
+        setSelfId(self?.id || '')
+        setFollowReady(true)
+        if (!status.connected || self?.id === userId) return
+        const value = await window.pixiv.getFollowState(userId)
+        if (alive) setFollowed(value)
+      })
+      .catch((reason: unknown) => {
+        if (!alive) return
+        setFollowReady(true)
+        setWriteError(messageOf(reason))
+      })
+    return () => {
+      alive = false
+    }
+  }, [userId])
+
+  const toggleFollow = async (): Promise<void> => {
+    if (followBusy) return
+    setFollowBusy(true)
+    setWriteError('')
+    try {
+      setFollowed(await window.pixiv.setFollow(userId, { followed: !followed }))
+    } catch (reason) {
+      setWriteError(messageOf(reason))
+    } finally {
+      setFollowBusy(false)
+    }
+  }
 
   useEffect(() => {
     let alive = true
@@ -198,6 +249,30 @@ export function UserDetailPage(): React.JSX.Element {
               </p>
             ) : null}
           </div>
+          {followReady && oauthConnected && selfId !== profile.id ? (
+            <Button
+              variant={followed ? 'outline' : 'default'}
+              size="sm"
+              className="shrink-0"
+              disabled={followBusy}
+              onClick={() => void toggleFollow()}
+            >
+              {followBusy ? (
+                <Loader2 className="animate-spin" />
+              ) : followed ? (
+                <UserCheck />
+              ) : (
+                <UserPlus />
+              )}
+              {followed ? t('user.followed') : t('user.follow')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {writeError ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {writeError}
         </div>
       ) : null}
 

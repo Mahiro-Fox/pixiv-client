@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -11,13 +11,12 @@ import {
   type ReaderSettings
 } from '@renderer/lib/novel'
 import { Button } from '@renderer/components/ui/button'
+import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
 
 function messageOf(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
   return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
-
-const THEMES: ReaderSettings['theme'][] = ['light', 'sepia', 'dark']
 
 /** 本地 TXT 阅读：与在线阅读器共用字号、主题和进度记忆，只是正文不做标记解析 */
 export function NovelLocalReaderPage(): React.JSX.Element {
@@ -89,13 +88,6 @@ export function NovelLocalReaderPage(): React.JSX.Element {
     saveReaderSettings(settings)
   }, [settings])
 
-  const changeFont = (delta: number): void => {
-    setSettings((previous) => ({
-      ...previous,
-      fontSize: Math.max(14, Math.min(26, previous.fontSize + delta))
-    }))
-  }
-
   const themeClass =
     settings.theme === 'dark'
       ? 'bg-[#15161a] text-[#c8c8d0]'
@@ -117,44 +109,10 @@ export function NovelLocalReaderPage(): React.JSX.Element {
         <span className="shrink-0 text-[11px] text-muted-foreground">
           {t('novel.progress', { percent })}
         </span>
-        <div className="flex items-center gap-0.5 rounded-md border border-border/60">
-          <button
-            type="button"
-            onClick={() => changeFont(-1)}
-            className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={t('novel.fontSmaller')}
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <span className="min-w-[1.6rem] text-center text-[10px] text-muted-foreground">
-            {settings.fontSize}
-          </span>
-          <button
-            type="button"
-            onClick={() => changeFont(1)}
-            className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={t('novel.fontBigger')}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-0.5 rounded-md border border-border/60 p-0.5">
-          {THEMES.map((theme) => (
-            <button
-              key={theme}
-              type="button"
-              onClick={() => setSettings((previous) => ({ ...previous, theme }))}
-              title={t(`novel.theme.${theme}` as const)}
-              className={`h-4 w-4 rounded-sm border ${
-                theme === 'light'
-                  ? 'border-black/15 bg-[#fbfbfa]'
-                  : theme === 'sepia'
-                    ? 'border-black/15 bg-[#f4ecd8]'
-                    : 'border-white/20 bg-[#15161a]'
-              } ${settings.theme === theme ? 'ring-1 ring-primary' : ''}`}
-            />
-          ))}
-        </div>
+        <NovelReaderSettings
+          settings={settings}
+          onChange={(patch) => setSettings((previous) => ({ ...previous, ...patch }))}
+        />
         <Button
           variant="ghost"
           size="sm"
@@ -189,8 +147,12 @@ export function NovelLocalReaderPage(): React.JSX.Element {
           </div>
         ) : (
           <article
-            className="mx-auto max-w-3xl whitespace-pre-wrap break-words px-10 py-10"
-            style={{ fontSize: `${settings.fontSize}px`, lineHeight: 2 }}
+            className="mx-auto whitespace-pre-wrap break-words px-10 py-10"
+            style={{
+              fontSize: `${settings.fontSize}px`,
+              lineHeight: settings.lineHeight,
+              maxWidth: `${settings.maxWidth}px`
+            }}
           >
             {text}
           </article>

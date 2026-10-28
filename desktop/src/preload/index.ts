@@ -4,6 +4,8 @@ import type {
   BatchSyncParams,
   BatchSyncProgress,
   BatchSyncSummary,
+  BookmarkInput,
+  BookmarkState,
   CollectParams,
   CollectProgress,
   CollectResult,
@@ -17,6 +19,7 @@ import type {
   FailureItem,
   FollowingParams,
   FollowingResult,
+  FollowInput,
   LibraryResult,
   NovelDetail,
   NovelDownloadParams,
@@ -28,12 +31,19 @@ import type {
   NovelSeriesDetail,
   NovelTextSearchResult,
   OAuthCredentials,
+  OAuthClientInput,
   OAuthStatus,
   PixivApi,
   ProxyConfig,
   ProxyState,
   ProxyTestResult,
   QueueSummary,
+  RankingParams,
+  RankingResult,
+  RecommendUsersParams,
+  RecommendUsersResult,
+  RecommendWorksParams,
+  RecommendWorksResult,
   SearchWork,
   SelfUser,
   TagSuggestion,
@@ -44,6 +54,8 @@ import type {
   UserProfile,
   UserSearchParams,
   UserSearchResult,
+  ViewHistoryEntry,
+  ViewRecordInput,
   WorkExportParams,
   WorkPage,
   WorkSearchParams,
@@ -71,6 +83,8 @@ const api: PixivApi = {
   saveOAuthCredentials: (credentials: OAuthCredentials) =>
     ipcRenderer.invoke('oauth:save', credentials) as Promise<OAuthStatus>,
   clearOAuth: () => ipcRenderer.invoke('oauth:clear') as Promise<OAuthStatus>,
+  loginOAuth: (client: OAuthClientInput) =>
+    ipcRenderer.invoke('oauth:login', client) as Promise<OAuthStatus | null>,
   onCookieInvalid: (handler: () => void) => subscribe<unknown>('cookie:invalid', () => handler()),
   pickDir: () => ipcRenderer.invoke('dialog:pick-dir') as Promise<string | null>,
   openDir: (dir: string) => ipcRenderer.invoke('shell:open-dir', dir) as Promise<void>,
@@ -87,6 +101,12 @@ const api: PixivApi = {
     ipcRenderer.invoke('work:detail', illustId) as Promise<SearchWork | null>,
   getTrendingTags: () =>
     ipcRenderer.invoke('search:trendingTags') as Promise<TagSuggestion[]>,
+  listRanking: (params: RankingParams) =>
+    ipcRenderer.invoke('ranking:list', params) as Promise<RankingResult>,
+  listRecommendedWorks: (params: RecommendWorksParams) =>
+    ipcRenderer.invoke('recommend:works', params) as Promise<RecommendWorksResult>,
+  listRecommendedUsers: (params: RecommendUsersParams) =>
+    ipcRenderer.invoke('recommend:users', params) as Promise<RecommendUsersResult>,
   suggestTags: (word: string) =>
     ipcRenderer.invoke('tags:suggest', word) as Promise<TagSuggestion[]>,
   searchWorks: (params: WorkSearchParams) =>
@@ -118,6 +138,18 @@ const api: PixivApi = {
   openLibraryDir: (dir: string) => ipcRenderer.invoke('library:open-dir', dir) as Promise<void>,
   deleteLibraryFiles: (paths: string[]) =>
     ipcRenderer.invoke('library:delete', paths) as Promise<LibraryResult>,
+  listViewHistory: () => ipcRenderer.invoke('viewHistory:list') as Promise<ViewHistoryEntry[]>,
+  recordView: (entry: ViewRecordInput) =>
+    ipcRenderer.invoke('viewHistory:record', entry) as Promise<void>,
+  clearViewHistory: () => ipcRenderer.invoke('viewHistory:clear') as Promise<ViewHistoryEntry[]>,
+  getBookmarkState: (workId: string) =>
+    ipcRenderer.invoke('write:bookmarkState', workId) as Promise<BookmarkState>,
+  setBookmark: (workId: string, input: BookmarkInput) =>
+    ipcRenderer.invoke('write:setBookmark', workId, input) as Promise<BookmarkState>,
+  getFollowState: (userId: string) =>
+    ipcRenderer.invoke('write:followState', userId) as Promise<boolean>,
+  setFollow: (userId: string, input: FollowInput) =>
+    ipcRenderer.invoke('write:setFollow', userId, input) as Promise<boolean>,
   checkDownloaded: (params: DownloadedParams) =>
     ipcRenderer.invoke('works:downloaded', params) as Promise<string[]>,
   enqueueDownload: (params: DownloadParams) =>
