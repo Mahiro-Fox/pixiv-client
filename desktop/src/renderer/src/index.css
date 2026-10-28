@@ -70,6 +70,53 @@
   }
 }
 
+@layer components {
+  /* 小说正文由标记渲染成 HTML，样式集中在阅读器内，不影响其它页面 */
+  .novel-body rt {
+    font-size: 0.5em;
+    opacity: 0.6;
+  }
+
+  .novel-body .novel-chapter {
+    margin: 2em 0 1em;
+    font-size: 1.05em;
+    font-weight: 600;
+  }
+
+  .novel-body .novel-image {
+    margin: 1.5em auto;
+    text-align: center;
+  }
+
+  .novel-body .novel-image img {
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 0.5rem;
+  }
+
+  .novel-body .novel-image-missing {
+    opacity: 0.4;
+    font-size: 0.9em;
+  }
+
+  /* 下拉弹层：轻微下移淡入，菜单项高亮由组件内控制 */
+  .select-menu {
+    transform-origin: top;
+    animation: select-pop-in 120ms ease-out;
+  }
+}
+
+@keyframes select-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;

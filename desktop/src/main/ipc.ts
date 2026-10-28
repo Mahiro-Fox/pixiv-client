@@ -16,6 +16,8 @@ import type {
   FailureItem,
   FollowingParams,
   LibraryResult,
+  NovelDownloadParams,
+  NovelSearchParams,
   PixivWork,
   ProxyConfig,
   QueueJob,
@@ -34,6 +36,17 @@ import {
   suggestTags
 } from './pixiv/api'
 import { findDownloadedIds, safeName } from './pixiv/files'
+import {
+  downloadNovel,
+  fetchNovelDetail,
+  fetchNovelSeries,
+  searchNovels
+} from './pixiv/novels'
+import {
+  readNovelText,
+  scanNovelLibrary,
+  searchNovelLibraryText
+} from './pixiv/novelLibrary'
 import { setAuthFailureHandler } from './pixiv/http'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
@@ -632,6 +645,87 @@ export function registerIpcHandlers(): void {
     if (!/^\d+$/.test(id)) throw new Error('作品 ID 无效')
     const { cookie } = await resolveCookie()
     return fetchWorkPages(id, cookie)
+  })
+
+  // 小说搜索：只做入口参数清洗，排序/分级/匹配方式由 API 层再白名单校验一次
+  ipcMain.handle('novel:search', async (_event, params: NovelSearchParams) => {
+    const word = String(params?.word || '').trim().slice(0, 100)
+    if (!word) return { novels: [], total: 0, lastPage: 1, relatedTags: [] }
+    const { cookie } = await resolveCookie()
+    return searchNovels(
+      {
+        word,
+        order: params?.order ?? 'date_d',
+        mode: params?.mode ?? 'all',
+        target: params?.target ?? 's_tag_full',
+        page: toInt(params?.page, 1, 1, 10)
+      },
+      cookie
+    )
+  })
+
+  ipcMain.handle('novel:detail', async (_event, novelId: string) => {
+    const id = String(novelId || '').trim()
+    if (!/^\d+$/.test(id)) throw new Error('小说 ID 无效')
+    const { cookie } = await resolveCookie()
+    return fetchNovelDetail(id, cookie)
+  })
+
+  ipcMain.handle('novel:series', async (_event, seriesId: string) => {
+    const id = String(seriesId || '').trim()
+    if (!/^\d+$/.test(id)) throw new Error('系列 ID 无效')
+    const { cookie } = await resolveCookie()
+    return fetchNovelSeries(id, cookie)
+  })
+
+  // 保存 TXT：整部系列由主进程逐话拉取，进度实时推给发起窗口
+  ipcMain.handle('novel:download', async (event, params: NovelDownloadParams) => {
+    const config = await loadConfig()
+    const outDir = (params?.outDir || config.outDir || '').trim()
+    if (!outDir) throw new Error('未设置保存目录')
+    if (!path.isAbsolute(outDir)) throw new Error('保存目录必须是绝对路径')
+
+    const novelId = String(params?.novelId || '').trim()
+    const seriesId = String(params?.seriesId || '').trim()
+    if (!novelId && !seriesId) throw new Error('缺少小说 ID')
+    if (novelId && !/^\d+$/.test(novelId)) throw new Error('小说 ID 无效')
+    if (seriesId && !/^\d+$/.test(seriesId)) throw new Error('系列 ID 无效')
+
+    const { cookie } = await resolveCookie()
+    const sender = event.sender
+    return downloadNovel({
+      novelId: novelId || undefined,
+      seriesId: seriesId || undefined,
+      outDir,
+      cookie,
+      onProgress: (progress) => {
+        if (!sender.isDestroyed()) sender.send('novel:download-progress', progress)
+      }
+    })
+  })
+
+  // 本地小说书库：扫描保存目录，支持正文检索与应用内阅读
+  ipcMain.handle('novel:library', async (_event, force?: boolean) => {
+    const config = await loadConfig()
+    const outDir = (config.outDir || '').trim()
+    if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效')
+    return scanNovelLibrary(outDir, Boolean(force))
+  })
+
+  ipcMain.handle('novel:library-search', async (_event, keyword: string) => {
+    const config = await loadConfig()
+    const outDir = (config.outDir || '').trim()
+    if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效')
+    const word = String(keyword || '').trim().slice(0, 100)
+    if (!word) return { hits: [], scanned: 0 }
+    return searchNovelLibraryText(outDir, word)
+  })
+
+  ipcMain.handle('novel:library-read', async (_event, filePath: string) => {
+    const config = await loadConfig()
+    const outDir = (config.outDir || '').trim()
+    if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效')
+    return readNovelText(outDir, String(filePath || ''))
   })
 
   ipcMain.handle('tags:suggest', async (_event, word: string) => {

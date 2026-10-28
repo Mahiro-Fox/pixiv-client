@@ -12,8 +12,36 @@ on:
 permissions:
   contents: write
 
+# 同一个 tag 同一时间只跑一个发布任务。
+# GitHub 允许同一个 tag 存在多个 Release，如果两个任务并发执行，
+# 它们会各自查不到已存在的 Release 而各创建一个，出现重复 Release。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # 发布前检查该 tag 是否已有 Release，已有则整体跳过，避免重复创建
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Check existing release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $GITHUB_REF_NAME 已存在，跳过本次发布"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
+    needs: guard
+    # 需要重新发布同一个 tag 时，先在 GitHub 上删掉旧 Release 再重跑本工作流
+    if: needs.guard.outputs.exists == 'false'
     runs-on: windows-latest
 
     defaults:

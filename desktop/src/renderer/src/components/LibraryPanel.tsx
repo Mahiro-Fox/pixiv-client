@@ -24,7 +24,7 @@ import { useImagePreview } from './ImagePreview'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Select } from './ui/field'
+import { Select } from './ui/select'
 
 /** 能直接交给图片预览的扩展名；动图成品（zip / mp4 / gif）不参与预览 */
 const PREVIEW_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp'])
@@ -533,23 +533,27 @@ export function LibraryPanel(): React.JSX.Element {
             </div>
 
             <div className="w-[130px] shrink-0">
-              <Select value={tag} onChange={(value) => setTag(value)}>
-                <option value="all">{t('library.allTags')}</option>
-                {authorTags.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                value={tag}
+                onChange={(value) => setTag(value)}
+                options={[
+                  { value: 'all', label: t('library.allTags') },
+                  ...authorTags.map((item) => ({ value: item, label: item }))
+                ]}
+              />
             </div>
 
             <div className="w-[130px] shrink-0">
-              <Select value={sort} onChange={(value) => setSort(value as LibrarySort)}>
-                <option value="updated">{t('library.sortUpdated')}</option>
-                <option value="files">{t('library.sortFiles')}</option>
-                <option value="size">{t('library.sortSize')}</option>
-                <option value="id">{t('library.sortId')}</option>
-              </Select>
+              <Select
+                value={sort}
+                onChange={(value) => setSort(value as LibrarySort)}
+                options={[
+                  { value: 'updated', label: t('library.sortUpdated') },
+                  { value: 'files', label: t('library.sortFiles') },
+                  { value: 'size', label: t('library.sortSize') },
+                  { value: 'id', label: t('library.sortId') }
+                ]}
+              />
             </div>
           </>
         ) : (

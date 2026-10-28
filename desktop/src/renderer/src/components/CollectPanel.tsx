@@ -27,7 +27,8 @@ import { useI18n } from '@renderer/i18n'
 import type { MessageKey } from '@renderer/i18n'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Field, Select } from './ui/field'
+import { Field } from './ui/field'
+import { Select } from './ui/select'
 import { Input } from './ui/input'
 import { Separator } from './ui/separator'
 
@@ -521,12 +522,11 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     onChange={(value) =>
                       props.onConfigChange({ bookmarkRest: value as BookmarkRest })
                     }
-                  >
-                    <option value="show">{t('collect.bookmarkShow')}</option>
-                    <option value="hide" disabled={otherUserId}>
-                      {t('collect.bookmarkHide')}
-                    </option>
-                  </Select>
+                    options={[
+                      { value: 'show', label: t('collect.bookmarkShow') },
+                      { value: 'hide', label: t('collect.bookmarkHide'), disabled: otherUserId }
+                    ]}
+                  />
                 </Field>
               </div>
             )}

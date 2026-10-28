@@ -492,6 +492,176 @@ export interface LibraryResult {
   tags: string[]
 }
 
+/** 小说搜索排序：最新 / 最早 / 综合人气 / 男性人气 / 女性人气 */
+export type NovelOrder =
+  | 'date_d'
+  | 'date'
+  | 'popular_d'
+  | 'popular_male_d'
+  | 'popular_female_d'
+
+/** 小说搜索分级：all 含 R-18，safe 仅全年龄 */
+export type NovelSearchMode = 'all' | 'safe'
+
+/** 小说搜索匹配方式：标签精确 / 标签包含 / 标题与简介 */
+export type NovelSearchTarget = 's_tag_full' | 's_tag' | 's_tc'
+
+export interface NovelSearchParams {
+  word: string
+  order: NovelOrder
+  mode: NovelSearchMode
+  target: NovelSearchTarget
+  page: number
+}
+
+/** 搜索结果与系列目录共用的小说摘要 */
+export interface NovelWork {
+  id: string
+  title: string
+  userId: string
+  userName: string
+  /** 封面地址（i.pximg.net 有防盗链，主进程已统一补 Referer） */
+  cover: string
+  tags: string[]
+  /** 0 全年龄，1 R-18，2 R-18G */
+  xRestrict: number
+  createDate: string
+  updateDate?: string
+  /** 正文字符数 */
+  textCount: number
+  /** 词数（pixiv 按语言估算） */
+  wordCount: number
+  /** 预计阅读秒数 */
+  readingTime: number
+  bookmarkCount: number
+  description: string
+  seriesId?: string
+  seriesTitle?: string
+  /** 在系列中的序号，从 1 开始 */
+  seriesOrder?: number
+  /** 1 非 AI，2 AI 生成 */
+  aiType?: number
+}
+
+export interface NovelSearchResult {
+  novels: NovelWork[]
+  total: number
+  /** 接口允许翻到的最后一页（pixiv 上限 10） */
+  lastPage: number
+  relatedTags: string[]
+}
+
+/** 系列内上一话 / 下一话 */
+export interface NovelEpisodeRef {
+  id: string
+  title: string
+  order: number
+}
+
+export interface NovelSeriesNav {
+  id: string
+  title: string
+  order: number
+  isConcluded: boolean
+  prev: NovelEpisodeRef | null
+  next: NovelEpisodeRef | null
+}
+
+export interface NovelDetail extends NovelWork {
+  /** 正文原始标记文本：含 [newpage]、[[rb:..]]、[chapter:..] 等 */
+  content: string
+  /** 按 [newpage] 切分后的页数 */
+  pageCount: number
+  language?: string
+  isOriginal?: boolean
+  series: NovelSeriesNav | null
+  /** 正文内嵌图片：键为正文中的图片 ID */
+  embeddedImages: Record<string, string>
+}
+
+export interface NovelSeries {
+  id: string
+  title: string
+  caption: string
+  cover: string
+  userId: string
+  userName: string
+  tags: string[]
+  xRestrict: number
+  isConcluded: boolean
+  publishedContentCount: number
+  publishedTotalCharacterCount: number
+  publishedReadingTime: number
+  updateDate: string
+}
+
+export interface NovelEpisode extends NovelWork {
+  /** 系列内序号，从 1 开始 */
+  order: number
+}
+
+export interface NovelSeriesDetail {
+  series: NovelSeries
+  episodes: NovelEpisode[]
+}
+
+export interface NovelDownloadParams {
+  /** 单篇下载时传小说 ID */
+  novelId?: string
+  /** 下载整部系列时传系列 ID */
+  seriesId?: string
+  outDir?: string
+}
+
+export interface NovelDownloadResult {
+  path: string
+  title: string
+  episodes: number
+  characters: number
+}
+
+export interface NovelDownloadProgress {
+  done: number
+  total: number
+  title: string
+}
+
+/** 本地小说书库条目：扫描保存目录下的 小说/ 得到 */
+export interface NovelLibraryItem {
+  path: string
+  fileName: string
+  title: string
+  author: string
+  size: number
+  updatedAt: string
+  characters: number
+  episodes: number
+  kind: 'novel' | 'series'
+  novelId?: string
+  seriesId?: string
+  cover: string
+  tags: string[]
+}
+
+export interface NovelLibraryResult {
+  items: NovelLibraryItem[]
+  root: string
+}
+
+/** 正文检索命中的文件，snippets 里已含关键词上下文 */
+export interface NovelTextHit {
+  path: string
+  title: string
+  author: string
+  matches: number
+  snippets: string[]
+}
+
+export interface NovelTextSearchResult {
+  hits: NovelTextHit[]
+  scanned: number
+}
+
 /**
  * 自动更新状态：由主进程推送，渲染层只负责展示。
  * `unsupported` 表示开发环境或非打包运行，此时不做更新检查。
@@ -587,6 +757,22 @@ export interface PixivApi {
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
   onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void
   onDownloadDone: (callback: (summary: DownloadSummary) => void) => () => void
+  /** 小说搜索：关键词/标签，支持排序、分级与翻页 */
+  searchNovels: (params: NovelSearchParams) => Promise<NovelSearchResult>
+  /** 小说详情（含正文原始标记文本） */
+  getNovelDetail: (novelId: string) => Promise<NovelDetail>
+  /** 小说系列详情与章节目录 */
+  getNovelSeries: (seriesId: string) => Promise<NovelSeriesDetail>
+  /** 保存小说为 TXT：传 novelId 存单篇，传 seriesId 存整部系列 */
+  downloadNovel: (params: NovelDownloadParams) => Promise<NovelDownloadResult>
+  /** 订阅整部系列保存进度，返回取消订阅函数 */
+  onNovelDownloadProgress: (callback: (progress: NovelDownloadProgress) => void) => () => void
+  /** 扫描保存目录下的小说书库；force 为 true 时忽略缓存 */
+  listNovelLibrary: (force?: boolean) => Promise<NovelLibraryResult>
+  /** 在已下载小说的正文里检索关键词 */
+  searchNovelLibrary: (keyword: string) => Promise<NovelTextSearchResult>
+  /** 读取本地小说 TXT 内容，用于应用内阅读 */
+  readNovelLibraryFile: (filePath: string) => Promise<string>
   /** 当前应用版本号，如 0.2.2 */
   getVersion: () => Promise<string>
   /** 读取最近一次更新状态（事件可能在界面订阅之前就已发生） */
