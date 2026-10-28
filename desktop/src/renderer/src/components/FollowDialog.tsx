@@ -1,4 +1,6 @@
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Search, Users, X } from 'lucide-react'
+// 批量同步入口已临时屏蔽：勾选框使用的 Check 图标随对应 JSX 一并注释保留，
+// 恢复时请把 Check 加回这里。
+import { ChevronLeft, ChevronRight, ExternalLink, Loader2, Search, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
 import type { BatchArtist, FollowUser } from '@shared/types'
@@ -11,11 +13,26 @@ import { Input } from './ui/input'
 
 const PAGE_SIZE = 48
 
+/**
+ * ⚠️ 批量同步入口已临时屏蔽（代码保留，请勿删除）⚠️
+ *
+ * 原因：勾选画师后没有「挑选具体作品」的操作空间，只能默认全量同步，需求待完善；
+ * 多任务队列已覆盖大部分批量场景。待有用户反馈后再完善开发（见 SHELVED.md）。
+ *
+ * 屏蔽范围（全部以注释保留，恢复时按顺序取消注释即可）：
+ *   1. picked 勾选状态、selectedIds、togglePick
+ *   2. allVisiblePicked、toggleVisible（全选本页）
+ *   3. 卡片左上角勾选框与卡片主体「点击即勾选」逻辑
+ *      —— 现在卡片主体恢复为「点击即回填 ID 并抓取作品」
+ *   4. 底部「全选本页 / 清空 / 批量同步（N 位）」按钮
+ *   5. App.tsx 中的 batchSync / ProgressPanel 的批量进度条保持原样，不删
+ */
+
 interface FollowDialogProps {
   onClose: () => void
   /** 选中用户：回填用户 ID 并触发作品抓取 */
   onPick: (userId: string) => void
-  /** 批量同步：勾选的画师，按当前标签逐个抓取并下载 */
+  /** 批量同步：勾选的画师，按当前标签逐个抓取并下载（入口已屏蔽，回调保留以便恢复） */
   onBatch: (artists: BatchArtist[]) => void
 }
 
@@ -37,8 +54,9 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
   const [total, setTotal] = useState(initial?.total ?? 0)
   const [loading, setLoading] = useState(initial === null)
   const [error, setError] = useState('')
+  // —— 批量同步屏蔽：勾选状态与勾选逻辑，恢复时取消注释 ——
   // 勾选的画师跨页保留，顺序即勾选顺序
-  const [picked, setPicked] = useState<BatchArtist[]>([])
+  // const [picked, setPicked] = useState<BatchArtist[]>([])
   const [query, setQuery] = useState('')
   // 搜索需要跨页命中，边搜边把剩余页拉下来（并发 3，命中缓存就直接用）
   const [allUsers, setAllUsers] = useState<FollowUser[] | null>(null)
@@ -47,15 +65,15 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
   // StrictMode 下 effect 会执行两次，用 ref 挡住重复的整表加载
   const loadingRef = useRef(false)
 
-  const selectedIds = new Set(picked.map((artist) => artist.id))
+  // const selectedIds = new Set(picked.map((artist) => artist.id))
 
-  const togglePick = (user: FollowUser): void => {
-    setPicked((previous) =>
-      previous.some((artist) => artist.id === user.id)
-        ? previous.filter((artist) => artist.id !== user.id)
-        : [...previous, { id: user.id, name: user.name }]
-    )
-  }
+  // const togglePick = (user: FollowUser): void => {
+  //   setPicked((previous) =>
+  //     previous.some((artist) => artist.id === user.id)
+  //       ? previous.filter((artist) => artist.id !== user.id)
+  //       : [...previous, { id: user.id, name: user.name }]
+  //   )
+  // }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -171,23 +189,24 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
     )
   }, [keyword, allUsers, users])
 
-  const allVisiblePicked =
-    visibleUsers.length > 0 && visibleUsers.every((user) => selectedIds.has(user.id))
-
-  /** 全选本页：搜索态下作用于当前结果集，方便一次圈定一批画师 */
-  const toggleVisible = (): void => {
-    setPicked((previous) => {
-      if (allVisiblePicked) {
-        const ids = new Set(visibleUsers.map((user) => user.id))
-        return previous.filter((artist) => !ids.has(artist.id))
-      }
-      const existing = new Set(previous.map((artist) => artist.id))
-      const added = visibleUsers
-        .filter((user) => !existing.has(user.id))
-        .map((user) => ({ id: user.id, name: user.name }))
-      return [...previous, ...added]
-    })
-  }
+  // —— 批量同步屏蔽：全选本页逻辑，恢复时取消注释 ——
+  // const allVisiblePicked =
+  //   visibleUsers.length > 0 && visibleUsers.every((user) => selectedIds.has(user.id))
+  //
+  // /** 全选本页：搜索态下作用于当前结果集，方便一次圈定一批画师 */
+  // const toggleVisible = (): void => {
+  //   setPicked((previous) => {
+  //     if (allVisiblePicked) {
+  //       const ids = new Set(visibleUsers.map((user) => user.id))
+  //       return previous.filter((artist) => !ids.has(artist.id))
+  //     }
+  //     const existing = new Set(previous.map((artist) => artist.id))
+  //     const added = visibleUsers
+  //       .filter((user) => !existing.has(user.id))
+  //       .map((user) => ({ id: user.id, name: user.name }))
+  //     return [...previous, ...added]
+  //   })
+  // }
 
   return (
     <div
@@ -207,7 +226,8 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
             <p className="text-xs text-muted-foreground">
               {t('follow.hint')}
             </p>
-            <p className="text-[11px] text-muted-foreground/70">{t('batch.selectHint')}</p>
+            {/* 批量同步屏蔽：勾选提示文案，恢复时取消注释 */}
+            {/* <p className="text-[11px] text-muted-foreground/70">{t('batch.selectHint')}</p> */}
           </div>
           <button
             type="button"
@@ -271,20 +291,24 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                   key={user.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => togglePick(user)}
+                  onClick={() => props.onPick(user.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
-                      togglePick(user)
+                      props.onPick(user.id)
                     }
                   }}
                   className={cn(
                     'group flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-                    selectedIds.has(user.id)
-                      ? 'border-primary/70 bg-primary/10 ring-1 ring-primary/30'
-                      : 'border-border/60 bg-secondary/20 hover:border-primary/50 hover:bg-secondary/40'
+                    // 批量同步屏蔽：勾选高亮样式，恢复时把下面两行的判断加回来
+                    // selectedIds.has(user.id)
+                    //   ? 'border-primary/70 bg-primary/10 ring-1 ring-primary/30'
+                    //   :
+                    'border-border/60 bg-secondary/20 hover:border-primary/50 hover:bg-secondary/40'
                   )}
                 >
+                  {/* 批量同步屏蔽：卡片勾选框，恢复时取消注释。
+                      注意恢复后要把卡片主体的 onClick 改回 togglePick(user)。
                   <button
                     type="button"
                     aria-pressed={selectedIds.has(user.id)}
@@ -302,6 +326,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                   >
                     <Check className="h-4 w-4" strokeWidth={3} />
                   </button>
+                  */}
                   {user.avatar ? (
                     <img
                       src={user.avatar}
@@ -370,7 +395,8 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                     })
                   : t('follow.none')}
             </p>
-            <button
+            {/* 批量同步屏蔽：全选本页 / 清空勾选，恢复时取消注释 */}
+            {/* <button
               type="button"
               disabled={visibleUsers.length === 0}
               onClick={toggleVisible}
@@ -386,14 +412,15 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
               >
                 {t('batch.clear')}
               </button>
-            ) : null}
+            ) : null} */}
           </div>
           <div className="flex items-center gap-2">
-            {picked.length > 0 ? (
+            {/* 批量同步屏蔽：批量同步按钮，恢复时取消注释 */}
+            {/* {picked.length > 0 ? (
               <Button size="sm" onClick={() => props.onBatch(picked)}>
                 {t('batch.start', { count: picked.length })}
               </Button>
-            ) : null}
+            ) : null} */}
             {keyword ? null : (
               <>
                 <Button

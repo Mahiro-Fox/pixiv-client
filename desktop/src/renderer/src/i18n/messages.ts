@@ -430,7 +430,21 @@ const zhCN = {
   'filter.excludeKeywordsPlaceholder': '例如：AI, 漫画, 汇总',
   'filter.excludeTags': '排除标签',
   'filter.excludeTagsHint': '匹配作品标签，同时兜底匹配标题与作者名',
-  'filter.excludeTagsPlaceholder': '例如：漫画, アニメ'
+  'filter.excludeTagsPlaceholder': '例如：漫画, アニメ',
+
+  'settings.update.title': '版本与更新',
+  'settings.update.current': '当前版本 v{version}',
+  'settings.update.hint': '启动时会自动检查更新，也可以在这里手动检查',
+  'settings.update.check': '检查更新',
+  'settings.update.checking': '正在检查更新…',
+  'settings.update.idle': '尚未检查更新',
+  'settings.update.available': '发现新版本 v{version}，正在后台下载',
+  'settings.update.downloading': '正在下载新版本：{percent}%',
+  'settings.update.downloaded': '新版本 v{version} 已下载完成，重启后安装',
+  'settings.update.install': '重启并安装',
+  'settings.update.upToDate': '当前已是最新版本',
+  'settings.update.error': '检查更新失败：{message}',
+  'settings.update.unsupported': '开发环境不检查更新；安装版会在启动后自动检查'
 }
 
 export type MessageKey = keyof typeof zhCN
@@ -883,7 +897,23 @@ const en: Record<MessageKey, string> = {
   'filter.excludeTags': 'Exclude tags',
   'filter.excludeTagsHint':
     'Matches work tags, and also falls back to title and artist name',
-  'filter.excludeTagsPlaceholder': 'e.g. 漫画, アニメ'
+  'filter.excludeTagsPlaceholder': 'e.g. 漫画, アニメ',
+
+  'settings.update.title': 'Version & updates',
+  'settings.update.current': 'Current version v{version}',
+  'settings.update.hint':
+    'Updates are checked automatically on launch; you can also check manually here',
+  'settings.update.check': 'Check for updates',
+  'settings.update.checking': 'Checking for updates…',
+  'settings.update.idle': 'Not checked yet',
+  'settings.update.available': 'Version v{version} found, downloading in background',
+  'settings.update.downloading': 'Downloading update: {percent}%',
+  'settings.update.downloaded': 'Version v{version} is ready; restart to install',
+  'settings.update.install': 'Restart and install',
+  'settings.update.upToDate': 'You are up to date',
+  'settings.update.error': 'Update check failed: {message}',
+  'settings.update.unsupported':
+    'Updates are disabled in development builds; the installed app checks on launch'
 }
 
 const ja: Record<MessageKey, string> = {
@@ -1331,7 +1361,21 @@ const ja: Record<MessageKey, string> = {
   'filter.excludeTags': '除外タグ',
   'filter.excludeTagsHint':
     '作品タグに一致。タイトルと作者名にもフォールバック一致します',
-  'filter.excludeTagsPlaceholder': '例：漫画, アニメ'
+  'filter.excludeTagsPlaceholder': '例：漫画, アニメ',
+
+  'settings.update.title': 'バージョンと更新',
+  'settings.update.current': '現在のバージョン v{version}',
+  'settings.update.hint': '起動時に自動で更新を確認します。ここから手動でも確認できます',
+  'settings.update.check': 'アップデートを確認',
+  'settings.update.checking': 'アップデートを確認しています…',
+  'settings.update.idle': 'まだ確認していません',
+  'settings.update.available': '新しいバージョン v{version} を検出、バックグラウンドでダウンロード中',
+  'settings.update.downloading': 'アップデートをダウンロード中：{percent}%',
+  'settings.update.downloaded': 'バージョン v{version} の準備ができました。再起動でインストール',
+  'settings.update.install': '再起動してインストール',
+  'settings.update.upToDate': '最新バージョンです',
+  'settings.update.error': 'アップデート確認に失敗：{message}',
+  'settings.update.unsupported': '開発版では更新を確認しません。インストール版は起動時に自動確認します'
 }
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {

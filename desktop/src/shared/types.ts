@@ -492,6 +492,27 @@ export interface LibraryResult {
   tags: string[]
 }
 
+/**
+ * 自动更新状态：由主进程推送，渲染层只负责展示。
+ * `unsupported` 表示开发环境或非打包运行，此时不做更新检查。
+ */
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | {
+      state: 'downloading'
+      version: string
+      percent: number
+      bytesPerSecond: number
+      transferred: number
+      total: number
+    }
+  | { state: 'downloaded'; version: string }
+  | { state: 'up-to-date'; version: string }
+  | { state: 'error'; message: string }
+  | { state: 'unsupported' }
+
 export interface PixivApi {
   getConfig: () => Promise<AppConfig>
   setConfig: (patch: Partial<AppConfig>) => Promise<AppConfig>
@@ -566,4 +587,14 @@ export interface PixivApi {
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
   onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void
   onDownloadDone: (callback: (summary: DownloadSummary) => void) => () => void
+  /** 当前应用版本号，如 0.2.2 */
+  getVersion: () => Promise<string>
+  /** 读取最近一次更新状态（事件可能在界面订阅之前就已发生） */
+  getUpdateStatus: () => Promise<UpdateStatus>
+  /** 手动检查更新，返回检查后的状态；下载仍会在后台继续 */
+  checkForUpdates: () => Promise<UpdateStatus>
+  /** 重启并安装已下载的更新；返回 false 表示当前没有可安装的更新 */
+  installUpdate: () => Promise<boolean>
+  /** 订阅更新状态变化，返回取消订阅函数 */
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
 }

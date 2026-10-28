@@ -26,6 +26,7 @@ import type {
   SelfUser,
   TagSuggestion,
   ThrottleState,
+  UpdateStatus,
   WorkExportParams,
   WorkPage
 } from '../shared/types'
@@ -87,6 +88,12 @@ const api: PixivApi = {
   setProxy: (patch: Partial<ProxyConfig>, password?: string) =>
     ipcRenderer.invoke('proxy:set', patch, password) as Promise<ProxyState>,
   testProxy: () => ipcRenderer.invoke('proxy:test') as Promise<ProxyTestResult>,
+  getVersion: () => ipcRenderer.invoke('app:version') as Promise<string>,
+  getUpdateStatus: () => ipcRenderer.invoke('update:status') as Promise<UpdateStatus>,
+  checkForUpdates: () => ipcRenderer.invoke('update:check') as Promise<UpdateStatus>,
+  installUpdate: () => ipcRenderer.invoke('update:install') as Promise<boolean>,
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) =>
+    subscribe('update:status', callback),
   onQueueChanged: (callback: (jobs: QueueSummary[]) => void) =>
     subscribe('queue:changed', callback),
   onQueueError: (callback: (message: string) => void) =>

@@ -52,6 +52,7 @@ import {
 } from './queue'
 import { scanLibrary } from './library'
 import { forgetHistory } from './history'
+import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate } from './updater'
 
 interface ActiveRun {
   controller: AbortController
@@ -445,6 +446,9 @@ export async function shutdownActiveJob(): Promise<void> {
 
 export function registerIpcHandlers(): void {
   void loadStore()
+
+  // 自动更新：状态统一走广播，界面订阅 update:status 即可
+  initUpdater((status) => broadcast('update:status', status))
 
   onThrottleChange((state) => broadcast('throttle:state', state))
 
@@ -853,6 +857,13 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('throttle:get', () => throttleStates())
+
+  ipcMain.handle('app:version', () => app.getVersion())
+
+  // 自动更新：check 会在后台继续下载，install 仅在已下载完成时生效
+  ipcMain.handle('update:status', () => getUpdateStatus())
+  ipcMain.handle('update:check', () => checkForUpdates())
+  ipcMain.handle('update:install', () => installUpdate())
 
   ipcMain.handle('proxy:get', () => getProxyState())
 

@@ -510,6 +510,10 @@ export default function App(): React.JSX.Element {
   /**
    * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
    * 主进程串行执行，这里只负责转进度与汇总结果。
+   *
+   * ⚠️ 入口已临时屏蔽：FollowDialog 的勾选逻辑与批量同步按钮已注释，
+   * 因此这段逻辑目前不会被触发，但整条链路（batchSync / batch 进度 / 进度条）
+   * 保留不动，待需求完善后恢复入口即可复用，请勿删除。
    */
   const batchSync = async (artists: BatchArtist[]): Promise<void> => {
     // 额度是否足够由主进程决定：满了会返回明确错误，这里不再静默拦截
@@ -1004,6 +1008,7 @@ export default function App(): React.JSX.Element {
       ) : null}
 
       {followOpen ? (
+        // 批量同步入口已屏蔽（见 FollowDialog 内注释），onBatch 回调保留以便恢复
         <FollowDialog
           onClose={() => setFollowOpen(false)}
           onPick={pickFollowingUser}

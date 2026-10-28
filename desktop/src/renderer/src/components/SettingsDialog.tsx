@@ -1,5 +1,6 @@
 import {
   Cookie,
+  Download,
   FileArchive,
   Film,
   FolderOpen,
@@ -15,6 +16,7 @@ import {
   Monitor,
   Moon,
   Plus,
+  RefreshCw,
   Settings2,
   Sun,
   Trash2
@@ -32,7 +34,8 @@ import type {
   ProxyTestResult,
   SelfUser,
   ThemeMode,
-  UgoiraFormat
+  UgoiraFormat,
+  UpdateStatus
 } from '@shared/types'
 import {
   DEFAULT_FILE_TEMPLATE,
@@ -78,6 +81,20 @@ function cookieSourceLabel(t: Translate, source: CookieStatus['source']): string
   if (source === 'env') return t('settings.cookie.sourceEnv')
   if (source === 'file') return t('settings.cookie.sourceFile')
   return t('settings.cookie.sourceNone')
+}
+
+/** 更新状态 → 界面文案 */
+function updateText(t: Translate, status: UpdateStatus): string {
+  if (status.state === 'checking') return t('settings.update.checking')
+  if (status.state === 'available') return t('settings.update.available', { version: status.version })
+  if (status.state === 'downloading') {
+    return t('settings.update.downloading', { percent: status.percent })
+  }
+  if (status.state === 'downloaded') return t('settings.update.downloaded', { version: status.version })
+  if (status.state === 'up-to-date') return t('settings.update.upToDate')
+  if (status.state === 'error') return t('settings.update.error', { message: status.message })
+  if (status.state === 'unsupported') return t('settings.update.unsupported')
+  return t('settings.update.idle')
 }
 
 /** 单选卡片：主题、语言、质量、动图格式共用一套样式 */
@@ -175,6 +192,37 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [loginCancelled, setLoginCancelled] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
+
+  // 版本与更新：主进程在启动后会自动检查，这里只负责展示与手动触发
+  const [version, setVersion] = useState('')
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const updateBusy =
+    checkingUpdate || updateStatus.state === 'checking' || updateStatus.state === 'downloading'
+
+  useEffect(() => {
+    let alive = true
+    void window.pixiv.getVersion().then((value) => {
+      if (alive) setVersion(value)
+    })
+    void window.pixiv.getUpdateStatus().then((value) => {
+      if (alive) setUpdateStatus(value)
+    })
+    const unsubscribe = window.pixiv.onUpdateStatus((value) => setUpdateStatus(value))
+    return () => {
+      alive = false
+      unsubscribe()
+    }
+  }, [])
+
+  const checkUpdate = async (): Promise<void> => {
+    setCheckingUpdate(true)
+    try {
+      setUpdateStatus(await window.pixiv.checkForUpdates())
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
 
   // 代理表单：文本框在失焦时提交，避免每敲一个字符就重设一次 session
   const proxyConfig = props.proxy?.config ?? config.proxy
@@ -983,6 +1031,54 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             {savingCookie ? <Loader2 className="animate-spin" /> : <Cookie />}
             {t('settings.cookie.save')}
           </Button>
+        </section>
+
+        <section className="space-y-2 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <RefreshCw className="h-4 w-4 text-primary" />
+              {t('settings.update.title')}
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.update.current', { version: version || '-' })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              disabled={updateBusy}
+              onClick={() => void checkUpdate()}
+            >
+              {updateBusy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {t('settings.update.check')}
+            </Button>
+            {updateStatus.state === 'downloaded' ? (
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => void window.pixiv.installUpdate()}
+              >
+                <Download />
+                {t('settings.update.install')}
+              </Button>
+            ) : null}
+          </div>
+          <p
+            className={`text-[11px] leading-4 ${
+              updateStatus.state === 'error'
+                ? 'text-destructive'
+                : updateStatus.state === 'downloaded'
+                  ? 'text-emerald-500'
+                  : 'text-muted-foreground'
+            }`}
+          >
+            {updateText(t, updateStatus)}
+          </p>
+          <p className="text-[11px] leading-4 text-muted-foreground/70">
+            {t('settings.update.hint')}
+          </p>
         </section>
       </div>
     </Dialog>
