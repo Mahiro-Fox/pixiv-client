@@ -53,9 +53,10 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
     }
   }, [open])
 
-  // 关注数只在打开浮层时取一次：limit 传 1，只关心 total
+  // 关注数在每次打开浮层时刷新：关注 / 取关会改变总数，缓存住会一直显示旧值。
+  // limit 传 1，只关心 total。
   useEffect(() => {
-    if (!open || following !== null || !props.selfUser) return
+    if (!open || !props.selfUser) return
     let alive = true
     setLoading(true)
     void window.pixiv
@@ -64,7 +65,8 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
         if (alive) setFollowing(result.total)
       })
       .catch(() => {
-        if (alive) setFollowing(0)
+        // 取失败时别把已有数字清成 0，只有首次失败才回落
+        if (alive) setFollowing((previous) => previous ?? 0)
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -72,7 +74,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
     return () => {
       alive = false
     }
-  }, [open, following, props.selfUser])
+  }, [open, props.selfUser])
 
   if (!props.selfUser) {
     // 有登录凭据但还没取到账号信息时，不要退化成「登录」按钮，

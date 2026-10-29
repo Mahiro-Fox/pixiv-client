@@ -1,5 +1,5 @@
 import { fetchJsonWithHeaders, postFormWithHeaders } from './http'
-import { getAccessToken } from './oauth'
+import { getAccessToken, getOAuthStatus } from './oauth'
 
 /**
  * pixiv App API 通道。
@@ -63,4 +63,24 @@ export async function appApiPost<T>(
     ...APP_HEADERS,
     Authorization: `Bearer ${token}`
   }, signal)
+}
+
+/** 写操作前置检查：没有凭据时给出可执行的提示，而不是直接抛 401 */
+export async function ensureAppConnected(): Promise<void> {
+  const status = await getOAuthStatus()
+  if (!status.connected) {
+    throw new Error('写操作需要先连接 App API 凭据（设置 → App API 凭据）')
+  }
+}
+
+/** 把 App API 的 401 / 403 翻成能看懂的提示，避免界面层暴露 `HTTP 401` */
+export function explainAppError(error: unknown): Error {
+  const text = error instanceof Error ? error.message : String(error)
+  if (/HTTP 401/.test(text)) {
+    return new Error('App API 凭据已失效，请在设置中重新连接')
+  }
+  if (/HTTP 403/.test(text)) {
+    return new Error('没有权限执行该操作，请确认账号状态')
+  }
+  return error instanceof Error ? error : new Error(text)
 }

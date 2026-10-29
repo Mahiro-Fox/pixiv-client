@@ -1,7 +1,7 @@
 import { Hash, ImageOff, Images, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import type {
   WorkSearchChip,
   WorkSearchKind,
@@ -14,6 +14,8 @@ import { useI18n } from '@renderer/i18n'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { Select } from '@renderer/components/ui/select'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
+import { useScrollMemory } from '@renderer/lib/scrollMemory'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 /** 校验 URL 里的排序值；热门度排序属会员功能，不在下拉里提供 */
@@ -74,6 +76,19 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
   const chipCache = useRef(new Map<string, WorkSearchChip>())
   const [chips, setChips] = useState<WorkSearchChip[]>([])
 
+  /** 从详情页后退回来时命中快照，避免整页数据重刷 */
+  const cacheKey = `works|${props.kind}|${word}|${order}|${mode}|${page}|${csw ? 1 : 0}|${blt}|${scope}|${includeManga ? 1 : 0}`
+  /** 后退会复用同一个 location.key；手动改筛选是新历史条目，快照视为未命中 */
+  const locationKey = useLocation().key
+  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
+  const snapshot = useCachedPage<{ result: WorkSearchResult; chips: WorkSearchChip[] }>(
+    cacheKey,
+    locationKey
+  )
+  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
+  const [restored, setRestored] = useState(false)
+  const scrollRef = useScrollMemory<HTMLDivElement>(cacheKey, restored)
+
   // 插画与漫画的筛选集合不同，切换栏目时清空缓存
   useEffect(() => {
     chipCache.current.clear()
@@ -86,7 +101,18 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
       setError('')
       return
     }
+    if (snapshot) {
+      chipCache.current = new Map(snapshot.chips.map((chip) => [chip.id, chip]))
+      setResult(snapshot.result)
+      setChips(snapshot.chips)
+      setError('')
+      setLoading(false)
+      setRestored(true)
+      return
+    }
+
     let alive = true
+    setRestored(false)
     setLoading(true)
     setError('')
     void window.pixiv
@@ -96,7 +122,9 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
         setResult(data)
         data.chips.forEach((chip) => chipCache.current.set(chip.id, chip))
         // 会员专属筛选（如更细的热门度/收藏数区间）不接入，直接不展示
-        setChips(Array.from(chipCache.current.values()).filter((chip) => !chip.premium))
+        const nextChips = Array.from(chipCache.current.values()).filter((chip) => !chip.premium)
+        setChips(nextChips)
+        writePageCache(cacheKey, { result: data, chips: nextChips }, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
@@ -246,7 +274,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
             </div>
           ) : null}
 
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+          <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
             {loading ? (
               <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

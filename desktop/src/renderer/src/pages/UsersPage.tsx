@@ -1,11 +1,13 @@
 import { Loader2, Search, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import type { UserSearchResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { UserCard } from '@renderer/components/UserCard'
+import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
+import { useScrollMemory } from '@renderer/lib/scrollMemory'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 function messageOf(error: unknown): string {
@@ -30,13 +32,36 @@ export function UsersPage(): React.JSX.Element {
   /** 接口未给出每页条数，用第一页结果条数推算总页数（避免按最后一页的少量结果算错） */
   const [pageSize, setPageSize] = useState(48)
 
+  /** 从用户详情后退回来时命中快照 */
+  const cacheKey = `users|${word}|${page}|${postedOnly ? 1 : 0}`
+  /** 后退会复用同一个 location.key；手动翻页 / 改筛选是新历史条目，快照视为未命中 */
+  const locationKey = useLocation().key
+  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
+  const snapshot = useCachedPage<{ result: UserSearchResult; pageSize: number }>(
+    cacheKey,
+    locationKey
+  )
+  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
+  const [restored, setRestored] = useState(false)
+  const scrollRef = useScrollMemory<HTMLDivElement>(cacheKey, restored)
+
   useEffect(() => {
     if (!word) {
       setResult(null)
       setError('')
       return
     }
+    if (snapshot) {
+      setResult(snapshot.result)
+      setPageSize(snapshot.pageSize)
+      setError('')
+      setLoading(false)
+      setRestored(true)
+      return
+    }
+
     let alive = true
+    setRestored(false)
     setLoading(true)
     setError('')
     void window.pixiv
@@ -44,7 +69,9 @@ export function UsersPage(): React.JSX.Element {
       .then((data) => {
         if (!alive) return
         setResult(data)
+        const nextPageSize = page === 1 && data.users.length > 0 ? data.users.length : pageSize
         if (page === 1 && data.users.length > 0) setPageSize(data.users.length)
+        writePageCache(cacheKey, { result: data, pageSize: nextPageSize }, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
@@ -113,7 +140,7 @@ export function UsersPage(): React.JSX.Element {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+          <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
             {loading ? (
               <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

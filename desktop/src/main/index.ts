@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers, shutdownActiveJob } from './ipc'
 import { flushHistory } from './history'
 import { flushViews } from './viewHistory'
+import { flushWatchLater } from './watchLater'
 import { flushQueue } from './queue'
 import { loadConfig } from './config'
 import { applyProxy } from './proxy'
@@ -88,6 +89,26 @@ function createWindow(): void {
 
   if (process.env.ELECTRON_RENDERER_URL) {
     window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    // 开发模式：F12 / Ctrl+Shift+I 切换 DevTools。
+    // 用 before-input-event 而不是 globalShortcut —— 后者是系统级热键，
+    // 要和其他程序抢 F12，抢不到就静默失效；这里只在本窗口聚焦时响应，
+    // 且打包后不注册。
+    const onDevToolsHotkey = (event: Electron.Event, input: Electron.Input): void => {
+      if (input.type !== 'keyDown') return
+      const modifier = process.platform === 'darwin' ? input.meta : input.control
+      const toggle =
+        input.key === 'F12' ||
+        (modifier && input.shift && input.key.toLowerCase() === 'i')
+      if (!toggle) return
+      event.preventDefault()
+      window.webContents.toggleDevTools()
+    }
+    window.webContents.on('before-input-event', onDevToolsHotkey)
+    // DevTools 打开后焦点在它自己的 webContents 上，主窗口收不到按键，
+    // 这里补一份监听，F12 才能再次关闭面板
+    window.webContents.on('devtools-opened', () => {
+      window.webContents.devToolsWebContents?.on('before-input-event', onDevToolsHotkey)
+    })
   } else {
     window.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -123,6 +144,7 @@ app.on('before-quit', (event) => {
     await flushQueue()
     await flushHistory()
     await flushViews()
+    await flushWatchLater()
     app.quit()
   })()
 })

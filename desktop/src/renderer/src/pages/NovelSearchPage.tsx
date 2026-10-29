@@ -10,9 +10,9 @@ import {
   Timer,
   User
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type {
   NovelOrder,
   NovelSearchMode,
@@ -22,6 +22,8 @@ import type {
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { readingMinutes } from '@renderer/lib/novel'
+import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
+import { useScrollMemory } from '@renderer/lib/scrollMemory'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Select } from '@renderer/components/ui/select'
@@ -149,6 +151,16 @@ export function NovelSearchPage(): React.JSX.Element {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** 从小说阅读页后退回来时命中快照，保留上一批搜索结果 */
+  const cacheKey = `novels|${word}|${order}|${mode}|${target}|${page}`
+  /** 后退会复用同一个 location.key；手动翻页 / 改筛选是新历史条目，快照视为未命中 */
+  const locationKey = useLocation().key
+  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
+  const snapshot = useCachedPage<NovelSearchResult>(cacheKey, locationKey)
+  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
+  const [restored, setRestored] = useState(false)
+  const scrollRef = useScrollMemory<HTMLDivElement>(cacheKey, restored)
+
   useEffect(() => setInput(word), [word])
 
   useEffect(() => {
@@ -157,13 +169,24 @@ export function NovelSearchPage(): React.JSX.Element {
       setError('')
       return
     }
+    if (snapshot) {
+      setResult(snapshot)
+      setError('')
+      setLoading(false)
+      setRestored(true)
+      return
+    }
+
     let alive = true
+    setRestored(false)
     setLoading(true)
     setError('')
     void window.pixiv
       .searchNovels({ word, order, mode, target, page })
       .then((data) => {
-        if (alive) setResult(data)
+        if (!alive) return
+        setResult(data)
+        writePageCache(cacheKey, data, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
@@ -276,7 +299,10 @@ export function NovelSearchPage(): React.JSX.Element {
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_14rem] gap-4">
           <div className="flex min-h-0 flex-col gap-3">
-            <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div
+              ref={scrollRef}
+              className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+            >
               {loading ? (
                 <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />

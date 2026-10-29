@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BookOpen,
+  Clock3,
   Compass,
   Download,
   FolderOpen,
@@ -66,6 +67,7 @@ import { AccountMenu } from "./components/AccountMenu";
 import { SearchBox } from "./components/SearchBox";
 import { NovelSearchPage } from "./pages/NovelSearchPage";
 import { NovelSeriesPage } from "./pages/NovelSeriesPage";
+import { SeriesPage } from "./pages/SeriesPage";
 import { NovelReaderPage } from "./pages/NovelReaderPage";
 import { NovelLibraryPage } from "./pages/NovelLibraryPage";
 import { NovelLocalReaderPage } from "./pages/NovelLocalReaderPage";
@@ -75,6 +77,7 @@ import { UsersFollowingPage } from "./pages/UsersFollowingPage";
 import { UserDetailPage } from "./pages/UserDetailPage";
 import { FavoritesPage } from "./pages/FavoritesPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { WatchLaterPage } from "./pages/WatchLaterPage";
 import { RankingPage } from "./pages/RankingPage";
 import { RecommendPage } from "./pages/RecommendPage";
 import { Button } from "./components/ui/button";
@@ -883,6 +886,20 @@ export default function App(): React.JSX.Element {
             {/* 插画 / 漫画 / 小说 / 用户：切换栏目时保留搜索框里的关键词 */}
             <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
               <NavLink
+                to="/recommend"
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Compass className="h-3.5 w-3.5" />
+                {t("nav.recommend")}
+              </NavLink>
+              <NavLink
+                to="/ranking"
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                {t("nav.ranking")}
+              </NavLink>
+              <NavLink
                 to={linkWithWord("/illust")}
                 className={({ isActive }) => navClass(isActive)}
               >
@@ -910,20 +927,6 @@ export default function App(): React.JSX.Element {
                 <Users className="h-3.5 w-3.5" />
                 {t("nav.users")}
               </NavLink>
-              <NavLink
-                to="/ranking"
-                className={({ isActive }) => navClass(isActive)}
-              >
-                <Trophy className="h-3.5 w-3.5" />
-                {t("nav.ranking")}
-              </NavLink>
-              <NavLink
-                to="/recommend"
-                className={({ isActive }) => navClass(isActive)}
-              >
-                <Compass className="h-3.5 w-3.5" />
-                {t("nav.recommend")}
-              </NavLink>
             </nav>
 
             {/* 下载工作台 / 图库 / 书库：图标入口，文案放 title 里节省顶栏宽度 */}
@@ -948,6 +951,13 @@ export default function App(): React.JSX.Element {
                 className={({ isActive }) => navClass(isActive)}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
+              </NavLink>
+              <NavLink
+                to="/watch-later"
+                title={t("nav.watchLater")}
+                className={({ isActive }) => navClass(isActive)}
+              >
+                <Clock3 className="h-3.5 w-3.5" />
               </NavLink>
             </nav>
 
@@ -1173,16 +1183,15 @@ export default function App(): React.JSX.Element {
               element={<NovelSeriesPage />}
             />
             <Route path="/novel/local" element={<NovelLocalReaderPage />} />
+            <Route path="/series/:seriesId" element={<SeriesPage oauth={oauth} />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/following" element={<UsersFollowingPage />} />
-            <Route path="/user/:userId" element={<UserDetailPage />} />
+            <Route path="/user/:userId" element={<UserDetailPage oauth={oauth} />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/ranking" element={<RankingPage />} />
-            <Route path="/recommend" element={<RecommendPage />} />
-            <Route
-              path="/history"
-              element={<HistoryPage />}
-            />
+            <Route path="/recommend" element={<RecommendPage oauth={oauth} />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/watch-later" element={<WatchLaterPage />} />
             {/* 本地图库独立成页，不再塞在插画的标签里 */}
             <Route
               path="/gallery"
@@ -1194,7 +1203,8 @@ export default function App(): React.JSX.Element {
             />
             <Route path="/library" element={<NovelLibraryPage />} />
             <Route path="/novel/:novelId" element={<NovelReaderPage />} />
-            <Route path="*" element={<Navigate to="/illust" replace />} />
+            {/* 未匹配的路由，重定向到推荐页 */}
+            <Route path="*" element={<Navigate to="/recommend" replace />} />
           </Routes>
 
           {preview ? (

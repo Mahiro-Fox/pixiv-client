@@ -32,7 +32,7 @@ npm run build        # 提交前必跑
 
 **协作约束**：中文回复；禁止面向对象写法，统一用函数式（纯函数 + hooks）；不主动创建文档文件。
 
-**当前进度**：读取类功能（搜索、用户、关注、预览、下载工作台、设置、自动更新）已完成；App API OAuth 凭据层与 App API 通道（GET / 表单 POST）已完成；收藏浏览页、浏览记录页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（收藏 / 关注 / 取关）已完成（2026-10-28）；图片查看器升级经确认**暂不做**。
+**当前进度**：读取类功能（搜索、用户、关注、预览、下载工作台、设置、自动更新）已完成；App API OAuth 凭据层与 App API 通道（GET / 表单 POST）已完成；收藏浏览页、浏览记录页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（收藏 / 关注 / 取关）、稍后看、系列聚合浏览已完成（2026-10-29）；图片查看器升级经确认**暂不做**。
 
 ## 搁置项
 
@@ -59,11 +59,11 @@ npm run build        # 提交前必跑
 | 浏览历史 | 本地 SQLite，`HistoryPersistHelper.cs:116-139` | **已实现**：`/history`，`viewHistory.json` + 搜索 + 清空 | — | ✅ |
 | 全局屏蔽（标签 / 用户） | `BrowsingExperienceSettingsGroup.cs:14-49`，浏览设置里全局生效 | **已实现**：`shared/block.ts`，主进程过滤搜索 / 用户作品 / 收藏 / 批量同步 | — | ✅ |
 | 图片查看器能力 | 缩放 / 旋转 / 镜像 / 原图 / Fit / 幻灯片自动播放 / 页 Slider / 悬浮工具栏，`IllustrationViewerPage.axaml:237-357` | `WorkDetailDialog` 单图 + 简单翻页；**2026-10-28 确认现有预览够用，暂不升级** | 中 | 暂缓 |
-| 系列聚合浏览 | `Series` 导航页 | 仅单部小说系列页 | 低 | P2 |
+| 系列聚合浏览 | `Series` 导航页 | **已实现**：`/series/:seriesId`，App API 取完整目录 + 追更；未连接凭据时用作品页 `seriesNavData` 兜底 | — | ✅ |
 | 收藏 / 关注 / 取关等写操作 | `MakoHelper.cs:54-77`；端点见 `IAppApiEndPoint.cs:21-128` | **已实现**：`appApi.ts` 表单 POST + `write.ts`；详情弹窗收藏（公开 / 私密）、用户主页关注 / 取关 | — | ✅ |
 | 推荐 / 排行榜 / 用户推荐 | `NavigationMenuYaml.cs:8-40`；`WorkRankingPage.axaml.cs:70-75` | **已实现**：`/ranking`（网页排行榜）与 `/recommend`（App API 推荐作品 / 画师，未连接时网页发现兜底） | — | ✅ |
 | 下载任务状态机 | `Channel` 队列 + `DownloadTaskKey` 去重，状态含 Queued / Running / Paused / Error / Cancelled / Completed，`DownloadManager.cs:83-140`、`DownloadItemViewModel.cs:38-131` | 已有排队 / 解析 / 下载 / 暂停 / 完成状态与单任务暂停恢复、同作者去重；缺 Error / Cancelled 独立状态与任务级错误重试策略 | 中 | P2 |
-| 稍后看 | `WatchLater` 导航页 | 无 | 中 | P3（接口需确认） |
+| 稍后看 | `WatchLater` 导航页 | **已实现**：`/watch-later`，本地 `watchLater.json` + 详情弹窗「稍后看」按钮 + 搜索 / 移出 / 清空 | — | ✅ |
 | 订阅式增量下载 | 按收藏 / 关注 / 搜索条件定期拉新作，`WorkSubscriptionDownloadService.cs:601-625` | 无 | 高 | P3 |
 
 不需要复刻：YAML 可配置导航、MCP Server、扩展（Extensions）系统、多端（Android / iOS / Browser）适配。
@@ -84,6 +84,12 @@ npm run build        # 提交前必跑
 
 **第三档：不建议现在做**
 8. 下载引擎重构为队列式任务 + 订阅增量下载。收益大，但要重写 `QueuePanel` / `ProgressPanel` 与任务持久化，按独立迭代排期。
+
+**已完成补充（2026-10-29）**
+9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。
+10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。
+11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorkGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
+12. ✅ 列表页后退保留数据：`src/renderer/src/lib/pageCache.ts` 内存快照（最多 24 条），仅 `useNavigationType() === 'POP'`（浏览器后退）命中；手动切插画 / 漫画 / 小说 / 用户、改筛选、翻页、刷新仍是 PUSH，照旧重新请求。接入插画 / 漫画搜索、排行榜、用户搜索、小说搜索、推荐页（含续拉累积结果）。快照不落盘，重启失效。**判定依据**：写入时记下 `useLocation().key`（react-router 给每个历史条目的唯一标记），只有后退复用了同一个 key 才命中，比 `useNavigationType` 可靠；**读取方式**：`useCachedPage(key, tag)` 用 `useMemo` 记忆，不能用「本次已读取过」的 ref 守卫——开发模式 `StrictMode` 会把 effect 跑两次，那个守卫会让第二次执行跳过快照、白跑一次请求。滚动位置由 `src/renderer/src/lib/scrollMemory.ts` 的 `useScrollMemory` 一并记忆（最多 60 条），命中快照后拨回原位；顺带给排行榜页与推荐页的 `main` 补了 `overflow-y-auto`（此前内容会被根布局裁掉）。
 
 ## 写操作接口细节（Mako 调研结论）
 
@@ -165,6 +171,7 @@ UI 初始化状态：收藏状态用 `GET /v2/illust/bookmark/detail`，关注�
 
 ## 建议推进顺序
 
-图片查看器升级已按用户决定跳过。剩余候选：系列聚合浏览、下载任务状态机补 Error / Cancelled、右键菜单、统一分页 hook；下载引擎重构单独排期。
+图片查看器升级已按用户决定跳过。剩余候选：下载任务状态机补 Error / Cancelled、右键菜单、统一分页 hook；下载引擎重构单独排期。系列聚合浏览已于 2026-10-29 完成。
 
 已完成（2026-10-28）：浏览历史、收藏浏览页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（收藏 / 关注 / 取关）。
+已完成（2026-10-29）：稍后看、系列聚合浏览。

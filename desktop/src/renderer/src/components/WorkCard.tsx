@@ -21,7 +21,7 @@ export function SearchWorkCard(props: {
   }
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50">
+    <li className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50">
       {/* 点击图片只做应用内预览，右上角图标才是「去 pixiv」 */}
       <div
         role="button"
@@ -95,19 +95,24 @@ export function SearchWorkCard(props: {
           </p>
         ) : null}
       </div>
-    </div>
+    </li>
   )
 }
 
 export function SearchWorkGrid(props: {
   works: SearchWork[]
   onPreview?: (work: SearchWork) => void
+  /** 滚动容器末尾的附加内容（如触底加载哨兵），必须放在滚动区内才会随滚动进入视口 */
+  footer?: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-      {props.works.map((work) => (
-        <SearchWorkCard key={work.id} work={work} onPreview={props.onPreview} />
-      ))}
+    <div className="scrollbar-thin overflow-y-auto">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        {props.works.map((work) => (
+          <SearchWorkCard key={work.id} work={work} onPreview={props.onPreview} />
+        ))}
+      </ul>
+      {props.footer}
     </div>
   )
 }

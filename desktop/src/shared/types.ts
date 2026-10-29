@@ -17,6 +17,8 @@ export interface PixivWork {
   createDate?: string
   /** 1 非 AI，2 AI 生成 */
   aiType?: number
+  /** 所属系列；详情接口会带 seriesNavData，列表接口通常没有 */
+  series?: WorkSeriesNav | null
 }
 
 export type WorkSource = 'tag' | 'bookmarks'
@@ -546,6 +548,27 @@ export interface ViewRecordInput {
   illustType?: number
 }
 
+/**
+ * 稍后看条目：手动加入、只保存在本地。
+ * 与浏览记录的字段同构，区别是 `at` 表示「加入时间」而不是浏览时间。
+ */
+export interface WatchLaterEntry {
+  /** 作品 ID */
+  id: string
+  title: string
+  userId: string
+  userName: string
+  /** 250px 缩略图地址 */
+  thumbnail: string
+  pageCount: number
+  /** 0 全年龄，1 R-18，2 R-18G */
+  xRestrict: number
+  /** 0 插画，1 漫画，2 动图 */
+  illustType: number
+  /** 加入时间戳（毫秒） */
+  at: number
+}
+
 export interface LibraryFile {
   page: number
   path: string
@@ -639,6 +662,56 @@ export interface NovelSearchResult {
   /** 接口允许翻到的最后一页（pixiv 上限 10） */
   lastPage: number
   relatedTags: string[]
+}
+
+/** 插画 / 漫画所属系列（来自作品的 seriesNavData；不属于任何系列时为 null） */
+export interface WorkSeriesNav {
+  id: string
+  title: string
+  /** 本话在系列里的序号，从 1 起 */
+  order: number
+  isConcluded: boolean
+}
+
+/** 系列里的一话 */
+export interface SeriesEpisode {
+  id: string
+  title: string
+  /** 序号，从 1 起；接口缺失时按数组顺序补 */
+  order: number
+  thumbnail: string
+  userId: string
+  userName: string
+  pageCount: number
+  xRestrict: number
+  illustType: number
+}
+
+export interface SeriesDetail {
+  id: string
+  title: string
+  caption: string
+  userId: string
+  userName: string
+  /** 作者头像 */
+  avatar: string
+  /** 系列封面 */
+  cover: string
+  /** 话数；网页兜底拿不到总话数时为 0（未知） */
+  workCount: number
+  isConcluded: boolean
+  /** 是否已在 App API 的漫画追更列表里；网页兜底或未连接 OAuth 时恒为 false */
+  watchlisted: boolean
+  episodes: SeriesEpisode[]
+  /** 数据来源：App API 详情，或网页作品页的系列信息兜底 */
+  source: 'app' | 'web'
+}
+
+/** 读取系列详情的参数：workId 用于没有 App API 凭据时从作品页兜底 */
+export interface WorkSeriesParams {
+  seriesId: string
+  /** 当前作品 ID；网页兜底时用来定位所属系列 */
+  workId?: string
 }
 
 /** 系列内上一话 / 下一话 */
@@ -825,6 +898,8 @@ export interface SearchWork {
   aiType: number
   /** 排行榜名次；只有排行榜来源才带该字段 */
   rank?: number
+  /** 所属系列；不属于任何系列或接口未返回时为 null */
+  series?: WorkSeriesNav | null
 }
 
 export interface WorkSearchResult {
@@ -1045,6 +1120,16 @@ export interface PixivApi {
   recordView: (entry: ViewRecordInput) => Promise<void>
   /** 清空浏览记录，返回清空后的列表 */
   clearViewHistory: () => Promise<ViewHistoryEntry[]>
+  /** 稍后看：按加入时间倒序 */
+  listWatchLater: () => Promise<WatchLaterEntry[]>
+  /** 该作品是否已在稍后看列表里 */
+  isWatchLater: (id: string) => Promise<boolean>
+  /** 加入稍后看，返回更新后的完整列表（已存在则不重复加入） */
+  addWatchLater: (entry: ViewRecordInput) => Promise<WatchLaterEntry[]>
+  /** 从稍后看移除，返回更新后的完整列表 */
+  removeWatchLater: (id: string) => Promise<WatchLaterEntry[]>
+  /** 清空稍后看，返回空列表 */
+  clearWatchLater: () => Promise<WatchLaterEntry[]>
   /** 读取作品收藏状态（App API） */
   getBookmarkState: (workId: string) => Promise<BookmarkState>
   /** 收藏 / 取消收藏作品，返回最新状态 */
@@ -1053,6 +1138,10 @@ export interface PixivApi {
   getFollowState: (userId: string) => Promise<boolean>
   /** 关注 / 取关画师，返回最新状态 */
   setFollow: (userId: string, input: FollowInput) => Promise<boolean>
+  /** 漫画 / 插画系列详情：已连接 App API 时取完整列表，否则用网页作品页的系列信息兜底 */
+  getWorkSeries: (params: WorkSeriesParams) => Promise<SeriesDetail>
+  /** 加入 / 退出系列的追更列表（App API 的 manga watchlist），需 OAuth 凭据 */
+  setSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>
   checkDownloaded: (params: DownloadedParams) => Promise<string[]>
   /** 加入下载队列：立即返回队列快照，任务由主进程按并行额度自动启动 */
   enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>

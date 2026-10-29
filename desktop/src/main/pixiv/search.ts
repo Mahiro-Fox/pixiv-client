@@ -7,7 +7,8 @@ import type {
   WorkSearchOrder,
   WorkSearchParams,
   WorkSearchResult,
-  WorkSearchScope
+  WorkSearchScope,
+  WorkSeriesNav
 } from '../../shared/types'
 import { BASE, fetchJson } from './http'
 
@@ -38,6 +39,17 @@ interface RawSearchWork {
   createDate?: string
   bookmarkCount?: number
   aiType?: number
+  /** 详情接口带系列信息；列表接口通常没有。无系列时可能是空对象 */
+  seriesNavData?: RawSeriesNav | null
+}
+
+interface RawSeriesNav {
+  seriesId?: string | number
+  /** 网页作品详情用 title，少数接口用 seriesTitle */
+  title?: string
+  seriesTitle?: string
+  order?: number
+  isConcluded?: boolean
 }
 
 interface RawChip {
@@ -173,6 +185,19 @@ function pickTranslation(dict?: Record<string, string>): string {
   return dict.zh || dict.zh_tw || dict.romaji || dict.en || ''
 }
 
+/** 无系列时接口可能返回空对象 `{}`，缺 seriesId 即视为不在系列中 */
+export function toWorkSeriesNav(raw: RawSeriesNav | null | undefined): WorkSeriesNav | null {
+  if (!raw) return null
+  const id = String(raw.seriesId ?? '').trim()
+  if (!id) return null
+  return {
+    id,
+    title: raw.title || raw.seriesTitle || '',
+    order: Math.max(1, Number(raw.order || 1)),
+    isConcluded: Boolean(raw.isConcluded)
+  }
+}
+
 /** 用户主页与收藏列表复用同一套作品字段映射 */
 export function toSearchWork(raw: RawSearchWork): SearchWork {
   return {
@@ -190,7 +215,9 @@ export function toSearchWork(raw: RawSearchWork): SearchWork {
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     createDate: raw.createDate || '',
     bookmarkCount: Number(raw.bookmarkCount || 0),
-    aiType: Number(raw.aiType || 0)
+    aiType: Number(raw.aiType || 0),
+    // 只有详情接口会带这个字段：缺失表示「不知道」，null 表示确定不属于任何系列
+    series: 'seriesNavData' in raw ? toWorkSeriesNav(raw.seriesNavData) : undefined
   }
 }
 

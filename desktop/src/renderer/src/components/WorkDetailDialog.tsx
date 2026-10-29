@@ -1,8 +1,9 @@
-import { Bookmark, BookmarkCheck, Check, ExternalLink, Gem, Image as ImageIcon, ImageOff, Loader2, Plus, X } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Check, Clock3, ExternalLink, Gem, Image as ImageIcon, ImageOff, Layers, Loader2, Plus, X } from 'lucide-react'
 import { useI18n } from '@renderer/i18n'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type * as React from 'react'
-import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage } from '@shared/types'
+import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage, WorkSeriesNav } from '@shared/types'
 import { readWorkPages, writeWorkPages } from '@renderer/lib/dialogCache'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -26,6 +27,7 @@ function messageOf(error: unknown): string {
 
 export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Element {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const { work } = props
   const preview = useImagePreview()
   const [pages, setPages] = useState<WorkPage[]>([])
@@ -39,6 +41,70 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
   const [bookmarkBusy, setBookmarkBusy] = useState(false)
   const [writeError, setWriteError] = useState('')
+  /** 稍后看是纯本地列表，不依赖 OAuth；状态需要单独读一次 */
+  const [watchLater, setWatchLater] = useState(false)
+  const [watchLaterBusy, setWatchLaterBusy] = useState(false)
+  /** undefined 表示来源数据没带系列字段（如搜索结果），需要按 id 补一次详情 */
+  const [seriesNav, setSeriesNav] = useState<WorkSeriesNav | null | undefined>(work.series)
+
+  useEffect(() => {
+    setSeriesNav(work.series)
+    if (work.series !== undefined) return
+    let alive = true
+    void window.pixiv
+      .getWorkDetail(work.id)
+      .then((detail) => {
+        if (alive) setSeriesNav(detail?.series ?? null)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [work.id, work.series])
+
+  // 切换作品时重置稍后看状态
+  useEffect(() => {
+    let alive = true
+    setWatchLater(false)
+    void window.pixiv
+      .isWatchLater(work.id)
+      .then((saved) => {
+        if (alive) setWatchLater(saved)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [work.id])
+
+  const toggleWatchLater = async (): Promise<void> => {
+    if (watchLaterBusy) return
+    setWatchLaterBusy(true)
+    setWriteError('')
+    try {
+      if (watchLater) {
+        await window.pixiv.removeWatchLater(work.id)
+        setWatchLater(false)
+        return
+      }
+      // 只在加入时传完整展示信息，移除只需要 id
+      await window.pixiv.addWatchLater({
+        id: work.id,
+        title: work.title,
+        userId: work.userId,
+        userName: work.userName,
+        url: work.url,
+        pageCount: work.pageCount,
+        xRestrict: work.xRestrict,
+        illustType: work.illustType
+      })
+      setWatchLater(true)
+    } catch (reason) {
+      setWriteError(messageOf(reason))
+    } finally {
+      setWatchLaterBusy(false)
+    }
+  }
 
   // 打开时读取一次收藏状态；切换作品要重置，避免显示上一件的状态
   useEffect(() => {
@@ -242,6 +308,22 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 <ExternalLink className="h-3 w-3" />
                 {t('detail.openOnPixiv')}
               </a>
+              {seriesNav ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    props.onClose()
+                    // 带上当前作品 ID：没有 App API 凭据时用它读网页系列信息
+                    navigate(`/series/${seriesNav.id}?work=${encodeURIComponent(work.id)}`)
+                  }}
+                  className="inline-flex max-w-full items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
+                >
+                  <Layers className="h-3 w-3 shrink-0" />
+                  <span className="truncate">
+                    {t('detail.series', { title: seriesNav.title, order: seriesNav.order })}
+                  </span>
+                </button>
+              ) : null}
             </div>
           </div>
           <button
@@ -312,6 +394,15 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
             {t('detail.authorDir', { id: work.userId, name: work.userName })}
           </p>
           <div className="flex items-center gap-2">
+            <Button
+              variant={watchLater ? 'default' : 'outline'}
+              size="sm"
+              disabled={watchLaterBusy}
+              onClick={() => void toggleWatchLater()}
+            >
+              {watchLaterBusy ? <Loader2 className="animate-spin" /> : <Clock3 />}
+              {watchLater ? t('detail.watchLaterSaved') : t('detail.watchLater')}
+            </Button>
             {oauthConnected ? (
               <>
                 <Button

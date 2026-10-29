@@ -55,7 +55,7 @@ export function UserCard(props: {
   }
 
   return (
-    <div
+    <li
       role="button"
       tabIndex={0}
       onClick={open}
@@ -110,6 +110,6 @@ export function UserCard(props: {
           ))}
         </div>
       ) : null}
-    </div>
+    </li>
   )
 }

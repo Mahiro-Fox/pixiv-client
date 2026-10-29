@@ -1,13 +1,15 @@
 import { Loader2, RefreshCw, Trophy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import type { RankingMode, RankingResult, WorkSearchKind } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
+import { useScrollMemory } from '@renderer/lib/scrollMemory'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const MODES: RankingMode[] = [
@@ -78,14 +80,36 @@ export function RankingPage(): React.JSX.Element {
   /** 日期留空的榜单每天都会变，用这个计数强制重新拉取 */
   const [reload, setReload] = useState(0)
 
+  /** 从详情页后退回来时命中快照，不重新请求榜单 */
+  const cacheKey = `ranking|${kind}|${mode}|${page}|${date}`
+  /** 后退会复用同一个 location.key；手动切换榜单参数是新历史条目，快照视为未命中 */
+  const locationKey = useLocation().key
+  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
+  const snapshot = useCachedPage<RankingResult>(cacheKey, locationKey)
+  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
+  const [restored, setRestored] = useState(false)
+  const scrollRef = useScrollMemory<HTMLElement>(cacheKey, restored)
+
   useEffect(() => {
+    // 手动刷新（reload > 0）必须绕过快照
+    if (reload === 0 && snapshot) {
+      setResult(snapshot)
+      setError('')
+      setLoading(false)
+      setRestored(true)
+      return
+    }
+
     let alive = true
+    setRestored(false)
     setLoading(true)
     setError('')
     void window.pixiv
       .listRanking({ kind, mode, page, date: toApiDate(date) })
       .then((data) => {
-        if (alive) setResult(data)
+        if (!alive) return
+        setResult(data)
+        writePageCache(cacheKey, data, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
@@ -116,7 +140,10 @@ export function RankingPage(): React.JSX.Element {
   }
 
   return (
-    <main className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
+    <main
+      ref={scrollRef}
+      className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4"
+    >
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Trophy className="h-4 w-4 text-primary" />

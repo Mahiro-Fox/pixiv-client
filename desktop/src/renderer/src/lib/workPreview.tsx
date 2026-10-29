@@ -22,7 +22,8 @@ export function toPixivWork(work: SearchWork | UserWorkThumb): PixivWork {
       illustType: work.illustType,
       tags: work.tags,
       createDate: work.createDate,
-      aiType: work.aiType
+      aiType: work.aiType,
+      series: work.series
     }
   }
   return {

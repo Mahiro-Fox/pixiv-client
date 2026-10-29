@@ -56,10 +56,13 @@ import type {
   UserSearchResult,
   ViewHistoryEntry,
   ViewRecordInput,
+  WatchLaterEntry,
   WorkExportParams,
   WorkPage,
   WorkSearchParams,
-  WorkSearchResult
+  WorkSearchResult,
+  WorkSeriesParams,
+  SeriesDetail
 } from '../shared/types'
 
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
@@ -142,6 +145,13 @@ const api: PixivApi = {
   recordView: (entry: ViewRecordInput) =>
     ipcRenderer.invoke('viewHistory:record', entry) as Promise<void>,
   clearViewHistory: () => ipcRenderer.invoke('viewHistory:clear') as Promise<ViewHistoryEntry[]>,
+  listWatchLater: () => ipcRenderer.invoke('watchLater:list') as Promise<WatchLaterEntry[]>,
+  isWatchLater: (id: string) => ipcRenderer.invoke('watchLater:state', id) as Promise<boolean>,
+  addWatchLater: (entry: ViewRecordInput) =>
+    ipcRenderer.invoke('watchLater:add', entry) as Promise<WatchLaterEntry[]>,
+  removeWatchLater: (id: string) =>
+    ipcRenderer.invoke('watchLater:remove', id) as Promise<WatchLaterEntry[]>,
+  clearWatchLater: () => ipcRenderer.invoke('watchLater:clear') as Promise<WatchLaterEntry[]>,
   getBookmarkState: (workId: string) =>
     ipcRenderer.invoke('write:bookmarkState', workId) as Promise<BookmarkState>,
   setBookmark: (workId: string, input: BookmarkInput) =>
@@ -150,6 +160,10 @@ const api: PixivApi = {
     ipcRenderer.invoke('write:followState', userId) as Promise<boolean>,
   setFollow: (userId: string, input: FollowInput) =>
     ipcRenderer.invoke('write:setFollow', userId, input) as Promise<boolean>,
+  getWorkSeries: (params: WorkSeriesParams) =>
+    ipcRenderer.invoke('series:detail', params) as Promise<SeriesDetail>,
+  setSeriesWatch: (seriesId: string, watch: boolean) =>
+    ipcRenderer.invoke('series:watch', seriesId, watch) as Promise<void>,
   checkDownloaded: (params: DownloadedParams) =>
     ipcRenderer.invoke('works:downloaded', params) as Promise<string[]>,
   enqueueDownload: (params: DownloadParams) =>

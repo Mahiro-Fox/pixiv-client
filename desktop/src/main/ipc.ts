@@ -33,7 +33,8 @@ import type {
   UserSearchParams,
   ViewRecordInput,
   WorkExportParams,
-  WorkSearchParams
+  WorkSearchParams,
+  WorkSeriesParams
 } from '../shared/types'
 import { clearCookie, getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
 import { applyProxy, getProxyState, saveProxyPassword, testProxy } from './proxy'
@@ -63,6 +64,7 @@ import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
 import { fetchRanking } from './pixiv/ranking'
 import { fetchRecommendedUsers, fetchRecommendedWorks } from './pixiv/recommend'
 import { getBookmarkState, getFollowState, setBookmark, setFollow } from './pixiv/write'
+import { fetchWorkSeries, setSeriesWatch } from './pixiv/series'
 import { fetchUserContent, fetchUserProfile, searchUsers } from './pixiv/user'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
@@ -85,6 +87,13 @@ import {
 import { scanLibrary } from './library'
 import { forgetHistory } from './history'
 import { clearViews, listViews, recordView } from './viewHistory'
+import {
+  addWatchLater,
+  clearWatchLater,
+  isWatchLater,
+  listWatchLater,
+  removeWatchLater
+} from './watchLater'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate } from './updater'
 
 interface ActiveRun {
@@ -779,6 +788,15 @@ export function registerIpcHandlers(): void {
     setFollow(userId, input)
   )
 
+  // 系列聚合浏览：已连接 App API 时取完整列表，否则用网页作品页信息兜底
+  ipcMain.handle('series:detail', async (_event, params: WorkSeriesParams) => {
+    const { cookie } = await resolveCookie()
+    return fetchWorkSeries(params, cookie)
+  })
+  ipcMain.handle('series:watch', async (_event, seriesId: string, watch: boolean) =>
+    setSeriesWatch(seriesId, watch)
+  )
+
   // 加入队列：校验后立即返回，任务由调度器按并行额度自动启动
   ipcMain.handle('download:enqueue', async (event, params: DownloadParams) => {
     const config = await loadConfig()
@@ -1157,6 +1175,15 @@ export function registerIpcHandlers(): void {
     await recordView(entry)
   })
   ipcMain.handle('viewHistory:clear', async () => clearViews())
+
+  // 稍后看：纯本地列表，与 pixiv 收藏无关；add 幂等，返回最新列表
+  ipcMain.handle('watchLater:list', async () => listWatchLater())
+  ipcMain.handle('watchLater:state', async (_event, id: unknown) => isWatchLater(String(id ?? '')))
+  ipcMain.handle('watchLater:add', async (_event, entry: ViewRecordInput) => addWatchLater(entry))
+  ipcMain.handle('watchLater:remove', async (_event, id: unknown) =>
+    removeWatchLater(String(id ?? ''))
+  )
+  ipcMain.handle('watchLater:clear', async () => clearWatchLater())
 
   ipcMain.handle('app:version', () => app.getVersion())
 
