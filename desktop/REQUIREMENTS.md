@@ -766,19 +766,26 @@
 
 **不做**：小说系列在此页复用（小说已有 `/novel/series/:seriesId`）、系列追更列表页。
 
-### 3.34 列表页后退保留数据（快照缓存）
+### 3.34 列表页离开再回来保留数据
 
-**问题**：从列表页点作者 / 作品进入详情页，再返回时列表页会重新挂载并重新请求，用户丢失刚才浏览的那批数据。
+**问题**：从列表页点作者 / 作品进入详情页，再返回时列表页会重新挂载并重新请求，用户丢失刚才浏览的那批数据与滚动位置。
 
-**方案**：`src/renderer/src/lib/pageCache.ts` 提供内存快照（`Map`，最多 24 条，超出按写入顺序淘汰）。
+**方案：keep-alive + 已加载标记 + 滚动位置 hook**。依赖 `keepalive-for-react` / `keepalive-for-react-router` v6。
 
-- 缓存键包含全部影响请求的参数（页面类型、关键词、排序、筛选、页码等）；写入时附带 `useLocation().key`，只有**后退复用了同一个历史条目**才读快照（比 `useNavigationType()` 可靠，Electron 下同样成立）。
-- 读取走 `useCachedPage(key, tag)`（`useMemo` 记忆）；不能用「本次是否已读取」的 ref 守卫，否则开发模式 `StrictMode` 的二次 effect 会跳过快照重新请求。
-- 手动切换顶栏的插画 / 漫画 / 小说 / 用户、改筛选、翻页、点刷新都是 **PUSH**，不会命中快照，仍按原需求重新请求。
-- 接入页面：插画 / 漫画搜索页、排行榜、用户搜索、小说搜索、推荐页（作品与画师各自快照，含已续拉的累积结果）；推荐页续拉后会同步更新快照，后退回来能接着往下滚。
-- 滚动位置一并记忆：`src/renderer/src/lib/scrollMemory.ts` 的 `useScrollMemory` 在命中快照后把滚动容器拨回原位，滚动过程中持续写回（最多 60 条）；新请求 / 改筛选 / 翻页 / 切栏目时回到顶部。
-- 排行榜页与推荐页原本没有滚动容器（内容会被根布局裁掉），本次顺带给 `main` 补上 `overflow-y-auto`。
-- 快照与滚动位置都只在内存里，重启应用即失效；不写磁盘。
+- `App.tsx` 用一个**不带 path 的布局路由**包住全部页面，其元素 `KeepAliveOutlet` 渲染 `KeepAliveRouteOutlet`；缓存容器必须不随路由卸载，否则缓存随之丢失。
+- `include` 只放六个浏览页：`/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max={12}`。本地数据页（收藏 / 浏览记录 / 稍后看等）刻意不缓存，避免看到过期内容。
+- `activeCacheKey={location.pathname}`：改筛选 / 翻页 / 回车搜索只改 search 参数，复用同一个组件实例，由页面自己的 effect 重新请求，不会生成一堆带不同 search 的缓存节点。
+- **刷新时机**：顶栏搜索只在回车提交时刷新；`lib/searchSubmit.ts` 维护全局提交序号，`submitSearch` 每次提交都 `bumpSearchSubmit()`，序号进入搜索页的 effect 依赖，因此同一关键词再按一次回车也会重新请求。
+- **推荐页切标签 / 切插画漫画不二次请求**：作品按 `kind` 分桶（`WorksBucket { works, next, token }`），`token = kind:连接状态`，命中就跳过请求；画师用 `usersLoaded` 布尔标记。只有用户点「刷新」才删掉当前桶并重取。kind 或凭据变化会让标记不匹配，从而自动重取。
+- **后台页面不读全局 URL**：keep-alive 缓存的页面在后台并未卸载，`useSearchParams()` 读到的仍是全局当前位置。进详情页时 URL 没有 `word` / `page`，后台页面会把这些参数算成空值并触发 effect——返回时参数又变回来，于是再跑一遍，表现为「点进作者、返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台一律不做任何请求或清空；推荐页、插画、漫画、小说、用户、排行榜六页都已接入。
+- **请求签名**：各页再用 `loadedSig`（ref 保存「取数据的条件」字符串，含 kind/word/筛选/页码/提交序号）作为第二道防线，签名一致直接跳过；请求失败时清空签名，允许下次激活或改参数重试。这样从详情页返回时参数即使短暂抖回也会被拦下。
+- **搜索框同步只在搜索栏目页**：`App.tsx` 只在 `/illust`、`/manga`、`/novel`、`/users` 四个 pathname 上用 URL 的 `word` 回填输入框；进 `/user/:id` 等详情页时 URL 没有 `word`，不做同步，避免输入框被清空后再跳回。
+- **滚动位置**：库本身不做滚动恢复。`src/renderer/src/lib/scrollMemory.ts` 导出 `useKeepAliveScroll(key)`（回调 ref + 挂载还原 + `useLayoutEffectOnActive` 激活还原，rAF 兜底）与 `useScrollMemory(key)`（非缓存页面用）。**`ref` 必须挂到真正滚动的容器上**：页面外层 `main` 往往只是 flex 容器，实际滚动的是内部 `overflow-y-auto` 元素，挂错位置读到的 `scrollTop` 永远是 0。推荐页与排行榜的滚动容器确实是外层 `main`（推荐页把列表包一层 `shrink-0`，防止内部 grid 在 flex 收缩下变成独立滚动区）；插画 / 漫画 / 小说 / 用户四页挂在内层 `overflow-y-auto` 列表容器上。
+- **滚动键按内容切换**：推荐页用动态键 `recommend:works:{kind}` / `recommend:users`，切标签或切插画漫画时直接还原新键的位置，两个列表各自停在自己的老位置。位置只在滚动事件里实时记录，**不要在切键时补读 `scrollTop`**：此时 React 已换上新的列表内容，旧列表更长的话 `scrollTop` 会被 clamp，补读反而把真实位置覆盖成 0（表现就是切回去总在顶部）。
+- 数据整批重置（改筛选 / 翻页 / 刷新 / 换 kind）时调 `reset()` 回到顶部；`reset` 同时把记忆归零，避免下次挂载又跳回去。
+- 该库要求关闭 `React.StrictMode`（`main.tsx` 已移除），否则开发模式下缓存节点挂载 / 卸载次数翻倍。
+- 代价：keep-alive 只看路由与 pathname，**从别的栏目点导航回到已缓存页面不会重新请求**，需要新鲜数据时用页面上的「刷新」。
+- 缓存与滚动位置都只在内存里，重启应用即失效；不写磁盘。
 
 ---
 

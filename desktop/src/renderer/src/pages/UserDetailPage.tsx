@@ -201,7 +201,6 @@ export function UserDetailPage({
   /** 未登录时的收藏栏目：只展示提示，不请求、不显示空态 */
   const bookmarksLocked = tab === "bookmarks" && hasCookie === false;
 
-  console.log(pageCount);
   const tabLabel = (key: UserContentTab): string => {
     if (key === "illust") return t("user.tabIllust");
     if (key === "manga") return t("user.tabManga");

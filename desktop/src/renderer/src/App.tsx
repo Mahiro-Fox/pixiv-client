@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type * as React from "react";
+import KeepAliveRouteOutlet from "keepalive-for-react-router";
 import {
   Navigate,
   NavLink,
@@ -50,6 +51,7 @@ import type {
   WorkSort,
 } from "@shared/types";
 import { applyWorkFilters, countActiveFilters } from "./lib/filters";
+import { bumpSearchSubmit } from "./lib/searchSubmit";
 import { applyTheme, watchSystemTheme } from "./lib/theme";
 import { I18nProvider, translate, useI18n } from "./i18n";
 import type { Translate } from "./i18n";
@@ -161,6 +163,43 @@ function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
   return list.sort((a, b) => byDate(a) - byDate(b));
 }
 
+/**
+ * 缓存范围：用户点名的六个浏览页。
+ * 这些页面进去详情再回来都应当保持原样，缓存键用 pathname，
+ * 因此改筛选 / 翻页 / 回车搜索（search 参数变化）仍复用同一个实例，由页面 effect 重新请求。
+ * 本地数据页（收藏 / 浏览记录 / 稍后看等）刻意不缓存，避免看到过期内容。
+ */
+const KEEP_ALIVE_ROUTES = [
+  /^\/recommend$/,
+  /^\/illust$/,
+  /^\/manga$/,
+  /^\/novel$/,
+  /^\/ranking$/,
+  /^\/users$/,
+];
+
+/** 顶栏搜索框同步关键词的范围：只有这四个搜索栏目页会随 URL 变化 */
+const SEARCH_SECTION_PATHS = new Set(["/illust", "/manga", "/novel", "/users"]);
+
+/**
+ * 路由缓存宿主。
+ * KeepAlive 必须挂在不随路由变化的位置，所以用一个不带 path 的布局路由包住全部页面。
+ */
+function KeepAliveOutlet(): React.JSX.Element {
+  const location = useLocation();
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <KeepAliveRouteOutlet
+        include={KEEP_ALIVE_ROUTES}
+        max={12}
+        activeCacheKey={location.pathname}
+        containerClassName="flex h-full min-h-0 flex-col"
+        cacheNodeClassName="flex min-h-0 flex-col"
+      />
+    </div>
+  );
+}
+
 export default function App(): React.JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
@@ -214,14 +253,19 @@ export default function App(): React.JSX.Element {
         : "illust";
   const sectionPath = `/${section}`;
 
-  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词
+  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词。
+  // 只在四个搜索栏目页同步：进作者/作品详情页时 URL 没有 word，
+  // 否则搜索框会被清空，返回后又跳回原词，用户会觉得输入框在乱变。
   useEffect(() => {
+    if (!SEARCH_SECTION_PATHS.has(location.pathname)) return;
     setKeyword(currentWord);
-  }, [currentWord]);
+  }, [currentWord, location.pathname]);
 
   const submitSearch = (value?: string): void => {
     const word = (value ?? keyword).trim();
     if (value !== undefined) setKeyword(value);
+    // 只有这里（回车提交）才要求刷新数据；同一个关键词再按一次回车也要重新取
+    bumpSearchSubmit();
     navigate(
       word
         ? `${sectionPath}?word=${encodeURIComponent(word)}`
@@ -999,9 +1043,11 @@ export default function App(): React.JSX.Element {
             </div>
           </header>
 
+          {/* 路由缓存宿主：目前只缓存 /recommend，其余页面照旧随路由挂载 / 卸载 */}
           <Routes>
-            {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
-            <Route
+            <Route element={<KeepAliveOutlet />}>
+              {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
+              <Route
               path="/workbench"
               element={
                 <>
@@ -1205,6 +1251,7 @@ export default function App(): React.JSX.Element {
             <Route path="/novel/:novelId" element={<NovelReaderPage />} />
             {/* 未匹配的路由，重定向到推荐页 */}
             <Route path="*" element={<Navigate to="/recommend" replace />} />
+            </Route>
           </Routes>
 
           {preview ? (

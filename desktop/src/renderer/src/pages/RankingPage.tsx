@@ -1,15 +1,15 @@
 import { Loader2, RefreshCw, Trophy } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import type { RankingMode, RankingResult, WorkSearchKind } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
-import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
-import { useScrollMemory } from '@renderer/lib/scrollMemory'
+import { usePageActive } from '@renderer/lib/pageActive'
+import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const MODES: RankingMode[] = [
@@ -80,39 +80,34 @@ export function RankingPage(): React.JSX.Element {
   /** 日期留空的榜单每天都会变，用这个计数强制重新拉取 */
   const [reload, setReload] = useState(0)
 
-  /** 从详情页后退回来时命中快照，不重新请求榜单 */
-  const cacheKey = `ranking|${kind}|${mode}|${page}|${date}`
-  /** 后退会复用同一个 location.key；手动切换榜单参数是新历史条目，快照视为未命中 */
-  const locationKey = useLocation().key
-  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
-  const snapshot = useCachedPage<RankingResult>(cacheKey, locationKey)
-  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
-  const [restored, setRestored] = useState(false)
-  const scrollRef = useScrollMemory<HTMLElement>(cacheKey, restored)
+  /** 滚动位置记忆：本页的滚动容器就是外层 main，keep-alive 激活时由 hook 拨回原位 */
+  const scroll = useKeepAliveScroll<HTMLElement>('ranking')
+  /** 后台时不读全局 URL 参数（进详情页会被算成默认值），effect 里直接忽略 */
+  const active = usePageActive()
+  /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
+  const loadedSig = useRef('')
 
   useEffect(() => {
-    // 手动刷新（reload > 0）必须绕过快照
-    if (reload === 0 && snapshot) {
-      setResult(snapshot)
-      setError('')
-      setLoading(false)
-      setRestored(true)
-      return
-    }
+    if (!active) return
+    const sig = [kind, mode, page, date, reload].join('|')
+    if (loadedSig.current === sig) return
 
     let alive = true
-    setRestored(false)
+    // 换榜单 / 换日期 / 刷新都是换了内容，位置回顶
+    scroll.reset()
     setLoading(true)
     setError('')
     void window.pixiv
       .listRanking({ kind, mode, page, date: toApiDate(date) })
       .then((data) => {
         if (!alive) return
+        loadedSig.current = sig
         setResult(data)
-        writePageCache(cacheKey, data, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
+          // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
+          loadedSig.current = ''
           setResult(null)
           setError(messageOf(reason))
         }
@@ -123,7 +118,7 @@ export function RankingPage(): React.JSX.Element {
     return () => {
       alive = false
     }
-  }, [kind, mode, page, date, reload])
+  }, [active, kind, mode, page, date, reload])
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)
@@ -141,7 +136,6 @@ export function RankingPage(): React.JSX.Element {
 
   return (
     <main
-      ref={scrollRef}
       className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4"
     >
       <div>
@@ -249,7 +243,7 @@ export function RankingPage(): React.JSX.Element {
       ) : null}
 
       {result && result.works.length > 0 ? (
-        <SearchWorkGrid works={result.works} onPreview={openPreview} />
+        <SearchWorkGrid ref={scroll.ref} works={result.works} onPreview={openPreview} />
       ) : null}
 
       {!loading && result && result.works.length === 0 ? (

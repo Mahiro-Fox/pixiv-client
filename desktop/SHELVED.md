@@ -89,7 +89,16 @@ npm run build        # 提交前必跑
 9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。
 10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。
 11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorkGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
-12. ✅ 列表页后退保留数据：`src/renderer/src/lib/pageCache.ts` 内存快照（最多 24 条），仅 `useNavigationType() === 'POP'`（浏览器后退）命中；手动切插画 / 漫画 / 小说 / 用户、改筛选、翻页、刷新仍是 PUSH，照旧重新请求。接入插画 / 漫画搜索、排行榜、用户搜索、小说搜索、推荐页（含续拉累积结果）。快照不落盘，重启失效。**判定依据**：写入时记下 `useLocation().key`（react-router 给每个历史条目的唯一标记），只有后退复用了同一个 key 才命中，比 `useNavigationType` 可靠；**读取方式**：`useCachedPage(key, tag)` 用 `useMemo` 记忆，不能用「本次已读取过」的 ref 守卫——开发模式 `StrictMode` 会把 effect 跑两次，那个守卫会让第二次执行跳过快照、白跑一次请求。滚动位置由 `src/renderer/src/lib/scrollMemory.ts` 的 `useScrollMemory` 一并记忆（最多 60 条），命中快照后拨回原位；顺带给排行榜页与推荐页的 `main` 补了 `overflow-y-auto`（此前内容会被根布局裁掉）。
+12. ✅ 列表页离开再回来保留数据（keep-alive + 已加载标记 + 滚动位置 hook）：
+   - **库**：`keepalive-for-react(-router)` v6。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
+   - **推荐页切标签 / 切插画漫画不重取**：作品按 `kind` 分桶 `WorksBucket { works, next, token }`（`token = kind:连接状态`），命中即跳过；画师用 `usersLoaded` 布尔标记。只有点「刷新」才删掉当前桶重取；kind / 凭据变化会让标记不匹配并自动重取。
+   - **后台页面不读全局 URL（关键根因）**：keep-alive 页面在后台没卸载，`useSearchParams()` 读到的是全局位置；进详情页时 URL 无 `word` / `page`，后台页把它们算成空值触发 effect，返回时参数复原又跑一遍，表现为「点作者→返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台不请求也不清空；六个缓存页均已接入。
+   - **请求签名**：各页用 `loadedSig` ref 保存「取数据的条件」（kind / word / 筛选 / 页码 / 提交序号），一致即跳过，失败清空以便重试，作为第二道防线。
+   - **搜索框同步只在栏目页**：`App.tsx` 只在 `/illust`、`/manga`、`/novel`、`/users` 用 URL 的 `word` 回填输入框，进 `/user/:id` 等详情页不同步，避免输入框被清空再跳回。
+   - **滚动位置**：库不做滚动恢复。`lib/scrollMemory.ts` 提供 `useKeepAliveScroll(key)`（回调 ref + 挂载还原 + `useLayoutEffectOnActive` 激活还原 + rAF 兜底）与 `useScrollMemory(key)`。**ref 必须挂到真正滚动的容器上**：推荐页与排行榜挂外层 `main`（推荐页列表包一层 `shrink-0` 防止内部 grid 在 flex 收缩下变成独立滚动区）；插画 / 漫画 / 小说 / 用户四页挂内层 `overflow-y-auto` 列表容器。推荐页用动态键 `recommend:works:{kind}` / `recommend:users`，切键时直接还原新键位置；位置只在滚动事件里实时记录，切键时**不要**补读 `scrollTop`（此时 DOM 已换成新列表，旧列表更长会被 clamp，补读会把真实位置覆盖成 0）。`reset()` 用于数据整批重置时归零。
+   - **刷新时机**：`lib/searchSubmit.ts` 全局提交序号，`submitSearch` 每次回车都递增并进入搜索页 effect 依赖，同一关键词再回车也重取。
+   - 旧的 `lib/pageCache.ts`（内存快照）已删除，避免与 keep-alive 两套机制并存。
+   - 顺带给排行榜页与推荐页的 `main` 补了 `overflow-y-auto`（此前内容会被根布局裁掉）。所有缓存与滚动位置只在内存，重启失效。
 
 ## 写操作接口细节（Mako 调研结论）
 

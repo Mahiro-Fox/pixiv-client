@@ -104,9 +104,11 @@ export function SearchWorkGrid(props: {
   onPreview?: (work: SearchWork) => void
   /** 滚动容器末尾的附加内容（如触底加载哨兵），必须放在滚动区内才会随滚动进入视口 */
   footer?: React.ReactNode
+  /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
+  ref?: React.Ref<HTMLDivElement>
 }): React.JSX.Element {
   return (
-    <div className="scrollbar-thin overflow-y-auto">
+    <div className="scrollbar-thin overflow-y-auto" ref={props.ref}>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
         {props.works.map((work) => (
           <SearchWorkCard key={work.id} work={work} onPreview={props.onPreview} />

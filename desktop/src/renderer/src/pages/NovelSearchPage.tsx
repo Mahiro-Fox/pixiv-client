@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type {
   NovelOrder,
   NovelSearchMode,
@@ -22,8 +22,9 @@ import type {
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { readingMinutes } from '@renderer/lib/novel'
-import { useCachedPage, writePageCache } from '@renderer/lib/pageCache'
-import { useScrollMemory } from '@renderer/lib/scrollMemory'
+import { usePageActive } from '@renderer/lib/pageActive'
+import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
+import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Select } from '@renderer/components/ui/select'
@@ -151,45 +152,48 @@ export function NovelSearchPage(): React.JSX.Element {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  /** 从小说阅读页后退回来时命中快照，保留上一批搜索结果 */
-  const cacheKey = `novels|${word}|${order}|${mode}|${target}|${page}`
-  /** 后退会复用同一个 location.key；手动翻页 / 改筛选是新历史条目，快照视为未命中 */
-  const locationKey = useLocation().key
-  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
-  const snapshot = useCachedPage<NovelSearchResult>(cacheKey, locationKey)
-  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
-  const [restored, setRestored] = useState(false)
-  const scrollRef = useScrollMemory<HTMLDivElement>(cacheKey, restored)
+  /** 顶栏回车提交的序号：同一个关键词再提交一次也要刷新 */
+  const submitVersion = useSearchSubmitVersion()
+  /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
+  const scroll = useKeepAliveScroll<HTMLDivElement>('novels')
+  /** 后台时不读全局 URL 参数（进详情页会被算成空值），effect 里直接忽略 */
+  const active = usePageActive()
+  /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
+  const loadedSig = useRef('')
 
-  useEffect(() => setInput(word), [word])
+  // 后台时 URL 会被算成空值，不能让它把本地输入框清掉
+  useEffect(() => {
+    if (!active) return
+    setInput(word)
+  }, [active, word])
 
   useEffect(() => {
+    if (!active) return
     if (!word) {
       setResult(null)
       setError('')
+      loadedSig.current = ''
       return
     }
-    if (snapshot) {
-      setResult(snapshot)
-      setError('')
-      setLoading(false)
-      setRestored(true)
-      return
-    }
+    const sig = [word, order, mode, target, page, submitVersion].join('|')
+    if (loadedSig.current === sig) return
 
     let alive = true
-    setRestored(false)
+    // 参数变了就是换了内容，位置回顶
+    scroll.reset()
     setLoading(true)
     setError('')
     void window.pixiv
       .searchNovels({ word, order, mode, target, page })
       .then((data) => {
         if (!alive) return
+        loadedSig.current = sig
         setResult(data)
-        writePageCache(cacheKey, data, locationKey)
       })
       .catch((reason: unknown) => {
         if (alive) {
+          // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
+          loadedSig.current = ''
           setResult(null)
           setError(messageOf(reason))
         }
@@ -200,7 +204,7 @@ export function NovelSearchPage(): React.JSX.Element {
     return () => {
       alive = false
     }
-  }, [word, order, mode, target, page])
+  }, [active, word, order, mode, target, page, submitVersion])
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)
@@ -300,7 +304,7 @@ export function NovelSearchPage(): React.JSX.Element {
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_14rem] gap-4">
           <div className="flex min-h-0 flex-col gap-3">
             <div
-              ref={scrollRef}
+              ref={scroll.ref}
               className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
             >
               {loading ? (

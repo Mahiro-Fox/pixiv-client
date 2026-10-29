@@ -1,7 +1,7 @@
 import { Compass, Loader2, RefreshCw, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type * as React from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type {
   OAuthStatus,
   SearchWork,
@@ -12,19 +12,9 @@ import { useI18n } from "@renderer/i18n";
 import { Button } from "@renderer/components/ui/button";
 import { UserCard } from "@renderer/components/UserCard";
 import { SearchWorkGrid } from "@renderer/components/WorkCard";
-import { useCachedPage, writePageCache } from "@renderer/lib/pageCache";
-import { useScrollMemory } from "@renderer/lib/scrollMemory";
+import { usePageActive } from "@renderer/lib/pageActive";
+import { useKeepAliveScroll } from "@renderer/lib/scrollMemory";
 import { useWorkPreview } from "@renderer/lib/workPreview";
-
-/** 无限滚动累积的多页结果快照 */
-interface WorksSnapshot {
-  works: SearchWork[];
-  next: string;
-}
-interface UsersSnapshot {
-  users: UserSearchItem[];
-  next: string;
-}
 
 /** 续拉去重：接口偶尔会在不同批里返回同一件 */
 function appendUnique<T extends { id: string }>(previous: T[], next: T[]): T[] {
@@ -46,10 +36,21 @@ export interface RecommendPageProps {
   oauth: OAuthStatus | null;
 }
 
+/** 某个 kind 的作品批次 */
+interface WorksBucket {
+  works: SearchWork[];
+  next: string;
+  /** 这批数据是按什么取的：kind + 连接状态；一致就不再请求 */
+  token: string;
+}
+
 /**
  * 推荐页：作品与画师两个标签。
  * 两者都走 pixiv App API，需要设置里的 OAuth 凭据；
  * 未连接时作品退回网页发现接口（数量有限），画师标签只给引导提示。
+ *
+ * 本页被 keep-alive 按 pathname 缓存：进作者主页再回来，数据与滚动位置都还在。
+ * 切标签 / 切插画漫画不重新请求（各存一份数据与一个滚动位置），只有「刷新」按钮会重取。
  */
 export function RecommendPage({
   oauth,
@@ -65,102 +66,90 @@ export function RecommendPage({
   /** 状态还没就绪（App 启动时读取中）时不请求，避免首屏白跑一次兜底接口 */
   const oauthReady = oauth !== null;
   const connected = oauth?.connected ?? false;
+  /**
+   * 后台时 useSearchParams() 读到的是全局位置（进详情页就变成了空参数），
+   * 直接用会把 kind / tab 算错并触发无谓请求，所以后台一律不请求。
+   */
+  const active = usePageActive();
 
-  const [works, setWorks] = useState<SearchWork[]>([]);
-  const [worksNext, setWorksNext] = useState("");
-  const [worksLoading, setWorksLoading] = useState(false);
+  /** 作品按 kind 分桶缓存：切插画 / 漫画回来后直接用，不重取 */
+  const [worksBuckets, setWorksBuckets] = useState<Record<string, WorksBucket>>(
+    {},
+  );
+  const bucketsRef = useRef(worksBuckets);
+  bucketsRef.current = worksBuckets;
+  const [worksLoadingKind, setWorksLoadingKind] =
+    useState<WorkSearchKind | null>(null);
   const [worksError, setWorksError] = useState("");
   const [worksReload, setWorksReload] = useState(0);
+
+  const bucket = worksBuckets[kind];
+  const works = bucket?.works ?? [];
+  const worksNext = bucket?.next ?? "";
+  const worksLoading = worksLoadingKind === kind;
 
   const [users, setUsers] = useState<UserSearchItem[]>([]);
   const [usersNext, setUsersNext] = useState("");
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [usersReload, setUsersReload] = useState(0);
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
-  /** 从作者主页后退回来时命中快照，避免推荐列表整体重刷 */
-  const worksKey = `recommend:works:${kind}:${connected ? 1 : 0}`;
-  const usersKey = "recommend:users";
-  /** 后退会复用同一个 location.key；手动切标签 / 换插画漫画是新历史条目，快照视为未命中 */
-  const locationKey = useLocation().key;
-  /** 本次挂载读到的快照；StrictMode 下 effect 跑两次也拿到同一份 */
-  const worksSnapshot = useCachedPage<WorksSnapshot>(worksKey, locationKey);
-  const usersSnapshot = useCachedPage<UsersSnapshot>(usersKey, locationKey);
   /** 触底自动续拉的哨兵节点 */
   const worksSentinel = useRef<HTMLDivElement | null>(null);
   const usersSentinel = useRef<HTMLDivElement | null>(null);
-  /** 本次渲染是否来自后退快照：只有快照才还原滚动位置 */
-  const [restoredWorks, setRestoredWorks] = useState(false);
-  const [restoredUsers, setRestoredUsers] = useState(false);
-  const scrollRef = useScrollMemory<HTMLElement>(
-    tab === "users" ? usersKey : worksKey,
-    tab === "users" ? restoredUsers : restoredWorks,
-  );
+  /**
+   * 滚动位置记忆：本页只有外层 main 在滚动（内部列表没有高度约束）。
+   * 键按标签 / 类型分开，切标签回来各自停在原位。
+   */
+  const scrollKey =
+    tab === "users" ? "recommend:users" : `recommend:works:${kind}`;
+  const scroll = useKeepAliveScroll<HTMLElement>(scrollKey);
 
   useEffect(() => {
-    if (!oauthReady || tab !== "works") return;
-    const key = worksKey;
-    if (worksSnapshot) {
-      setWorks(worksSnapshot.works);
-      setWorksNext(worksSnapshot.next);
-      setWorksError("");
-      setWorksLoading(false);
-      setRestoredWorks(true);
-      return;
-    }
+    if (!active || !oauthReady || tab !== "works") return;
+    const token = `${kind}:${connected ? 1 : 0}`;
+    // 这个 kind 已经按同样的条件取过，切回来不重复请求
+    if (bucketsRef.current[kind]?.token === token) return;
 
     let alive = true;
-    setRestoredWorks(false);
-    setWorksLoading(true);
+    setWorksLoadingKind(kind);
     setWorksError("");
-    // 这是重置批次（切标签 / 切类型 / 刷新），先清空上一批，避免短暂显示旧内容
-    setWorks([]);
-    setWorksNext("");
     void window.pixiv
       .listRecommendedWorks({ kind, mode: "all" })
       .then((data) => {
         if (!alive) return;
-        setWorks(data.works);
-        setWorksNext(data.nextUrl);
-        writePageCache(key, { works: data.works, next: data.nextUrl }, locationKey);
+        setWorksBuckets((previous) => ({
+          ...previous,
+          [kind]: { works: data.works, next: data.nextUrl, token },
+        }));
       })
       .catch((reason: unknown) => {
-        if (alive) {
-          setWorks([]);
-          setWorksNext("");
-          setWorksError(messageOf(reason));
-        }
+        if (alive) setWorksError(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setWorksLoading(false);
+        if (alive) setWorksLoadingKind(null);
       });
     return () => {
       alive = false;
     };
-  }, [oauthReady, tab, kind, connected, worksReload]);
+    // 组件常驻，不再依赖「重新挂载」触发请求，参数变化必须显式进依赖
+  }, [active, oauthReady, tab, kind, connected, worksReload]);
 
   useEffect(() => {
-    if (!oauthReady) return;
-    if (tab !== "users" || !connected) {
-      // 断开状态下不保留上一份数据，避免重新连接后显示过期列表
-      if (!connected) {
-        setUsers([]);
-        setUsersNext("");
-        setUsersError("");
-      }
-      return;
-    }
-    if (usersSnapshot) {
-      setUsers(usersSnapshot.users);
-      setUsersNext(usersSnapshot.next);
+    if (!active || !oauthReady) return;
+    if (!connected) {
+      // 断开后不保留上一份数据，重新连接时要重新取
+      setUsers([]);
+      setUsersNext("");
       setUsersError("");
-      setUsersLoading(false);
-      setRestoredUsers(true);
+      setUsersLoaded(false);
       return;
     }
+    if (tab !== "users") return;
+    if (usersLoaded) return;
 
     let alive = true;
-    setRestoredUsers(false);
     setUsersLoading(true);
     setUsersError("");
     void window.pixiv
@@ -169,14 +158,10 @@ export function RecommendPage({
         if (!alive) return;
         setUsers(data.users);
         setUsersNext(data.nextUrl);
-        writePageCache(usersKey, { users: data.users, next: data.nextUrl }, locationKey);
+        setUsersLoaded(true);
       })
       .catch((reason: unknown) => {
-        if (alive) {
-          setUsers([]);
-          setUsersNext("");
-          setUsersError(messageOf(reason));
-        }
+        if (alive) setUsersError(messageOf(reason));
       })
       .finally(() => {
         if (alive) setUsersLoading(false);
@@ -184,7 +169,7 @@ export function RecommendPage({
     return () => {
       alive = false;
     };
-  }, [oauthReady, tab, connected, usersReload]);
+  }, [active, oauthReady, tab, connected, usersReload, usersLoaded]);
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params);
@@ -195,24 +180,32 @@ export function RecommendPage({
     setParams(next);
   };
 
-  /** 续拉下一批：按 ID 去重后追加，并同步更新快照 */
+  /** 续拉下一批：按 ID 去重后追加 */
   const loadMoreWorks = async (): Promise<void> => {
-    if (!worksNext || worksLoading) return;
-    setWorksLoading(true);
+    if (!worksNext || worksLoading || !bucket) return;
+    setWorksLoadingKind(kind);
     setWorksError("");
     try {
       const data = await window.pixiv.listRecommendedWorks({
         kind,
         nextUrl: worksNext,
       });
-      const merged = appendUnique(works, data.works);
-      setWorks(merged);
-      setWorksNext(data.nextUrl);
-      writePageCache(worksKey, { works: merged, next: data.nextUrl }, locationKey);
+      setWorksBuckets((previous) => {
+        const current = previous[kind];
+        if (!current) return previous;
+        return {
+          ...previous,
+          [kind]: {
+            ...current,
+            works: appendUnique(current.works, data.works),
+            next: data.nextUrl,
+          },
+        };
+      });
     } catch (reason) {
       setWorksError(messageOf(reason));
     } finally {
-      setWorksLoading(false);
+      setWorksLoadingKind(null);
     }
   };
 
@@ -224,10 +217,8 @@ export function RecommendPage({
       const data = await window.pixiv.listRecommendedUsers({
         nextUrl: usersNext,
       });
-      const merged = appendUnique(users, data.users);
-      setUsers(merged);
+      setUsers((previous) => appendUnique(previous, data.users));
       setUsersNext(data.nextUrl);
-      writePageCache(usersKey, { users: merged, next: data.nextUrl }, locationKey);
     } catch (reason) {
       setUsersError(messageOf(reason));
     } finally {
@@ -237,7 +228,8 @@ export function RecommendPage({
 
   /** 触底自动续拉：哨兵进入可视区（含 300px 提前量）就取下一批，替代原来的「加载更多」按钮 */
   useEffect(() => {
-    const node = tab === "users" ? usersSentinel.current : worksSentinel.current;
+    const node =
+      tab === "users" ? usersSentinel.current : worksSentinel.current;
     if (!node) return;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -267,10 +259,7 @@ export function RecommendPage({
   const count = tab === "users" ? users.length : works.length;
 
   return (
-    <main
-      ref={scrollRef}
-      className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4"
-    >
+    <main className=" flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Compass className="h-4 w-4 text-primary" />
@@ -333,8 +322,20 @@ export function RecommendPage({
           className="ml-auto h-8 text-xs"
           disabled={loading}
           onClick={() => {
-            if (tab === "users") setUsersReload((value) => value + 1);
-            else setWorksReload((value) => value + 1);
+            // 只有这个按钮会清掉当前批次的标记，从而触发重新请求
+            if (tab === "users") {
+              setUsersLoaded(false);
+              scroll.reset();
+              setUsersReload((value) => value + 1);
+            } else {
+              setWorksBuckets((previous) => {
+                const next = { ...previous };
+                delete next[kind];
+                return next;
+              });
+              scroll.reset();
+              setWorksReload((value) => value + 1);
+            }
           }}
         >
           {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
@@ -365,21 +366,25 @@ export function RecommendPage({
 
       {oauthReady && tab === "works" ? (
         works.length > 0 ? (
-          // 续拉时不能因为 loading 卸载网格，否则页面塌缩、滚动回顶
-          <SearchWorkGrid
-            works={works}
-            onPreview={openPreview}
-            footer={
-              <>
-                {loading ? (
-                  <div className="flex h-8 items-center justify-center">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : null}
-                {worksNext ? <div ref={worksSentinel} className="h-1" aria-hidden /> : null}
-              </>
-            }
-          />
+          // shrink-0：不让 main 压缩这一块，保证「只有 main 在滚动」，
+          // 否则内部 grid 的 overflow-y-auto 会变成独立滚动区，滚动位置就记到别处去了
+            <SearchWorkGrid
+              ref={scroll.ref}
+              works={works}
+              onPreview={openPreview}
+              footer={
+                <>
+                  {loading ? (
+                    <div className="flex h-8 items-center justify-center">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : null}
+                  {worksNext ? (
+                    <div ref={worksSentinel} className="h-1" aria-hidden />
+                  ) : null}
+                </>
+              }
+            />
         ) : !loading && !error ? (
           <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
             {t("recommend.empty")}
@@ -399,7 +404,7 @@ export function RecommendPage({
             </p>
           </div>
         ) : users.length > 0 ? (
-          <div className="scrollbar-thin overflow-y-auto">
+          <div className="scrollbar-thin overflow-y-auto" ref={scroll.ref}>
             <ul className="flex flex-col gap-2">
               {users.map((user) => (
                 <UserCard key={user.id} user={user} onPreview={openPreview} />
@@ -410,7 +415,9 @@ export function RecommendPage({
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               </div>
             ) : null}
-            {usersNext ? <div ref={usersSentinel} className="h-1" aria-hidden /> : null}
+            {usersNext ? (
+              <div ref={usersSentinel} className="h-1" aria-hidden />
+            ) : null}
           </div>
         ) : !loading && !error ? (
           <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
@@ -418,8 +425,6 @@ export function RecommendPage({
           </div>
         ) : null
       ) : null}
-
-
 
       {previewNode}
     </main>

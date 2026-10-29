@@ -137,3 +137,7 @@
     background: transparent;
   }
 }
+
+*{
+  scroll-behavior: smooth;
+}
