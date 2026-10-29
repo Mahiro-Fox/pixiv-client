@@ -56,15 +56,22 @@ export function useFilterConfig(): AppConfig | null {
 }
 
 /** 按当前规则过滤作品列表，返回保留项与被隐藏的数量 */
-export function useFilteredWorks<T extends FilterableWork>(works: T[]): {
+export function useFilteredWorks<T extends FilterableWork>(
+  works: T[],
+  options?: { ignoreRating?: boolean }
+): {
   items: T[]
   hidden: number
 } {
-  const { filters } = useFilterContext()
+  const { config, filters } = useFilterContext()
+  const ignoreRating = Boolean(options?.ignoreRating)
   return useMemo(() => {
-    const result = filterWorks(works, filters)
+    // 推荐页的作品没有分级维度：用同一份配置重新编译一次，只把 r18 置为 any，
+    // 其它规则（页数 / 尺寸 / 排除标签 / 屏蔽）照常生效
+    const effective = ignoreRating ? compileFilters(config, { ignoreRating }) : filters
+    const result = filterWorks(works, effective)
     return { items: result.items, hidden: result.removed }
-  }, [works, filters])
+  }, [works, filters, config, ignoreRating])
 }
 
 /** 按当前规则过滤小说列表（页数 / 尺寸规则不适用） */

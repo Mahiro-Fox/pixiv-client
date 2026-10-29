@@ -485,8 +485,10 @@ const zhCN = {
   'filter.minHeightHint': '原图高，0 不限',
   'filter.r18': '内容分级',
   'filter.r18Any': '全部',
-  'filter.r18Only': '仅 R-18',
+  'filter.r18Only': '仅 R-18（推荐页无 R-18 分级，不生效）',
   'filter.r18Exclude': '排除 R-18',
+  'filter.r18Unsupported':
+    '推荐页的作品来自 App API 推荐，分级由账号设置与接口决定，此选项在推荐页不生效，切换回搜索等页面后照常按此规则过滤',
   'filter.excludeAi': '排除 AI 作品',
   'filter.excludeKeywords': '排除关键词',
   'filter.excludeKeywordsHint': '匹配标题与作者名，逗号或空格分隔',
@@ -1296,8 +1298,10 @@ const en: Record<MessageKey, string> = {
   'filter.minHeightHint': 'Original height; 0 means no limit',
   'filter.r18': 'Content rating',
   'filter.r18Any': 'All',
-  'filter.r18Only': 'R-18 only',
+  'filter.r18Only': 'R-18 only (does not apply to the recommendation page, as it lacks an R-18 classification)',
   'filter.r18Exclude': 'Exclude R-18',
+  'filter.r18Unsupported':
+    'Recommendations come from the App API, where rating is decided by your account settings and the endpoint — this option has no effect here, and applies again on search pages',
   'filter.excludeAi': 'Exclude AI works',
   'filter.excludeKeywords': 'Exclude keywords',
   'filter.excludeKeywordsHint':
@@ -2114,8 +2118,10 @@ const ja: Record<MessageKey, string> = {
   'filter.minHeightHint': '原寸の高さ、0 は無制限',
   'filter.r18': 'コンテンツ区分',
   'filter.r18Any': 'すべて',
-  'filter.r18Only': 'R-18 のみ',
+  'filter.r18Only': 'R-18 のみ（おすすめページにはR-18区分がないため、適用されません）',
   'filter.r18Exclude': 'R-18 を除外',
+  'filter.r18Unsupported':
+    'おすすめは App API から取得され、レーティングはアカウント設定と API が決めます。この設定はおすすめページでは効果がなく、検索などのページでは通常どおり適用されます',
   'filter.excludeAi': 'AI 作品を除外',
   'filter.excludeKeywords': '除外キーワード',
   'filter.excludeKeywordsHint': 'タイトルと作者名に一致。カンマまたはスペース区切り',

@@ -5,17 +5,20 @@ import { Label } from './label'
 export function Select({
   value,
   onChange,
+  disabled,
   children
 }: {
   value: string
   onChange: (value: string) => void
+  disabled?: boolean
   children: React.ReactNode
 }): React.JSX.Element {
   return (
     <select
       value={value}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
-      className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </select>

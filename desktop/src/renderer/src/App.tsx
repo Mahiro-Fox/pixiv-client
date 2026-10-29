@@ -440,9 +440,11 @@ export default function App(): React.JSX.Element {
     [filteredWorks, sort],
   );
 
+  // 徽标显示「当前页生效」的规则数：推荐页不适用内容分级，别把它算进去
+  const onRecommend = location.pathname.startsWith("/recommend");
   const activeFilterCount = useMemo(
-    () => (config ? countActiveFilters(config) : 0),
-    [config],
+    () => (config ? countActiveFilters(config, { ignoreRating: onRecommend }) : 0),
+    [config, onRecommend],
   );
 
   // 分页逻辑与 pixiv 网页端一致：按抓取时的每页数量切页，默认停在第 1 页
@@ -1108,6 +1110,16 @@ export default function App(): React.JSX.Element {
             />
 
             <div className="flex shrink-0 items-center gap-1.5">
+              <AccountMenu
+                selfUser={selfUser}
+                hasCookie={Boolean(cookie?.hasCookie)}
+                loggingIn={loggingIn}
+                onLogin={() => void loginPixiv()}
+                onOpenFollowing={() => navigate("/users/following")}
+                onOpenFavorites={() => navigate("/favorites")}
+                onOpenHistory={() => navigate("/history")}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
               {/* 过滤规则是全局的：顶栏一个入口，所有列表页共用同一份规则 */}
               <Button
                 variant="outline"
@@ -1122,24 +1134,6 @@ export default function App(): React.JSX.Element {
                     {activeFilterCount}
                   </span>
                 ) : null}
-              </Button>
-              <AccountMenu
-                selfUser={selfUser}
-                hasCookie={Boolean(cookie?.hasCookie)}
-                loggingIn={loggingIn}
-                onLogin={() => void loginPixiv()}
-                onOpenFollowing={() => navigate("/users/following")}
-                onOpenFavorites={() => navigate("/favorites")}
-                onOpenHistory={() => navigate("/history")}
-                onOpenSettings={() => setSettingsOpen(true)}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                title={t("app.settings")}
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings2 />
               </Button>
               <Button
                 variant="outline"

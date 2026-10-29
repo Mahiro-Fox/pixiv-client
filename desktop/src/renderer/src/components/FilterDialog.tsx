@@ -1,4 +1,5 @@
 import { Filter, RotateCcw, ShieldBan } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import type * as React from 'react'
 import type { AppConfig, R18Filter } from '@shared/types'
@@ -21,6 +22,10 @@ interface FilterDialogProps {
 export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
   const { t } = useI18n()
   const { config } = props
+  // 由弹窗自己读当前路由：这样无论从哪个页面打开、导航过程中弹窗是否还开着，
+  // 判定都跟着当前页面走，不依赖调用方传参的时机
+  const location = useLocation()
+  const ratingSupported = !location.pathname.startsWith('/recommend')
   const activeCount = countActiveFilters(config)
   /** 屏蔽名单管理单独一层弹窗：清单要能一目了然地看，塞在这个弹窗里会太长 */
   const [managing, setManaging] = useState(false)
@@ -121,9 +126,13 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t('filter.r18')}>
+          <Field
+            label={t('filter.r18')}
+            hint={ratingSupported ? undefined : t('filter.r18Unsupported')}
+          >
             <Select
               value={config.filterR18}
+              disabled={!ratingSupported}
               onChange={(value) => props.onConfigChange({ filterR18: value as R18Filter })}
             >
               <option value="any">{t('filter.r18Any')}</option>

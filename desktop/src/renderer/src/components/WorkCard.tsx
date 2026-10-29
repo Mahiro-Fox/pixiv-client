@@ -115,10 +115,14 @@ export function SearchWorkGrid(props: {
   footer?: React.ReactNode
   /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
   ref?: React.Ref<HTMLDivElement>
+  /** 数据源没有分级维度时（推荐页）忽略「内容分级」规则 */
+  ignoreRating?: boolean
 }): React.JSX.Element {
   // 过滤在这里统一做：搜索 / 排行 / 推荐 / 收藏 / 用户主页都用这个网格，
   // 接一次就等于全站列表都按顶栏那套规则走，页面不必各自接线
-  const { items, hidden } = useFilteredWorks(props.works)
+  const { items, hidden } = useFilteredWorks(props.works, {
+    ignoreRating: props.ignoreRating
+  })
 
   return (
     <div className="scrollbar-thin overflow-y-auto" ref={props.ref}>

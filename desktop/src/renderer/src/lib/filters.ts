@@ -16,8 +16,11 @@ export function applyWorkFilters(works: PixivWork[], config: AppConfig): FilterO
   return { works: items, removed }
 }
 
-/** 生效的过滤规则数量（用于过滤图标徽标） */
-export function countActiveFilters(config: AppConfig): number {
+/** 生效的过滤规则数量（用于过滤图标徽标）；推荐页可忽略内容分级 */
+export function countActiveFilters(
+  config: AppConfig,
+  options?: { ignoreRating?: boolean }
+): number {
   return [
     config.filterMinPages > 0,
     config.filterMaxPages > 0,
@@ -25,7 +28,7 @@ export function countActiveFilters(config: AppConfig): number {
     config.filterMinHeight > 0,
     Boolean(config.filterExcludeTags.trim()),
     Boolean(config.filterExcludeKeywords.trim()),
-    config.filterR18 !== 'any',
+    options?.ignoreRating ? false : config.filterR18 !== 'any',
     config.filterExcludeAi,
     Boolean(config.blockTags.trim()),
     Boolean(config.blockUsers.trim())

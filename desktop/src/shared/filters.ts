@@ -55,11 +55,20 @@ function tagNames(tags: FilterableWork['tags']): string[] {
   )
 }
 
+/** 编译选项：某些数据源（例如推荐页）的接口本身不提供分级维度 */
+export interface FilterCompileOptions {
+  /** 忽略内容分级，等价于把 `r18` 强制为 `any` */
+  ignoreRating?: boolean
+}
+
 /**
  * 把配置编译成可复用的判定参数。
  * 列表每渲染一次都要过一遍规则，配置只在改动时变，编译一次即可。
  */
-export function compileFilters(config: AppConfig | null | undefined): CompiledFilters {
+export function compileFilters(
+  config: AppConfig | null | undefined,
+  options?: FilterCompileOptions
+): CompiledFilters {
   const source = config || ({} as AppConfig)
   const minPages = Math.max(0, Math.round(source.filterMinPages || 0))
   const maxPages = Math.max(0, Math.round(source.filterMaxPages || 0))
@@ -67,7 +76,8 @@ export function compileFilters(config: AppConfig | null | undefined): CompiledFi
   const minHeight = Math.max(0, Math.round(source.filterMinHeight || 0))
   const excludeTags = splitBlockTerms(source.filterExcludeTags || '')
   const excludeKeywords = splitBlockTerms(source.filterExcludeKeywords || '')
-  const r18 = source.filterR18 || 'any'
+  // 推荐页这类数据源不分级：忽略 r18 而不是当成 'any' 之外的其它值
+  const r18 = options?.ignoreRating ? 'any' : source.filterR18 || 'any'
   const excludeAi = Boolean(source.filterExcludeAi)
   const blocks = blockRulesOf({
     blockTags: source.blockTags || '',

@@ -371,6 +371,8 @@ export function RecommendPage({
             <SearchWorkGrid
               ref={scroll.ref}
               works={works}
+              // 推荐接口不返回分级维度，「内容分级」规则在这里没有意义，跳过它
+              ignoreRating
               onPreview={openPreview}
               footer={
                 <>
