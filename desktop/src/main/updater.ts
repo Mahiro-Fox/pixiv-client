@@ -18,10 +18,15 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** 更新包总体积（字节）：安装包 + 增量包，用于提示用户需要多少流量 */
+/**
+ * 更新包体积（字节）。
+ * 不能把 `files` 相加：里面通常同时列了安装包、zip 等多个产物，实际只会下载其中一个，
+ * 相加会把体积算大（例如 107 MB 的安装包显示成 140 MB）。取最大值即安装包本身。
+ * 差分下载（differential download）时真实流量可能比这个数字更少。
+ */
 function sizeOf(info: UpdateInfo): number {
   const files = (info.files || []) as Array<{ size?: number }>
-  return files.reduce((sum, file) => sum + (Number(file.size) || 0), 0)
+  return files.reduce((max, file) => Math.max(max, Number(file.size) || 0), 0)
 }
 
 export function getUpdateStatus(): UpdateStatus {
@@ -100,16 +105,15 @@ export function initUpdater(send: (next: UpdateStatus) => void): void {
     setStatus({ state: 'up-to-date', version: info.version })
   )
   autoUpdater.on('download-progress', (progress) => {
-    // download-progress 不带版本号，沿用上一个状态里记录的新版本号
+    // download-progress 不带版本号，沿用上一个状态里记录的新版本号。
+    // 不展示已下载 / 总字节：差分下载时这两个数和百分比的口径不一致，容易自相矛盾
     const version =
       status.state === 'available' || status.state === 'downloading' ? status.version : ''
     setStatus({
       state: 'downloading',
       version,
       percent: Math.round(progress.percent),
-      bytesPerSecond: progress.bytesPerSecond,
-      transferred: progress.transferred,
-      total: progress.total
+      bytesPerSecond: progress.bytesPerSecond
     })
   })
   autoUpdater.on('update-downloaded', (info) =>

@@ -54,7 +54,7 @@ export function UpdateDialog(props: {
   if (status.state === 'downloading') {
     return (
       <Dialog
-        title={t('update.title', { version: status.version })}
+        title={t('update.downloadingTitle', { version: status.version })}
         icon={<Loader2 className="h-4 w-4 animate-spin text-primary" />}
         onClose={props.onClose}
         className="max-w-md"
@@ -67,13 +67,7 @@ export function UpdateDialog(props: {
         <div className="space-y-2">
           <Progress value={status.percent} />
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>
-              {t('update.downloading', {
-                percent: status.percent,
-                transferred: formatBytes(status.transferred),
-                total: formatBytes(status.total)
-              })}
-            </span>
+            <span>{t('update.downloading', { percent: status.percent })}</span>
             {status.bytesPerSecond > 0 ? (
               <span className="tabular-nums">
                 {t('update.speed', { speed: formatBytes(status.bytesPerSecond) })}
@@ -89,7 +83,6 @@ export function UpdateDialog(props: {
     return (
       <Dialog
         title={t('update.readyTitle', { version: status.version })}
-        description={t('update.readyHint')}
         icon={<Sparkles className="h-4 w-4 text-primary" />}
         onClose={props.onClose}
         className="max-w-md"
@@ -110,6 +103,7 @@ export function UpdateDialog(props: {
           </>
         }
       >
+        {/* 标题已经说明「已就绪」，正文只补充重启行为，避免同一句话重复两遍 */}
         <p className="text-xs text-muted-foreground">{t('update.readyHint')}</p>
       </Dialog>
     )

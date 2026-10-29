@@ -1084,8 +1084,6 @@ export type UpdateStatus =
       version: string
       percent: number
       bytesPerSecond: number
-      transferred: number
-      total: number
     }
   | { state: 'downloaded'; version: string }
   | { state: 'up-to-date'; version: string }
