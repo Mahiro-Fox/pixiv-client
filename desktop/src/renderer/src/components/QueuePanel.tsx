@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { FailureItem, QueueStatus, QueueSummary } from '@shared/types'
 import { cn, formatBytes, formatElapsed } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
@@ -94,6 +95,8 @@ function Stat(props: {
 
 export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
   const { t } = useI18n()
+  /** 系统开启「减少动态效果」时所有动效直接跳过（初始态必须显式设为 false） */
+  const reduce = useReducedMotion()
   /** 当前展开的任务；默认全部折叠，只显示作者与进度条 */
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [failures, setFailures] = useState<Record<string, FailureItem[]>>({})
@@ -172,6 +175,8 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
       </CardHeader>
       {/* 队列整页滚动即可，不再做内层限高形成嵌套滚动 */}
       <CardContent className="space-y-2">
+        {/* 任务卡片的入场 / 离场交给 AnimatePresence：移除任务时淡出，新任务插入时淡入 */}
+        <AnimatePresence initial={false}>
         {props.jobs.map((job) => {
           const percent = jobPercent(job)
           const failureCount = job.failed + job.resolveFailed
@@ -203,8 +208,12 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   : null
 
           return (
-            <div
+            <motion.div
               key={job.id}
+              initial={reduce ? false : { opacity: 0, y: -6, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduce ? undefined : { opacity: 0, scale: 0.98 }}
+              transition={{ duration: reduce ? 0 : 0.2, ease: 'easeOut' }}
               className="rounded-lg border border-border/70 bg-background/50 px-3 py-2"
             >
               <div className="flex items-start gap-2">
@@ -215,9 +224,18 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                 >
                   <p className="flex items-center gap-1.5 truncate text-xs font-medium">
                     <span className="truncate">{job.artistLabel ?? job.tag}</span>
-                    <Badge variant={STATUS_VARIANT[job.status]} className="shrink-0">
-                      {t(STATUS_TEXT[job.status])}
-                    </Badge>
+                    <motion.span
+                      // 状态徽标按 status 换 key：排队→下载→完成时交叉淡入，而不是文案硬切
+                      key={job.status}
+                      initial={reduce ? false : { opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
+                      className="shrink-0"
+                    >
+                      <Badge variant={STATUS_VARIANT[job.status]}>
+                        {t(STATUS_TEXT[job.status])}
+                      </Badge>
+                    </motion.span>
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {t('queue.jobWorks', { tag: job.tag, count: job.totalWorks })} · {job.rootDir}
@@ -279,7 +297,17 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                 ) : null}
               </div>
 
+              <AnimatePresence initial={false}>
               {expanded ? (
+                <motion.div
+                  key="detail"
+                  // 折叠区高度从 0 撑到 auto：外层 overflow-hidden，动画期间不会把下面的内容顶出去
+                  initial={reduce ? false : { height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={reduce ? undefined : { height: 0, opacity: 0 }}
+                  transition={{ duration: reduce ? 0 : 0.22, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
                 <div className="mt-2 space-y-2">
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                     <Stat
@@ -438,10 +466,13 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     </Button>
                   </div>
                 </div>
+                </motion.div>
               ) : null}
-            </div>
+              </AnimatePresence>
+            </motion.div>
           )
         })}
+        </AnimatePresence>
       </CardContent>
     </Card>
   )

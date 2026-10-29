@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
 import type * as React from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useI18n } from '@renderer/i18n'
 import { cn } from '@renderer/lib/utils'
 
@@ -23,6 +24,7 @@ interface DialogProps {
 /** 通用弹窗外壳：遮罩 + 卡片 + 标题栏，支持 Esc 与点击遮罩关闭 */
 export function Dialog(props: DialogProps): React.JSX.Element {
   const { t } = useI18n()
+  const reduce = useReducedMotion()
   const { closeOnEscape = true } = props
   useEffect(() => {
     if (!closeOnEscape) return
@@ -33,17 +35,24 @@ export function Dialog(props: DialogProps): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [props, closeOnEscape])
 
+  // 弹窗由调用方条件渲染（关掉就是直接卸载），所以只能做入场；退场没有宿主可等
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
       onClick={props.onClose}
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: reduce ? 0 : 0.15, ease: 'easeOut' }}
     >
-      <div
+      <motion.div
         className={cn(
           'flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl',
           props.className
         )}
         onClick={(event) => event.stopPropagation()}
+        initial={reduce ? false : { opacity: 0, scale: 0.96, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border/60 px-5 py-4">
           <div className="min-w-0 space-y-1">
@@ -72,7 +81,7 @@ export function Dialog(props: DialogProps): React.JSX.Element {
             {props.footer}
           </footer>
         ) : null}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

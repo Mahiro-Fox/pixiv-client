@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type * as React from "react";
 import { KeepAlive } from "keepalive-for-react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   Navigate,
   NavLink,
@@ -197,10 +198,14 @@ const OFF_CACHE_KEY = "/(off)";
  * 这里改成：命中 KEEP_ALIVE_ROUTES 的页面才交给 KeepAlive 缓存；其它路由把 outlet
  * 直接渲染在正常 DOM 里，切换是同步的。同时在离开缓存页时立刻把缓存容器隐藏，
  * 免得那个还没被移除的旧节点在新页面上残留一帧。
+ *
+ * 缓存页刻意不做入场动效：它们靠隐藏 / 显示切换，动画只能等首帧画完再回退到 0，
+ * 反而会闪一下；而且恢复滚动位置时整页位移会让人眼看着位置跳。
  */
 function KeepAliveOutlet(): React.JSX.Element {
   const location = useLocation();
   const outlet = useOutlet();
+  const reduce = useReducedMotion();
   const cached = KEEP_ALIVE_ROUTES.some((pattern) =>
     pattern.test(location.pathname),
   );
@@ -219,7 +224,20 @@ function KeepAliveOutlet(): React.JSX.Element {
         </KeepAlive>
       </div>
       {cached ? null : (
-        <div className="flex min-h-0 flex-1 flex-col">{outlet}</div>
+        /**
+         * 未缓存的页面（详情页、收藏、浏览记录等）每次都是新挂载，顺手做一个入场淡入。
+         * 只做 initial→animate、不做退场：页面切换必须同步完成，退场动画会让新页面
+         * 晚一帧出现，正是之前「闪一下旧页面」的成因。
+         */
+        <motion.div
+          key={location.pathname}
+          initial={reduce ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {outlet}
+        </motion.div>
       )}
     </div>
   );
@@ -229,6 +247,7 @@ export default function App(): React.JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const reduce = useReducedMotion();
   const currentWord = searchParams.get("word") || "";
   /** 顶栏搜索框的受控值；与 URL 的 word 保持同步 */
   const [keyword, setKeyword] = useState(currentWord);
@@ -1009,6 +1028,24 @@ export default function App(): React.JSX.Element {
         : "text-muted-foreground hover:bg-secondary/50"
     }`;
 
+  /**
+   * 主栏目导航项：高亮底色交给 layoutId 的滑动块，这里只负责文字颜色。
+   * 图标与文字加 relative，压在滑动块之上。
+   */
+  const navClassMain = (isActive: boolean): string =>
+    `relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+      isActive ? "text-primary" : "text-muted-foreground hover:bg-secondary/50"
+    }`;
+
+  /** 主栏目高亮的滑动块：同一个 layoutId 让它从旧位置滑到新位置 */
+  const navPill = (
+    <motion.span
+      layoutId="nav-active-pill"
+      className="absolute inset-0 rounded-md bg-primary/15"
+      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
+    />
+  );
+
   return (
     <I18nProvider locale={config.locale}>
       <ImagePreviewProvider>
@@ -1027,45 +1064,75 @@ export default function App(): React.JSX.Element {
             <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
               <NavLink
                 to="/recommend"
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <Compass className="h-3.5 w-3.5" />
-                {t("nav.recommend")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <Compass className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.recommend")}</span>
+                  </>
+                )}
               </NavLink>
               <NavLink
                 to="/ranking"
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <Trophy className="h-3.5 w-3.5" />
-                {t("nav.ranking")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <Trophy className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.ranking")}</span>
+                  </>
+                )}
               </NavLink>
               <NavLink
                 to={linkWithWord("/illust")}
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <Images className="h-3.5 w-3.5" />
-                {t("nav.illust")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <Images className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.illust")}</span>
+                  </>
+                )}
               </NavLink>
               <NavLink
                 to={linkWithWord("/manga")}
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <BookOpen className="h-3.5 w-3.5" />
-                {t("nav.manga")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <BookOpen className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.manga")}</span>
+                  </>
+                )}
               </NavLink>
               <NavLink
                 to={linkWithWord("/novel")}
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <ScrollText className="h-3.5 w-3.5" />
-                {t("nav.novel")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <ScrollText className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.novel")}</span>
+                  </>
+                )}
               </NavLink>
               <NavLink
                 to={linkWithWord("/users")}
-                className={({ isActive }) => navClass(isActive)}
+                className={({ isActive }) => navClassMain(isActive)}
               >
-                <Users className="h-3.5 w-3.5" />
-                {t("nav.users")}
+                {({ isActive }) => (
+                  <>
+                    {isActive ? navPill : null}
+                    <Users className="relative h-3.5 w-3.5" />
+                    <span className="relative">{t("nav.users")}</span>
+                  </>
+                )}
               </NavLink>
             </nav>
 

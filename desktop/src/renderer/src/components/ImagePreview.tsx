@@ -22,6 +22,7 @@ import {
   type ReactNode
 } from 'react'
 import type * as React from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useI18n } from '@renderer/i18n'
 
 /* -------------------------------- 常量 / 类型 -------------------------------- */
@@ -116,14 +117,19 @@ export function ImagePreviewProvider({ children }: { children?: ReactNode }): Re
   return (
     <PreviewContext.Provider value={value}>
       {children}
-      {isOpen && typeof document !== 'undefined'
+      {typeof document !== 'undefined'
         ? createPortal(
-            <PreviewOverlay
-              images={images}
-              index={index}
-              onIndexChange={setIndex}
-              onClose={close}
-            />,
+            // 预览层保留到退场动画结束再卸载，关闭时不会「唰」一下消失
+            <AnimatePresence>
+              {isOpen ? (
+                <PreviewOverlay
+                  images={images}
+                  index={index}
+                  onIndexChange={setIndex}
+                  onClose={close}
+                />
+              ) : null}
+            </AnimatePresence>,
             document.body
           )
         : null}
@@ -147,6 +153,7 @@ function PreviewOverlay({
   onClose
 }: PreviewOverlayProps): React.JSX.Element {
   const { t } = useI18n()
+  const reduce = useReducedMotion()
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [view, setView] = useState<ViewState>(DEFAULT_VIEW)
@@ -448,15 +455,26 @@ function PreviewOverlay({
   const current = images[index]
 
   return (
-    <div
+    <motion.div
       ref={containerRef}
       role="dialog"
       aria-modal="true"
       aria-label={t('preview.dialogLabel')}
+      // 只淡遮罩：图片自身的 transform 由手势逻辑独占，不能再叠一层动画
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={reduce ? undefined : { opacity: 0 }}
+      transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
       className="fixed inset-0 z-[9999] select-none overflow-hidden bg-black/90 backdrop-blur-sm"
       style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
     >
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 pb-28 pt-16">
+      {/* 图片区域做一个轻微放大入场：缩放动画停在这一层，不与手势使用的 transform 冲突 */}
+      <motion.div
+        initial={reduce ? false : { scale: 0.96, opacity: 0.6 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 pb-28 pt-16"
+      >
         {current ? (
           <img
             key={current.src}
@@ -476,7 +494,7 @@ function PreviewOverlay({
             }}
           />
         ) : null}
-      </div>
+      </motion.div>
 
       {!loaded ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -553,7 +571,7 @@ function PreviewOverlay({
           <X size={18} />
         </ToolButton>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

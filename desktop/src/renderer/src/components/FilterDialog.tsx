@@ -9,8 +9,9 @@ import { useI18n } from '@renderer/i18n'
 import { BlockManagerDialog } from './BlockManagerDialog'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
-import { Field, Select } from './ui/field'
+import { Field } from './ui/field'
 import { Input } from './ui/input'
+import { Select } from './ui/select'
 
 interface FilterDialogProps {
   config: AppConfig
@@ -134,11 +135,12 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               value={config.filterR18}
               disabled={!ratingSupported}
               onChange={(value) => props.onConfigChange({ filterR18: value as R18Filter })}
-            >
-              <option value="any">{t('filter.r18Any')}</option>
-              <option value="only">{t('filter.r18Only')}</option>
-              <option value="exclude">{t('filter.r18Exclude')}</option>
-            </Select>
+              options={[
+                { value: 'any', label: t('filter.r18Any') },
+                { value: 'only', label: t('filter.r18Only') },
+                { value: 'exclude', label: t('filter.r18Exclude') }
+              ]}
+            />
           </Field>
           <div className="flex items-end pb-1">
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">

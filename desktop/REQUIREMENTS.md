@@ -820,9 +820,9 @@
 
 **问题**：从列表页点作者 / 作品进入详情页，再返回时列表页会重新挂载并重新请求，用户丢失刚才浏览的那批数据与滚动位置。
 
-**方案：keep-alive + 已加载标记 + 滚动位置 hook**。依赖 `keepalive-for-react` / `keepalive-for-react-router` v6。
+**方案：keep-alive + 已加载标记 + 滚动位置 hook**。依赖 `keepalive-for-react` v6（`keepalive-for-react-router` 已移除：它的出口把缓存键切换包进 `startTransition`，非缓存路由要等一帧才挂载，会闪旧页面）。
 
-- `App.tsx` 用一个**不带 path 的布局路由**包住全部页面，其元素 `KeepAliveOutlet` 渲染 `KeepAliveRouteOutlet`；缓存容器必须不随路由卸载，否则缓存随之丢失。
+- `App.tsx` 用一个**不带 path 的布局路由**包住全部页面，其元素 `KeepAliveOutlet` 组合 `KeepAlive` 与 `useOutlet()`；缓存容器必须不随路由卸载，否则缓存随之丢失。命中 `include` 的页面交给 `KeepAlive`，其余路由的 outlet 直接渲染在正常 DOM 里（同步切换），离开缓存页时用 `hidden` 立刻藏起缓存容器。
 - `include` 只放六个浏览页：`/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max={12}`。本地数据页（收藏 / 浏览记录 / 稍后看等）刻意不缓存，避免看到过期内容。
 - `activeCacheKey={location.pathname}`：改筛选 / 翻页 / 回车搜索只改 search 参数，复用同一个组件实例，由页面自己的 effect 重新请求，不会生成一堆带不同 search 的缓存节点。
 - **刷新时机**：顶栏搜索只在回车提交时刷新；`lib/searchSubmit.ts` 维护全局提交序号，`submitSearch` 每次提交都 `bumpSearchSubmit()`，序号进入搜索页的 effect 依赖，因此同一关键词再按一次回车也会重新请求。
@@ -840,6 +840,22 @@
 - 该库要求关闭 `React.StrictMode`（`main.tsx` 已移除），否则开发模式下缓存节点挂载 / 卸载次数翻倍。
 - 代价：keep-alive 只看路由与 pathname，**从别的栏目点导航回到已缓存页面不会重新请求**，需要新鲜数据时用页面上的「刷新」。
 - 缓存与滚动位置都只在内存里，重启应用即失效；不写磁盘。
+
+**动效（motion）**
+
+- 依赖 `motion`（原 framer-motion，`import { AnimatePresence, motion, useReducedMotion } from 'motion/react'`）。
+- 作品卡片 `SearchWorkCard` 是 `motion.li`：入场 `opacity 0 → 1` + `y 8 → 0` + `scale 0.98 → 1`，退场只做淡出与轻微缩小。只动 `opacity` / `transform`，交给合成器，不触发重排。
+- 错峰：按列表序号 `delay = min(index * 0.012, 0.18)`，一次 50 张的翻页在 0.2 秒内铺完；「加载更多」追加时旧卡片 key 不变不会重播。
+- 退场：`SearchWorkGrid` 用 `<AnimatePresence>` 包住列表，被过滤规则隐藏或移除的卡片会先播完淡出再消失。
+- **路由切换**：未缓存的页面（作品 / 用户 / 系列详情、收藏、浏览记录、稍后看等）包在 `key={location.pathname}` 的 `motion.div` 里，入场 `opacity 0→1` + `y 6→0`，160ms。只做入场、不做退场：退场会让新页面晚一帧出现，等于把「闪旧页面」的问题重新引进来。
+- 缓存页（六个列表页）刻意不做入场动效：它们靠隐藏 / 显示切换，动画只能等首帧画完再回退，反而闪一下；恢复滚动位置时整页位移也会让人看到位置跳变。
+- **缩略图淡入**：`SearchWorkCard` 的 `<img>` 在 `onLoad` 后从 `opacity 0` 过渡到 1；命中缓存时 `onLoad` 可能早于挂载，挂载后用 `complete` 兜底补一次。占位底色上不再一块块硬切出现。
+- **下载任务面板**（`components/QueuePanel.tsx`）：任务卡片用 `AnimatePresence` + `motion.div`，移除任务时淡出缩小、新任务插入时淡入；折叠区高度 `0 → auto` 过渡（外层 `overflow-hidden`，动画期间不把下方内容顶出去）；状态徽标以 `status` 为 key 重新挂载，排队 → 下载 → 完成时淡入而不是文案硬切。进度条（`ui/progress.tsx`）改成 `motion.div` + 弹簧过渡，阻尼比大于 1 所以到 100% 不会回弹，下载速度抖动时不再一格一格跳。
+- **图片预览层**（`components/ImagePreview.tsx`）：portal 外包 `AnimatePresence`，遮罩淡入淡出各 180ms，图片区域轻微 `scale 0.96 → 1` 放大入场。缩放动画停在图片外层容器上，图片自身的 `transform` 仍由手势 / 滚轮 / 键盘缩放逻辑独占，两者不冲突。
+- **顶栏指示条**：六个主栏目导航的高亮底是一块 `layoutId="nav-active-pill"` 的 `motion.span`，切换栏目时从旧位置滑到新位置；图标与文字加 `relative` 压在滑块之上。图标入口那组（工作台 / 图库 / 书库 / 稍后看）仍用静态底色。
+- **对话框**（`ui/dialog.tsx`）：遮罩淡入，面板 `opacity 0 → 1` + `scale 0.96 → 1` + `y 6 → 0`。弹窗由调用方条件渲染、关闭即卸载，因此只做入场，不做退场。
+- 系统开启「减少动态效果」时（`useReducedMotion()`）不做任何位移 / 缩放，`initial` 直接设 `false` 避免首帧闪烁。
+- 代价：`motion` 使渲染包体积约 +400 kB（gzip 前），本地加载可忽略；若需进一步瘦身可改用 `m` + `LazyMotion` + `domAnimation`。
 
 ---
 

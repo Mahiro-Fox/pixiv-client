@@ -52,7 +52,9 @@ import type { Translate } from '@renderer/i18n'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
-import { Field, Select } from './ui/field'
+import { Field } from './ui/field'
+import { Select } from './ui/select'
+
 import { Input, Textarea } from './ui/input'
 
 interface SettingsDialogProps {
@@ -839,12 +841,13 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 onChange={(value) =>
                   void commitProxy({ protocol: value as ProxyProtocol })
                 }
-              >
-                <option value="http">HTTP</option>
-                <option value="https">HTTPS</option>
-                <option value="socks4">SOCKS4</option>
-                <option value="socks5">SOCKS5</option>
-              </Select>
+                 options={[
+                  { value: 'http', label: 'http' },
+                  { value: 'https', label: 'https' },
+                  { value: 'socks4', label: 'SOCKS4' },
+                  { value: 'socks5', label: 'socks5' },
+                ]}
+              />
             </Field>
             <div className="col-span-2">
               <Field label={t('settings.proxy.host')}>
