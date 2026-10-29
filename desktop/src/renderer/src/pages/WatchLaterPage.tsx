@@ -7,14 +7,12 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
+import { messageOf } from '@renderer/lib/errors'
+import { useWorkContextMenu } from '@renderer/lib/cardMenu'
+import { useLocalPage } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 24
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 稍后看只存展示信息，预览弹窗需要 SearchWork 结构 */
 function toSearchWork(entry: WatchLaterEntry): SearchWork {
@@ -45,11 +43,12 @@ function toSearchWork(entry: WatchLaterEntry): SearchWork {
 export function WatchLaterPage(): React.JSX.Element {
   const { t } = useI18n()
   const { openPreview, previewNode } = useWorkPreview()
+  /** 稍后看的卡片也可右键：加入下载 / 复制链接 / 屏蔽作者 */
+  const menu = useWorkContextMenu({ onPreview: openPreview })
   const [items, setItems] = useState<WatchLaterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
-  const [page, setPage] = useState(1)
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
 
@@ -85,11 +84,7 @@ export function WatchLaterPage(): React.JSX.Element {
     )
   }, [items, keyword])
 
-  const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const visible = filtered.slice(
-    (Math.min(page, lastPage) - 1) * PAGE_SIZE,
-    Math.min(page, lastPage) * PAGE_SIZE
-  )
+  const { page, lastPage, pageItems, setPage, reset } = useLocalPage(filtered, PAGE_SIZE)
 
   /** 相对时间与浏览记录页共用文案 */
   const timeText = (at: number): string => {
@@ -106,7 +101,7 @@ export function WatchLaterPage(): React.JSX.Element {
       .removeWatchLater(id)
       .then((result) => {
         setItems(result)
-        setPage(1)
+        reset()
       })
       .catch((reason: unknown) => setError(messageOf(reason)))
   }
@@ -117,7 +112,7 @@ export function WatchLaterPage(): React.JSX.Element {
       .clearWatchLater()
       .then((result) => {
         setItems(result)
-        setPage(1)
+        reset()
         setConfirming(false)
       })
       .catch((reason: unknown) => setError(messageOf(reason)))
@@ -142,7 +137,7 @@ export function WatchLaterPage(): React.JSX.Element {
               value={keyword}
               onChange={(event) => {
                 setKeyword(event.target.value)
-                setPage(1)
+                reset()
               }}
               placeholder={t('watchLater.searchPlaceholder')}
               className="h-8 w-56 pl-7 text-xs"
@@ -153,7 +148,7 @@ export function WatchLaterPage(): React.JSX.Element {
                 aria-label={t('watchLater.clearSearch')}
                 onClick={() => {
                   setKeyword('')
-                  setPage(1)
+                  reset()
                 }}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
               >
@@ -222,9 +217,10 @@ export function WatchLaterPage(): React.JSX.Element {
           </div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-            {visible.map((entry) => (
+            {pageItems.map((entry) => (
               <div
                 key={entry.id}
+                onContextMenu={(event) => menu.onContextMenu(event, toSearchWork(entry))}
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50"
               >
                 <button
@@ -278,10 +274,11 @@ export function WatchLaterPage(): React.JSX.Element {
       </div>
 
       {!loading && filtered.length > PAGE_SIZE ? (
-        <Pagination page={Math.min(page, lastPage)} lastPage={lastPage} onChange={setPage} />
+        <Pagination page={page} lastPage={lastPage} onChange={setPage} />
       ) : null}
 
       {previewNode}
+      {menu.menuNode}
     </main>
   )
 }

@@ -9,14 +9,10 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 48
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /**
  * 收藏浏览页：只看不下载，便于按标签翻自己的或别人的公开收藏。
@@ -38,10 +34,10 @@ export function FavoritesPage(): React.JSX.Element {
   const tag = (params.get('tag') || '').trim()
   const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
 
-  const [content, setContent] = useState<UserContentResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  /** 私密收藏只有本人能看，其它用户直接给提示，不发请求 */
+  const privateBlocked = rest === 'hide' && Boolean(self) && userId !== self?.id
 
+  // 首次挂载取一次登录信息；URL 没指定用户时直接落到自己的公开收藏，省一次点击
   useEffect(() => {
     let alive = true
     void window.pixiv
@@ -49,7 +45,6 @@ export function FavoritesPage(): React.JSX.Element {
       .then((user) => {
         if (!alive) return
         setSelf(user)
-        // 首次进入且 URL 没指定用户时，直接落到自己的公开收藏，省一次点击
         if (user && !params.get('userId')) {
           setInput(user.id)
           const next = new URLSearchParams(params)
@@ -67,52 +62,21 @@ export function FavoritesPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** 私密收藏只有本人能看，其它用户直接给提示，不发请求 */
-  const privateBlocked = rest === 'hide' && Boolean(self) && userId !== self?.id
-
-  useEffect(() => {
-    if (!cookieReady) return
-    if (!userId) {
-      setContent(null)
-      setError('')
-      setLoading(false)
-      return
-    }
-    if (privateBlocked) {
-      setContent(null)
-      setError('')
-      setLoading(false)
-      return
-    }
-
-    let alive = true
-    setLoading(true)
-    setError('')
-    void window.pixiv
-      .getUserContent({
+  const { data: content, loading, error } = usePagedQuery<UserContentResult>({
+    page,
+    signature: [userId, rest, tag].join('|'),
+    // 登录信息没到位、没指定用户、或看别人的私密收藏时都不发请求
+    skip: !cookieReady || !userId || privateBlocked,
+    query: (next) =>
+      window.pixiv.getUserContent({
         userId,
         tab: 'bookmarks',
-        page,
+        page: next,
         limit: PAGE_SIZE,
         bookmarkRest: rest,
         bookmarkTag: tag
       })
-      .then((data) => {
-        if (alive) setContent(data)
-      })
-      .catch((reason: unknown) => {
-        if (alive) {
-          setContent(null)
-          setError(messageOf(reason))
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [userId, rest, tag, page, cookieReady, privateBlocked])
+  })
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)

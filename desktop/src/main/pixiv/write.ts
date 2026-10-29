@@ -11,6 +11,11 @@ interface SingleUserResponse {
   user?: { is_followed?: boolean }
 }
 
+/** `/v1/novel/detail` 只取收藏状态 */
+interface NovelDetailResponse {
+  novel?: { is_bookmarked?: boolean; bookmark_restrict?: string }
+}
+
 /**
  * pixiv 的 App API 写操作。
  * 「必须已连接凭据」的前置检查与 401 / 403 的提示统一放在 appApi.ts。
@@ -47,6 +52,56 @@ export async function setBookmark(workId: string, input: BookmarkInput): Promise
       await appApiPost('/v2/illust/bookmark/add', { illust_id: id, restrict })
     } else {
       await appApiPost('/v1/illust/bookmark/delete', { illust_id: id })
+    }
+  } catch (error) {
+    throw explainAppError(error)
+  }
+  return { bookmarked: Boolean(input?.bookmarked), restrict }
+}
+
+/** 读取小说收藏状态；`/v2/novel/bookmark/detail` 不可用时退回小说详情里的 is_bookmarked */
+export async function getNovelBookmarkState(novelId: string): Promise<BookmarkState> {
+  const id = String(novelId || '').trim()
+  if (!id) throw new Error('缺少小说 ID')
+  await ensureAppConnected()
+  try {
+    const data = await appApiGet<BookmarkDetailResponse>(
+      `/v2/novel/bookmark/detail?novel_id=${encodeURIComponent(id)}`
+    )
+    const detail = data?.bookmark_detail || {}
+    return {
+      bookmarked: Boolean(detail.is_bookmarked),
+      restrict: privacyOf(detail.restrict as BookmarkPrivacy | undefined)
+    }
+  } catch (primary) {
+    try {
+      const data = await appApiGet<NovelDetailResponse>(
+        `/v1/novel/detail?novel_id=${encodeURIComponent(id)}`
+      )
+      const novel = data?.novel || {}
+      return {
+        bookmarked: Boolean(novel.is_bookmarked),
+        restrict: privacyOf(novel.bookmark_restrict as BookmarkPrivacy | undefined)
+      }
+    } catch {
+      throw explainAppError(primary)
+    }
+  }
+}
+
+export async function setNovelBookmark(
+  novelId: string,
+  input: BookmarkInput
+): Promise<BookmarkState> {
+  const id = String(novelId || '').trim()
+  if (!id) throw new Error('缺少小说 ID')
+  await ensureAppConnected()
+  const restrict = privacyOf(input?.restrict)
+  try {
+    if (input?.bookmarked) {
+      await appApiPost('/v2/novel/bookmark/add', { novel_id: id, restrict })
+    } else {
+      await appApiPost('/v1/novel/bookmark/delete', { novel_id: id })
     }
   } catch (error) {
     throw explainAppError(error)

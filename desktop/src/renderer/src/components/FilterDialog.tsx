@@ -1,8 +1,11 @@
-import { Filter, RotateCcw } from 'lucide-react'
+import { Filter, RotateCcw, ShieldBan } from 'lucide-react'
+import { useState } from 'react'
 import type * as React from 'react'
 import type { AppConfig, R18Filter } from '@shared/types'
+import { splitBlockTermsRaw } from '@shared/block'
 import { countActiveFilters } from '@renderer/lib/filters'
 import { useI18n } from '@renderer/i18n'
+import { BlockManagerDialog } from './BlockManagerDialog'
 import { Button } from './ui/button'
 import { Dialog } from './ui/dialog'
 import { Field, Select } from './ui/field'
@@ -19,6 +22,10 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
   const { t } = useI18n()
   const { config } = props
   const activeCount = countActiveFilters(config)
+  /** 屏蔽名单管理单独一层弹窗：清单要能一目了然地看，塞在这个弹窗里会太长 */
+  const [managing, setManaging] = useState(false)
+  const blockedUsers = splitBlockTermsRaw(config.blockUsers).length
+  const blockedTags = splitBlockTermsRaw(config.blockTags).length
 
   const clear = (): void => {
     props.onConfigChange({
@@ -41,6 +48,8 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
       description={t('filter.description')}
       icon={<Filter className="h-4 w-4 text-primary" />}
       onClose={props.onClose}
+      // 管理层打开时 Esc 只关管理层，别把整个过滤弹窗一起关掉
+      closeOnEscape={!managing}
       footer={
         <>
           <span className="mr-auto text-[11px] text-muted-foreground">
@@ -172,8 +181,29 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               placeholder={t('filter.blockUsersPlaceholder')}
             />
           </Field>
+          <button
+            type="button"
+            onClick={() => setManaging(true)}
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          >
+            <span className="flex items-center gap-1.5">
+              <ShieldBan className="h-3.5 w-3.5" />
+              {t('filter.manageBlocks')}
+            </span>
+            <span className="shrink-0 tabular-nums">
+              {t('filter.manageBlocksCount', { users: blockedUsers, tags: blockedTags })}
+            </span>
+          </button>
         </div>
       </div>
+
+      {managing ? (
+        <BlockManagerDialog
+          config={config}
+          onConfigChange={props.onConfigChange}
+          onClose={() => setManaging(false)}
+        />
+      ) : null}
     </Dialog>
   )
 }

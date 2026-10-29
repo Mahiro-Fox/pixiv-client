@@ -31,6 +31,7 @@ interface QueuePanelProps {
   jobs: QueueSummary[]
   onResume: (id: string) => void
   onPause: (id: string) => void
+  onCancel: (id: string) => void
   onRemove: (id: string) => void
   onOpenDir: (dir: string) => void
   loadFailures: (id: string) => Promise<FailureItem[]>
@@ -43,6 +44,8 @@ const STATUS_TEXT: Record<QueueStatus, MessageKey> = {
   resolving: 'queue.statusResolving',
   downloading: 'queue.statusDownloading',
   paused: 'queue.statusPaused',
+  cancelled: 'queue.statusCancelled',
+  error: 'queue.statusError',
   done: 'queue.statusDone'
 }
 
@@ -53,7 +56,11 @@ const STATUS_VARIANT: Record<
   queued: 'secondary',
   resolving: 'warning',
   downloading: 'default',
-  paused: 'destructive',
+  // 暂停是「等我回来继续」，不是错误：错误与取消各有自己的颜色，
+  // 三种结束态必须一眼能分开
+  paused: 'secondary',
+  cancelled: 'warning',
+  error: 'destructive',
   done: 'success'
 }
 
@@ -171,8 +178,29 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
           const expanded = expandedId === job.id
           const list = failures[job.id] || []
           const busy = inFlight(job.status)
-          const paused = job.status === 'paused'
           const doneCount = job.ok + job.exists
+          // 结束态按钮：暂停→继续，取消→重新开始，失败→重试。
+          // 三种状态语义不同，按钮文案也必须不同，否则用户不知道该期待什么
+          const endAction =
+            job.status === 'cancelled'
+              ? { icon: <Play className="h-3 w-3" />, text: t('queue.restart') }
+              : job.status === 'error'
+                ? {
+                    icon: <RefreshCw className="h-3 w-3" />,
+                    text:
+                      failureCount > 0
+                        ? t('queue.retryFailed', { count: failureCount })
+                        : t('queue.retryJob')
+                  }
+                : job.status === 'paused'
+                  ? {
+                      icon: <Play className="h-3 w-3" />,
+                      text:
+                        failureCount > 0
+                          ? t('queue.retryFailed', { count: failureCount })
+                          : t('queue.resume')
+                    }
+                  : null
 
           return (
             <div
@@ -194,6 +222,12 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   <p className="truncate text-[11px] text-muted-foreground">
                     {t('queue.jobWorks', { tag: job.tag, count: job.totalWorks })} · {job.rootDir}
                   </p>
+                  {/* 失败原因直接放在折叠态：不然用户得先展开才知道为什么失败了 */}
+                  {job.error ? (
+                    <p className="mt-0.5 line-clamp-2 text-[11px] text-destructive/90">
+                      {job.error}
+                    </p>
+                  ) : null}
                 </button>
 
                 {busy ? (
@@ -206,17 +240,15 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     <Pause className="h-3 w-3" />
                     {t('queue.pause')}
                   </Button>
-                ) : paused ? (
+                ) : endAction ? (
                   <Button
                     size="sm"
                     variant="secondary"
                     className="h-7 shrink-0 px-2 text-[11px]"
                     onClick={() => handleResume(job.id)}
                   >
-                    <Play className="h-3 w-3" />
-                    {failureCount > 0
-                      ? t('queue.retryFailed', { count: failureCount })
-                      : t('queue.resume')}
+                    {endAction.icon}
+                    {endAction.text}
                   </Button>
                 ) : null}
 
@@ -332,7 +364,12 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-foreground/90">{item.label}</p>
-                                  <p className="truncate text-muted-foreground">{item.error}</p>
+                                  <p className="truncate text-muted-foreground">
+                                    {item.error}
+                                    {item.retryable === false
+                                      ? ` · ${t('queue.notRetryable')}`
+                                      : ''}
+                                  </p>
                                 </div>
                                 <button
                                   type="button"
@@ -365,6 +402,19 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                       >
                         <FileDown className="h-3 w-3" />
                         {t('queue.exportFailures')}
+                      </Button>
+                    ) : null}
+                    {/* 运行中的任务给一个「取消」入口：与暂停不同，取消表示这次不下了，
+                        任务会留在列表里显示已取消，之后可以重新开始 */}
+                    {busy ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+                        onClick={() => props.onCancel(job.id)}
+                      >
+                        <CircleSlash className="h-3 w-3" />
+                        {t('queue.cancel')}
                       </Button>
                     ) : null}
                     <Button

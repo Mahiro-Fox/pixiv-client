@@ -1,3 +1,10 @@
+import type { AppConfig } from '@shared/types'
+
+/** 收藏夹来源统一存到「收藏夹」目录，避免标签过滤条件改变目录结构 */
+export function worksTag(config: Pick<AppConfig, 'source' | 'tag'>): string {
+  return config.source === 'bookmarks' ? '收藏夹' : config.tag
+}
+
 /** 把本地绝对路径转成主进程注册的 pixivfile 协议地址，供渲染层直接加载图片 */
 export function toLocalUrl(filePath: string): string {
   const normalized = String(filePath || '').replace(/\\/g, '/')

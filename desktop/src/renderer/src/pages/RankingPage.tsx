@@ -1,5 +1,4 @@
 import { Loader2, RefreshCw, Trophy } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { RankingMode, RankingResult, WorkSearchKind } from '@shared/types'
@@ -8,8 +7,8 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
-import { usePageActive } from '@renderer/lib/pageActive'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
+import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const MODES: RankingMode[] = [
@@ -32,11 +31,6 @@ const MODE_KEYS = {
   male: 'ranking.mode.male',
   female: 'ranking.mode.female'
 } as const
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 界面用 YYYY-MM-DD（原生日期控件），接口要 YYYYMMDD */
 function toInputDate(value: string): string {
@@ -74,51 +68,15 @@ export function RankingPage(): React.JSX.Element {
   const date = toInputDate(params.get('date') || '')
   const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
 
-  const [result, setResult] = useState<RankingResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  /** 日期留空的榜单每天都会变，用这个计数强制重新拉取 */
-  const [reload, setReload] = useState(0)
-
   /** 滚动位置记忆：本页的滚动容器就是外层 main，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLElement>('ranking')
-  /** 后台时不读全局 URL 参数（进详情页会被算成默认值），effect 里直接忽略 */
-  const active = usePageActive()
-  /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
-  const loadedSig = useRef('')
 
-  useEffect(() => {
-    if (!active) return
-    const sig = [kind, mode, page, date, reload].join('|')
-    if (loadedSig.current === sig) return
-
-    let alive = true
-    // 换榜单 / 换日期 / 刷新都是换了内容，位置回顶
-    scroll.reset()
-    setLoading(true)
-    setError('')
-    void window.pixiv
-      .listRanking({ kind, mode, page, date: toApiDate(date) })
-      .then((data) => {
-        if (!alive) return
-        loadedSig.current = sig
-        setResult(data)
-      })
-      .catch((reason: unknown) => {
-        if (alive) {
-          // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
-          loadedSig.current = ''
-          setResult(null)
-          setError(messageOf(reason))
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [active, kind, mode, page, date, reload])
+  const { data: result, loading, error, reload } = usePagedQuery<RankingResult>({
+    page,
+    signature: [kind, mode, date].join('|'),
+    scroll,
+    query: (next) => window.pixiv.listRanking({ kind, mode, page: next, date: toApiDate(date) })
+  })
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)
@@ -187,7 +145,7 @@ export function RankingPage(): React.JSX.Element {
               size="sm"
               className="h-8 text-xs"
               disabled={loading}
-              onClick={() => setReload((value) => value + 1)}
+              onClick={reload}
             >
               {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {t('ranking.refresh')}

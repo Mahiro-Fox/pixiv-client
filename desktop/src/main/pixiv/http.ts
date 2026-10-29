@@ -4,6 +4,7 @@ import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { acquireSlot, noteRateLimited, noteSuccess, retryAfterMs, sleep } from './throttle'
 import { explainNetError, proxyCredentials } from '../proxy'
+import type { ErrorKind } from './retry'
 
 export { sleep }
 
@@ -24,15 +25,35 @@ const DOWNLOAD_ATTEMPTS = 4
 interface RetryHint {
   retryable: boolean
   waitMs: number
+  kind?: ErrorKind
 }
 
-function fail(message: string, retryable: boolean, waitMs = 0): Error {
-  return Object.assign(new Error(message), { retryable, waitMs })
+/**
+ * 构造带分类信息的错误。
+ * 任务级重试（`retry.ts`）靠这些字段判断「这个文件要不要整体重来一次」，
+ * 所以最外层包装时也要把 kind / retryable / waitMs 原样带上，不能丢。
+ */
+function fail(message: string, retryable: boolean, waitMs = 0, kind?: ErrorKind): Error {
+  return Object.assign(new Error(message), { retryable, waitMs, kind })
 }
 
 function hintOf(error: unknown): RetryHint {
   const value = error as Partial<RetryHint> | null
-  return { retryable: value?.retryable !== false, waitMs: Number(value?.waitMs ?? 0) }
+  return {
+    retryable: value?.retryable !== false,
+    waitMs: Number(value?.waitMs ?? 0),
+    kind: value?.kind
+  }
+}
+
+/** HTTP 状态码 → 错误类别 */
+function kindOfStatus(status: number): ErrorKind {
+  if (status === 408 || status === 429) return 'rate-limit'
+  if (status === 401) return 'auth'
+  if (status === 403) return 'forbidden'
+  if (status === 404 || status === 410) return 'missing'
+  if (status >= 500) return 'server'
+  return 'unknown'
 }
 
 /** 除 429 外的 4xx 属于确定性错误，重试只会加重限流 */
@@ -120,12 +141,12 @@ function open(
 
     const onAbort = () => {
       request.abort()
-      finish(() => reject(new Error('已取消')))
+      finish(() => reject(fail('已取消', false, 0, 'cancelled')))
     }
 
     timer = setTimeout(() => {
       request.abort()
-      finish(() => reject(new Error('请求超时')))
+      finish(() => reject(fail('请求超时', true, 0, 'network')))
     }, timeoutMs)
 
     if (signal?.aborted) {
@@ -135,7 +156,8 @@ function open(
     signal?.addEventListener('abort', onAbort, { once: true })
 
     request.on('response', (response) => finish(() => resolve(response)))
-    request.on('error', (error) => finish(() => reject(new Error(explainNetError(error)))))
+    // 代理失败、DNS、连接重置都落在这里：属于可重试的网络错误
+    request.on('error', (error) => finish(() => reject(fail(explainNetError(error), true, 0, 'network'))))
     request.end(body)
   })
 }
@@ -149,7 +171,7 @@ async function readText(response: Electron.IncomingMessage): Promise<string> {
   const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
     response.on('end', () => resolve())
-    response.on('aborted', () => reject(new Error('连接中断')))
+    response.on('aborted', () => reject(fail('连接中断', true, 0, 'network')))
     response.on('error', reject)
     response.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)))
   })
@@ -166,7 +188,7 @@ async function requestJson<T>(
   let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (signal?.aborted) throw new Error('已取消')
+    if (signal?.aborted) throw fail('已取消', false, 0, 'cancelled')
 
     // 全局 API 闸门：冷却 / 并发 / 最小间隔都在这里排队
     const release = await acquireSlot('api', signal)
@@ -177,21 +199,31 @@ async function requestJson<T>(
       if (status === 429) {
         const cooldown = noteRateLimited('api', retryAfterMs(response.headers))
         drain(response)
-        throw fail(`HTTP 429：接口限流，全局冷却 ${Math.round(cooldown / 1000)}s`, true, cooldown)
+        throw fail(
+          `HTTP 429：接口限流，全局冷却 ${Math.round(cooldown / 1000)}s`,
+          true,
+          cooldown,
+          'rate-limit'
+        )
       }
       if (status < 200 || status >= 300) {
         if (status === 401 && options.notifyAuthFailure !== false) authFailureHandler?.()
         // 403 是没权限，最常见的是抓取他人的私密收藏，给一句能看懂的原因
         if (status === 403) {
           drain(response)
-          throw fail('HTTP 403：没有权限访问该内容（例如他人的私密收藏）', false)
+          throw fail('HTTP 403：没有权限访问该内容（例如他人的私密收藏）', false, 0, 'forbidden')
         }
         if (options.readErrorBody) {
           const detail = (await readText(response)).replace(/\s+/g, ' ').slice(0, 200)
-          throw fail(`HTTP ${status}${detail ? `：${detail}` : ''}`, !isFatalStatus(status))
+          throw fail(
+            `HTTP ${status}${detail ? `：${detail}` : ''}`,
+            !isFatalStatus(status),
+            0,
+            kindOfStatus(status)
+          )
         }
         drain(response)
-        throw fail(`HTTP ${status}`, !isFatalStatus(status))
+        throw fail(`HTTP ${status}`, !isFatalStatus(status), 0, kindOfStatus(status))
       }
 
       noteSuccess('api')
@@ -201,7 +233,7 @@ async function requestJson<T>(
       return JSON.parse(text) as T
     } catch (error) {
       lastError = error
-      if (signal?.aborted) throw new Error('已取消')
+      if (signal?.aborted) throw fail('已取消', false, 0, 'cancelled')
       const hint = hintOf(error)
       if (!hint.retryable) break
       if (attempt < attempts - 1) {
@@ -212,7 +244,9 @@ async function requestJson<T>(
     }
   }
 
-  throw new Error(`请求失败：${url}（${String(lastError)}）`)
+  const hint = hintOf(lastError)
+  const detail = lastError instanceof Error ? lastError.message : String(lastError)
+  throw fail(`请求失败：${url}（${detail}）`, hint.retryable, hint.waitMs, hint.kind)
 }
 
 export async function fetchJson<T>(
@@ -277,6 +311,12 @@ export async function postFormWithHeaders<T>(
 export interface DownloadOptions {
   signal?: AbortSignal
   onBytes?: (bytes: number) => void
+  /**
+   * 传输层尝试次数，缺省 2。
+   * 任务级重试（`retry.ts`）还会再给 2 次机会，两层叠加起来最多 6 次请求；
+   * 把传输层压到 2 次是为了让失败更快冒到任务层，用更长的退避替换密集合的短重试。
+   */
+  attempts?: number
 }
 
 export async function downloadFile(
@@ -287,10 +327,11 @@ export async function downloadFile(
 ): Promise<number> {
   const partPath = `${destPath}.part`
   await mkdir(dirname(destPath), { recursive: true })
+  const attempts = Math.max(1, options.attempts ?? DOWNLOAD_ATTEMPTS)
   let lastError: unknown
 
-  for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt += 1) {
-    if (options.signal?.aborted) throw new Error('已取消')
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (options.signal?.aborted) throw fail('已取消', false, 0, 'cancelled')
 
     const release = await acquireSlot('cdn', options.signal)
     try {
@@ -300,11 +341,16 @@ export async function downloadFile(
       if (status === 429) {
         const cooldown = noteRateLimited('cdn', retryAfterMs(response.headers))
         drain(response)
-        throw fail(`HTTP 429：图片 CDN 限流，冷却 ${Math.round(cooldown / 1000)}s`, true, cooldown)
+        throw fail(
+          `HTTP 429：图片 CDN 限流，冷却 ${Math.round(cooldown / 1000)}s`,
+          true,
+          cooldown,
+          'rate-limit'
+        )
       }
       if (status < 200 || status >= 300) {
         drain(response)
-        throw fail(`HTTP ${status}`, !isFatalStatus(status))
+        throw fail(`HTTP ${status}`, !isFatalStatus(status), 0, kindOfStatus(status))
       }
 
       const file = createWriteStream(partPath)
@@ -326,8 +372,8 @@ export async function downloadFile(
             resolve()
           })
         })
-        response.on('aborted', () => failStream(new Error('连接中断')))
-        response.on('error', failStream)
+        response.on('aborted', () => failStream(fail('连接中断', true, 0, 'network')))
+        response.on('error', (error) => failStream(fail(explainNetError(error), true, 0, 'network')))
         file.on('error', failStream)
         response.on('data', (chunk: Buffer) => {
           bytes += chunk.length
@@ -342,10 +388,10 @@ export async function downloadFile(
     } catch (error) {
       lastError = error
       await rm(partPath, { force: true }).catch(() => undefined)
-      if (options.signal?.aborted) throw new Error('已取消')
+      if (options.signal?.aborted) throw fail('已取消', false, 0, 'cancelled')
       const hint = hintOf(error)
       if (!hint.retryable) break
-      if (attempt < DOWNLOAD_ATTEMPTS - 1) {
+      if (attempt < attempts - 1) {
         await sleep(hint.waitMs > 0 ? hint.waitMs : 1000 * (attempt + 1))
       }
     } finally {
@@ -353,5 +399,7 @@ export async function downloadFile(
     }
   }
 
-  throw new Error(`下载失败：${url}（${String(lastError)}）`)
+  const hint = hintOf(lastError)
+  const detail = lastError instanceof Error ? lastError.message : String(lastError)
+  throw fail(`下载失败：${url}（${detail}）`, hint.retryable, hint.waitMs, hint.kind)
 }

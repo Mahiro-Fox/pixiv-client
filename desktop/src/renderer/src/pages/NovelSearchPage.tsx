@@ -21,6 +21,8 @@ import type {
   NovelWork
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { FilteredHint } from '@renderer/components/FilteredHint'
+import { useFilteredNovels } from '@renderer/lib/filterContext'
 import { readingMinutes } from '@renderer/lib/novel'
 import { usePageActive } from '@renderer/lib/pageActive'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
@@ -225,6 +227,9 @@ export function NovelSearchPage(): React.JSX.Element {
     [result, word]
   )
 
+  // 小说同样吃顶栏那套规则（分级 / 标签 / 关键词 / 屏蔽），页数与尺寸规则不适用
+  const filtered = useFilteredNovels(result?.novels ?? [])
+
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 py-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -318,8 +323,11 @@ export function NovelSearchPage(): React.JSX.Element {
                   {t('novel.noResult')}
                 </div>
               ) : null}
+              {!loading && filtered.hidden > 0 && filtered.items.length === 0 ? (
+                <FilteredHint count={filtered.hidden} />
+              ) : null}
               {!loading
-                ? result?.novels.map((novel) => (
+                ? filtered.items.map((novel) => (
                     <NovelRow
                       key={novel.id}
                       novel={novel}

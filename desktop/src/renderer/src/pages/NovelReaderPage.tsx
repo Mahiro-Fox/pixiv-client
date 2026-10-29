@@ -1,8 +1,23 @@
-import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, FileDown, FolderOpen, Loader2, List, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
+  FolderOpen,
+  Loader2,
+  List,
+  X
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type {
+  BookmarkInput,
+  BookmarkPrivacy,
+  BookmarkState,
   NovelDetail,
   NovelDownloadResult,
   NovelSeriesDetail
@@ -49,6 +64,10 @@ export function NovelReaderPage(): React.JSX.Element {
   const [series, setSeries] = useState<NovelSeriesDetail | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [saved, setSaved] = useState<NovelDownloadResult | null>(null)
+  const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
+  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
+  const [bookmarkBusy, setBookmarkBusy] = useState(false)
+  const [oauthConnected, setOauthConnected] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
@@ -77,6 +96,30 @@ export function NovelReaderPage(): React.JSX.Element {
       .finally(() => {
         if (alive) setLoading(false)
       })
+    return () => {
+      alive = false
+    }
+  }, [novelId])
+
+  // 收藏按钮依赖 App API 凭据：未连接时不渲染，也不发请求
+  useEffect(() => {
+    if (!novelId) return
+    let alive = true
+    setBookmark(null)
+    void (async () => {
+      try {
+        const status = await window.pixiv.getOAuthStatus()
+        if (!alive) return
+        setOauthConnected(Boolean(status.connected))
+        if (!status.connected) return
+        const state = await window.pixiv.getNovelBookmarkState(novelId)
+        if (!alive) return
+        setBookmark(state)
+        setPrivacy(state.restrict)
+      } catch {
+        // 读不到状态时保持「未收藏」，按钮仍可点（收藏接口是幂等的）
+      }
+    })()
     return () => {
       alive = false
     }
@@ -144,10 +187,32 @@ export function NovelReaderPage(): React.JSX.Element {
     }
   }
 
+  const applyBookmark = async (input: BookmarkInput): Promise<void> => {
+    const id = detail?.id || novelId
+    if (!id || bookmarkBusy) return
+    setBookmarkBusy(true)
+    setError('')
+    try {
+      const next = await window.pixiv.setNovelBookmark(id, input)
+      setBookmark(next)
+      setPrivacy(next.restrict)
+    } catch (reason) {
+      setError(messageOf(reason))
+    } finally {
+      setBookmarkBusy(false)
+    }
+  }
+
+  /** 未收藏时只记住选择；已收藏时切换可见性要重新提交一次 */
+  const choosePrivacy = (value: BookmarkPrivacy): void => {
+    if (privacy === value) return
+    setPrivacy(value)
+    if (bookmark?.bookmarked) void applyBookmark({ bookmarked: true, restrict: value })
+  }
+
   const themeClass =
     settings.theme === 'dark'
-      ? 'bg-[#15161a] text-[#c8c8d0]'
-      : settings.theme === 'light'
+      ? 'bg-[#15161a] text-[#c8c8d0]'      : settings.theme === 'light'
         ? 'bg-[#fbfbfa] text-[#232323]'
         : 'bg-[#f4ecd8] text-[#3a3128]'
 
@@ -196,6 +261,44 @@ export function NovelReaderPage(): React.JSX.Element {
         <span className="shrink-0 text-[11px] text-muted-foreground">
           {t('novel.progress', { percent })}
         </span>
+        {oauthConnected ? (
+          <>
+            <Button
+              variant={bookmark?.bookmarked ? 'default' : 'outline'}
+              size="sm"
+              disabled={bookmarkBusy}
+              onClick={() =>
+                void applyBookmark({ bookmarked: !bookmark?.bookmarked, restrict: privacy })
+              }
+            >
+              {bookmarkBusy ? (
+                <Loader2 className="animate-spin" />
+              ) : bookmark?.bookmarked ? (
+                <BookmarkCheck />
+              ) : (
+                <Bookmark />
+              )}
+              {bookmark?.bookmarked ? t('detail.bookmarked') : t('detail.bookmark')}
+            </Button>
+            <div className="flex shrink-0 overflow-hidden rounded-md border border-border/70">
+              {(['public', 'private'] as BookmarkPrivacy[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={bookmarkBusy}
+                  onClick={() => choosePrivacy(value)}
+                  className={
+                    privacy === value
+                      ? 'bg-primary/15 px-1.5 py-1 text-[11px] font-medium text-primary'
+                      : 'px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/50'
+                  }
+                >
+                  {value === 'public' ? t('detail.bookmarkPublic') : t('detail.bookmarkPrivate')}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
         <NovelReaderSettings
           settings={settings}
           onChange={(patch) => setSettings((previous) => ({ ...previous, ...patch }))}

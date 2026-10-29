@@ -13,18 +13,25 @@ interface DialogProps {
   footer?: React.ReactNode
   children: React.ReactNode
   className?: string
+  /**
+   * 是否响应 Esc 关闭，默认响应。
+   * 上层弹窗里又开了一层弹窗时，先关掉上层的那次 Esc 应该只关内层。
+   */
+  closeOnEscape?: boolean
 }
 
 /** 通用弹窗外壳：遮罩 + 卡片 + 标题栏，支持 Esc 与点击遮罩关闭 */
 export function Dialog(props: DialogProps): React.JSX.Element {
   const { t } = useI18n()
+  const { closeOnEscape = true } = props
   useEffect(() => {
+    if (!closeOnEscape) return
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [props])
+  }, [props, closeOnEscape])
 
   return (
     <div

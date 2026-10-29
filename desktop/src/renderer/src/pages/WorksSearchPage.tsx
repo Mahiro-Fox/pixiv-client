@@ -15,7 +15,7 @@ import { Pagination } from '@renderer/components/ui/pagination'
 import { Select } from '@renderer/components/ui/select'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
-import { usePageActive } from '@renderer/lib/pageActive'
+import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
@@ -27,11 +27,6 @@ const ORDERS: WorkSearchOrder[] = [
   'popular_male_d',
   'popular_female_d'
 ]
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 关闭某个筛选 chip 时，把它涉及到的参数还原成默认值 */
 const RESET_PATCH: Record<string, string> = {
@@ -67,9 +62,6 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
   const includeManga = params.get('includeManga') === '1'
   const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
 
-  const [result, setResult] = useState<WorkSearchResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   /**
    * chips 会随当前筛选状态变化（已应用的选项会从列表里消失），
    * 这里按 id 做并集缓存，保证筛选行不会在点击后突然跳动。
@@ -84,10 +76,6 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
    * 页面被 keep-alive 缓存，从详情页回来时由 hook 在激活时拨回原位。
    */
   const scroll = useKeepAliveScroll<HTMLDivElement>(`works:${props.kind}`)
-  /** 后台时不读全局 URL 参数（进详情页会被算成空值），effect 里直接忽略 */
-  const active = usePageActive()
-  /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
-  const loadedSig = useRef('')
 
   // 插画与漫画的筛选集合不同，切换栏目时清空缓存
   useEffect(() => {
@@ -95,60 +83,40 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
     setChips([])
   }, [props.kind])
 
-  useEffect(() => {
-    if (!active) return
-    if (!word) {
-      setResult(null)
-      setError('')
-      loadedSig.current = ''
-      return
-    }
-
-    const sig = [
+  const { data: result, loading, error } = usePagedQuery<WorkSearchResult>({
+    page,
+    // 关键词 / 排序 / 筛选 / 重新提交都算换了内容；页码由 hook 自己拼进签名
+    signature: [
       props.kind,
       word,
       order,
       mode,
-      page,
       csw ? 1 : 0,
       blt,
       scope,
       includeManga ? 1 : 0,
       submitVersion
-    ].join('|')
-    if (loadedSig.current === sig) return
-
-    let alive = true
-    // 参数变了就是换了内容，位置回顶
-    scroll.reset()
-    setLoading(true)
-    setError('')
-    void window.pixiv
-      .searchWorks({ kind: props.kind, word, order, mode, page, csw, blt, scope, includeManga })
-      .then((data) => {
-        if (!alive) return
-        loadedSig.current = sig
-        setResult(data)
-        data.chips.forEach((chip) => chipCache.current.set(chip.id, chip))
-        // 会员专属筛选（如更细的热门度/收藏数区间）不接入，直接不展示
-        const nextChips = Array.from(chipCache.current.values()).filter((chip) => !chip.premium)
-        setChips(nextChips)
-      })
-      .catch((reason: unknown) => {
-        if (alive) {
-          // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
-          loadedSig.current = ''
-          setResult(null)
-          setError(messageOf(reason))
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
+    ].join('|'),
+    skip: !word,
+    scroll,
+    query: (next) =>
+      window.pixiv.searchWorks({
+        kind: props.kind,
+        word,
+        order,
+        mode,
+        page: next,
+        csw,
+        blt,
+        scope,
+        includeManga
+      }),
+    onData: (data) => {
+      data.chips.forEach((chip) => chipCache.current.set(chip.id, chip))
+      // 会员专属筛选（如更细的热门度 / 收藏数区间）不接入，直接不展示
+      setChips(Array.from(chipCache.current.values()).filter((chip) => !chip.premium))
     }
-  }, [active, props.kind, word, order, mode, page, csw, blt, scope, includeManga, submitVersion])
+  })
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)

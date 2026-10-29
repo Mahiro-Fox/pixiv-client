@@ -63,8 +63,20 @@ import { setAuthFailureHandler } from './pixiv/http'
 import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
 import { fetchRanking } from './pixiv/ranking'
 import { fetchRecommendedUsers, fetchRecommendedWorks } from './pixiv/recommend'
-import { getBookmarkState, getFollowState, setBookmark, setFollow } from './pixiv/write'
-import { fetchWorkSeries, setSeriesWatch } from './pixiv/series'
+import {
+  getBookmarkState,
+  getFollowState,
+  getNovelBookmarkState,
+  setBookmark,
+  setFollow,
+  setNovelBookmark
+} from './pixiv/write'
+import {
+  fetchWorkSeries,
+  getNovelSeriesWatchState,
+  setNovelSeriesWatch,
+  setSeriesWatch
+} from './pixiv/series'
 import { fetchUserContent, fetchUserProfile, searchUsers } from './pixiv/user'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
@@ -191,6 +203,19 @@ function withoutBlocked<T extends { userId?: string; userName?: string; tags?: A
   return filterBlocked(works, blockRulesOf(config))
 }
 
+/**
+ * 用户列表按屏蔽规则过滤。
+ * 用户卡不是作品，走不到作品那道过滤器，必须单独过一遍——
+ * 否则被屏蔽的画师还会出现在用户搜索、关注列表和推荐画师里。
+ */
+function filterBlockedUsers<T extends { id: string; name: string }>(
+  users: T[],
+  config: AppConfig
+): T[] {
+  const rules = blockRulesOf(config)
+  return users.filter((user) => !isBlocked({ userId: user.id, userName: user.name }, rules))
+}
+
 /** 动图格式只接受三个合法值，其它输入回退到 mp4 */
 function toUgoiraFormat(value: unknown): UgoiraFormat {
   return value === 'zip' || value === 'gif' ? value : 'mp4'
@@ -219,7 +244,12 @@ async function executeJob(
   // 调度器会先把自己登记进 launching，这里要把它自己排除掉，否则串行模式下会误判为已满
   const self = jobId && launching.has(jobId) ? 1 : 0
   if (activeRuns.size + launching.size - self >= limit) {
-    throw new Error(`并行任务已达上限（${limit} 个），请等待其中一个完成`)
+    // 额度被占满是「等一会儿再试」，不是任务失败：带上标记让调度器把它放回队列，
+    // 否则一次并行竞态就会把整个任务标成 error，用户看到凭空出现的失败
+    throw Object.assign(
+      new Error(`并行任务已达上限（${limit} 个），请等待其中一个完成`),
+      { retryLater: true }
+    )
   }
 
   const { cookie } = await resolveCookie()
@@ -305,22 +335,39 @@ async function launchQueuedJob(job: QueueJob, config: AppConfig): Promise<void> 
   launching.add(job.id)
   // 先落盘为 resolving，调度下一轮就不会再取到它；一次性重试范围同时清空
   upsertJob({ ...job, status: 'resolving', retry: undefined })
+  let retryLater = false
   try {
     await executeJob(paramsOfJob(job, config), undefined, job.id, job.retry)
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    retryLater = Boolean((error as { retryLater?: boolean } | null)?.retryLater)
     const current = findJob(job.id)
     if (current && !activeRuns.has(job.id)) {
-      upsertJob({
-        ...current,
-        status: 'paused',
-        progress: { ...current.progress, phase: 'paused' }
-      })
+      if (retryLater) {
+        // 只是没抢到并行额度：放回队列等下一轮，不能算任务失败
+        upsertJob({
+          ...current,
+          status: 'queued',
+          error: undefined,
+          progress: { ...current.progress, phase: 'idle' }
+        })
+      } else {
+        // 启动前就失败（模板非法、没配 Cookie、目录非法）：明确记成失败。
+        // 以前这里写的是 paused，界面上和「用户暂停」完全一样，点继续也还是原地失败
+        upsertJob({
+          ...current,
+          status: 'error',
+          error: message,
+          progress: { ...current.progress, phase: 'error', finishedAt: Date.now() }
+        })
+      }
     }
-    broadcast('queue:error', error instanceof Error ? error.message : String(error))
+    if (!retryLater) broadcast('queue:error', message)
   } finally {
     launching.delete(job.id)
     await pushQueue()
-    void pumpQueue()
+    // 没抢到额度时不要立刻重排：额度没变，重排只会空转
+    if (!retryLater) void pumpQueue()
   }
 }
 
@@ -490,10 +537,14 @@ async function executeBatch(
   }
 }
 
-/** 退出前调用：中止正在运行的任务并等待其把「已暂停」状态落盘 */
+/**
+ * 退出前调用：中止正在运行的任务并等待其把状态落盘。
+ * 带上 shutdown 原因，任务会落成「未完成」而不是「已取消」——
+ * 关软件不是用户取消，下次启动应该能直接继续。
+ */
 export async function shutdownActiveJob(): Promise<void> {
   const runs = [...activeRuns.values()]
-  runs.forEach((run) => run.controller.abort())
+  runs.forEach((run) => run.controller.abort('shutdown'))
   await Promise.allSettled(runs.map((run) => run.promise))
 }
 
@@ -648,12 +699,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('user:following', async (_event, params: FollowingParams) => {
     const config = await loadConfig()
     const { cookie } = await resolveCookie()
-    return fetchFollowing(
+    const result = await fetchFollowing(
       (params?.userId ?? config.bookmarkUserId ?? '').trim(),
       toInt(params?.offset, 0, 0, 100_000),
       toInt(params?.limit, 48, 1, 100),
       cookie
     )
+    // 被屏蔽的画师不该再出现在关注列表里（用户卡没有渲染层过滤）
+    return { ...result, users: filterBlockedUsers(result.users, config) }
   })
 
   // 插画 / 漫画搜索：只做参数清洗，排序与分级由 API 层再白名单校验
@@ -694,7 +747,7 @@ export function registerIpcHandlers(): void {
     const word = String(params?.word || '').trim().slice(0, 100)
     if (!word) return { users: [], total: 0 }
     const { cookie } = await resolveCookie()
-    return searchUsers(
+    const result = await searchUsers(
       {
         word,
         page: toInt(params?.page, 1, 1, 1000),
@@ -702,6 +755,8 @@ export function registerIpcHandlers(): void {
       },
       cookie
     )
+    const config = await loadConfig()
+    return { ...result, users: filterBlockedUsers(result.users, config) }
   })
 
   ipcMain.handle('user:profile', async (_event, userId: string) => {
@@ -765,13 +820,7 @@ export function registerIpcHandlers(): void {
     const result = await fetchRecommendedUsers({
       nextUrl: typeof params?.nextUrl === 'string' ? params.nextUrl.slice(0, 2000) : ''
     })
-    const rules = blockRulesOf(config)
-    return {
-      ...result,
-      users: result.users.filter(
-        (user) => !isBlocked({ userId: user.id, userName: user.name }, rules)
-      )
-    }
+    return { ...result, users: filterBlockedUsers(result.users, config) }
   })
 
   // 写操作：收藏 / 关注都走 App API，凭据缺失时在 write.ts 里统一报错
@@ -787,6 +836,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('write:setFollow', async (_event, userId: string, input: FollowInput) =>
     setFollow(userId, input)
   )
+  ipcMain.handle('write:novelBookmarkState', async (_event, novelId: string) =>
+    getNovelBookmarkState(novelId)
+  )
+  ipcMain.handle('write:setNovelBookmark', async (_event, novelId: string, input: BookmarkInput) =>
+    setNovelBookmark(novelId, input)
+  )
 
   // 系列聚合浏览：已连接 App API 时取完整列表，否则用网页作品页信息兜底
   ipcMain.handle('series:detail', async (_event, params: WorkSeriesParams) => {
@@ -795,6 +850,14 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('series:watch', async (_event, seriesId: string, watch: boolean) =>
     setSeriesWatch(seriesId, watch)
+  )
+
+  // 小说系列的追更：网页接口不返回追更状态，单独读一次 App API
+  ipcMain.handle('novelSeries:watchState', async (_event, seriesId: string) =>
+    getNovelSeriesWatchState(seriesId)
+  )
+  ipcMain.handle('novelSeries:watch', async (_event, seriesId: string, watch: boolean) =>
+    setNovelSeriesWatch(seriesId, watch)
   )
 
   // 加入队列：校验后立即返回，任务由调度器按并行额度自动启动
@@ -869,7 +932,7 @@ export function registerIpcHandlers(): void {
     const word = String(params?.word || '').trim().slice(0, 100)
     if (!word) return { novels: [], total: 0, lastPage: 1, relatedTags: [] }
     const { cookie } = await resolveCookie()
-    return searchNovels(
+    const result = await searchNovels(
       {
         word,
         order: params?.order ?? 'date_d',
@@ -879,6 +942,15 @@ export function registerIpcHandlers(): void {
       },
       cookie
     )
+    // 屏蔽规则对小说同样成立（分级 / 标签 / 关键词在渲染层再筛一遍）
+    const config = await loadConfig()
+    const rules = blockRulesOf(config)
+    return {
+      ...result,
+      novels: result.novels.filter(
+        (novel) => !isBlocked({ userId: novel.userId, userName: novel.userName }, rules)
+      )
+    }
   })
 
   ipcMain.handle('novel:detail', async (_event, novelId: string) => {
@@ -965,17 +1037,28 @@ export function registerIpcHandlers(): void {
     )
   })
 
+  // 批量同步有自己的中止入口：只停批量任务本身。
+  // 不能再复用 download:cancel —— 那会连带把队列里的普通任务一起标成「已取消」
+  ipcMain.handle('batch:cancel', async () => {
+    for (const [key, run] of activeRuns) {
+      if (key.startsWith('batch-')) run.controller.abort('cancel')
+    }
+    return true
+  })
+
   ipcMain.handle('download:cancel', async () => {
-    // 并行时「取消」中止所有运行中的任务，逐个落盘为「已暂停」
-    activeRuns.forEach((run) => run.controller.abort())
-    // 排队中的任务一并撤回，否则调度器会立刻把下一个拉起来
+    // 先撤回排队中的任务再中止运行中的：顺序反过来的话，运行任务结束时的
+    // pumpQueue 会把队首任务拉起来，紧接着又被标成已取消，白白启动一次
     for (const job of listQueued()) {
       upsertJob({
         ...job,
-        status: 'paused',
-        progress: { ...job.progress, phase: 'paused' }
+        status: 'cancelled',
+        error: undefined,
+        progress: { ...job.progress, phase: 'cancelled', finishedAt: Date.now() }
       })
     }
+    // 全局「取消」中止所有运行中的任务，逐个落盘为「已取消」（保留已下载文件，可重新开始）
+    activeRuns.forEach((run) => run.controller.abort('cancel'))
     await pushQueue()
     return true
   })
@@ -991,7 +1074,13 @@ export function registerIpcHandlers(): void {
     if (!job) throw new Error('任务不存在或已完成')
     if (activeRuns.has(id)) throw new Error('该任务正在下载中')
     // 整体继续时应重新尝试全部失败项，不能沿用之前「只重试一条」的范围
-    upsertJob({ ...job, status: 'queued', retry: undefined })
+    upsertJob({
+      ...job,
+      status: 'queued',
+      retry: undefined,
+      error: undefined,
+      progress: { ...job.progress, phase: 'idle', finishedAt: undefined }
+    })
     await pushQueue()
     void pumpQueue()
     return listSummaries()
@@ -1004,13 +1093,35 @@ export function registerIpcHandlers(): void {
 
     const run = activeRuns.get(id)
     if (run) {
-      run.controller.abort()
+      run.controller.abort('pause')
     } else {
       // 还没启动的排队任务没有 controller，直接把快照落成未完成
       upsertJob({
         ...job,
         status: 'paused',
-        progress: { ...job.progress, phase: 'paused' }
+        progress: { ...job.progress, phase: 'paused', finishedAt: Date.now() }
+      })
+    }
+
+    await pushQueue()
+    return listSummaries()
+  })
+
+  // 取消单个任务：与「暂停」的区别是语义上放弃这次下载。
+  // 已下载的文件全部保留，任务留在列表里显示「已取消」，可以重新开始。
+  ipcMain.handle('queue:cancel', async (_event, id: string) => {
+    const job = findJob(id)
+    if (!job) throw new Error('任务不存在或已完成')
+
+    const run = activeRuns.get(id)
+    if (run) {
+      run.controller.abort('cancel')
+    } else {
+      upsertJob({
+        ...job,
+        status: 'cancelled',
+        error: undefined,
+        progress: { ...job.progress, phase: 'cancelled', finishedAt: Date.now() }
       })
     }
 
@@ -1032,7 +1143,7 @@ export function registerIpcHandlers(): void {
           ? { taskUrls: [item.url] }
           : { illustIds: [item.illustId] }
 
-    upsertJob({ ...job, status: 'queued', retry })
+    upsertJob({ ...job, status: 'queued', retry, error: undefined })
     await pushQueue()
     void pumpQueue()
     return listSummaries()

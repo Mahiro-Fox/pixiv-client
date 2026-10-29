@@ -164,6 +164,14 @@ const api: PixivApi = {
     ipcRenderer.invoke('series:detail', params) as Promise<SeriesDetail>,
   setSeriesWatch: (seriesId: string, watch: boolean) =>
     ipcRenderer.invoke('series:watch', seriesId, watch) as Promise<void>,
+  getNovelBookmarkState: (novelId: string) =>
+    ipcRenderer.invoke('write:novelBookmarkState', novelId) as Promise<BookmarkState>,
+  setNovelBookmark: (novelId: string, input: BookmarkInput) =>
+    ipcRenderer.invoke('write:setNovelBookmark', novelId, input) as Promise<BookmarkState>,
+  getNovelSeriesWatchState: (seriesId: string) =>
+    ipcRenderer.invoke('novelSeries:watchState', seriesId) as Promise<boolean>,
+  setNovelSeriesWatch: (seriesId: string, watch: boolean) =>
+    ipcRenderer.invoke('novelSeries:watch', seriesId, watch) as Promise<void>,
   checkDownloaded: (params: DownloadedParams) =>
     ipcRenderer.invoke('works:downloaded', params) as Promise<string[]>,
   enqueueDownload: (params: DownloadParams) =>
@@ -171,9 +179,11 @@ const api: PixivApi = {
   batchSync: (params: BatchSyncParams) =>
     ipcRenderer.invoke('batch:sync', params) as Promise<BatchSyncSummary>,
   cancelDownload: () => ipcRenderer.invoke('download:cancel') as Promise<boolean>,
+  cancelBatch: () => ipcRenderer.invoke('batch:cancel') as Promise<boolean>,
   listQueue: () => ipcRenderer.invoke('queue:list') as Promise<QueueSummary[]>,
   resumeQueue: (id: string) => ipcRenderer.invoke('queue:resume', id) as Promise<QueueSummary[]>,
   pauseQueue: (id: string) => ipcRenderer.invoke('queue:pause', id) as Promise<QueueSummary[]>,
+  cancelQueue: (id: string) => ipcRenderer.invoke('queue:cancel', id) as Promise<QueueSummary[]>,
   removeQueue: (id: string) => ipcRenderer.invoke('queue:remove', id) as Promise<QueueSummary[]>,
   listFailures: (id: string) => ipcRenderer.invoke('queue:failures', id) as Promise<FailureItem[]>,
   retryFailure: (id: string, item: FailureItem) =>

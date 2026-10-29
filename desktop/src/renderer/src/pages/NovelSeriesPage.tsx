@@ -1,5 +1,7 @@
 import {
   ArrowLeft,
+  Bell,
+  BellOff,
   BookOpen,
   Check,
   FileDown,
@@ -45,6 +47,9 @@ export function NovelSeriesPage(): React.JSX.Element {
   const [progress, setProgress] = useState<NovelDownloadProgress | null>(null)
   const [saved, setSaved] = useState<NovelDownloadResult | null>(null)
   const [readIds, setReadIds] = useState<Set<string>>(() => loadReadNovels())
+  const [watching, setWatching] = useState(false)
+  const [watchBusy, setWatchBusy] = useState(false)
+  const [oauthConnected, setOauthConnected] = useState(false)
 
   useEffect(() => {
     if (!seriesId) return
@@ -69,6 +74,43 @@ export function NovelSeriesPage(): React.JSX.Element {
   }, [seriesId])
 
   useEffect(() => window.pixiv.onNovelDownloadProgress((item) => setProgress(item)), [])
+
+  // 追更按钮依赖 App API 凭据；网页接口不返回追更状态，单独读一次
+  useEffect(() => {
+    if (!seriesId) return
+    let alive = true
+    setWatching(false)
+    void (async () => {
+      try {
+        const status = await window.pixiv.getOAuthStatus()
+        if (!alive) return
+        setOauthConnected(Boolean(status.connected))
+        if (!status.connected) return
+        const state = await window.pixiv.getNovelSeriesWatchState(seriesId)
+        if (alive) setWatching(state)
+      } catch {
+        // 状态读不到时按「未追更」处理，按钮仍可点击
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [seriesId])
+
+  const toggleWatch = async (): Promise<void> => {
+    if (!detail || watchBusy) return
+    setWatchBusy(true)
+    setError('')
+    try {
+      const next = !watching
+      await window.pixiv.setNovelSeriesWatch(detail.series.id, next)
+      setWatching(next)
+    } catch (reason) {
+      setError(messageOf(reason))
+    } finally {
+      setWatchBusy(false)
+    }
+  }
 
   // 从阅读页返回时重新读取已读标记
   useEffect(() => {
@@ -212,6 +254,23 @@ export function NovelSeriesPage(): React.JSX.Element {
               {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
               {downloading ? t('novel.downloading') : t('novel.downloadSeries')}
             </Button>
+            {oauthConnected ? (
+              <Button
+                variant={watching ? 'default' : 'outline'}
+                size="sm"
+                disabled={watchBusy}
+                onClick={() => void toggleWatch()}
+              >
+                {watchBusy ? (
+                  <Loader2 className="animate-spin" />
+                ) : watching ? (
+                  <BellOff />
+                ) : (
+                  <Bell />
+                )}
+                {watching ? t('series.watching') : t('series.watch')}
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="sm"

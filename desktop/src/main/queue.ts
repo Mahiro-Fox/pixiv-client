@@ -1,7 +1,8 @@
 import { app } from 'electron'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { FailureItem, QueueJob, QueueSummary, QueueTask } from '../shared/types'
+import type { FailureItem, QueueJob, QueueSummary } from '../shared/types'
+import { classifyError } from './pixiv/retry'
 
 /**
  * 下载队列持久化：把任务快照写到 userData/queue.json。
@@ -30,24 +31,28 @@ function queueFile(): string {
   return path.join(app.getPath('userData'), 'queue.json')
 }
 
+/**
+ * 上次运行中被中断的任务在重启后一律视为「已暂停」。
+ * error / cancelled 是用户可见的稳定状态，必须原样保留——
+ * 之前把所有运行时态折叠成 paused，会把「已取消」和「失败了」都改成「未完成」，
+ * 用户重启后分不清哪些该继续、哪些该看失败清单。
+ */
 function normalizeJob(job: QueueJob): QueueJob {
-  // 上次运行中被中断、或仍在排队没来得及启动的任务，重启后一律视为「已暂停」
   const interrupted = RUNNING_STATUS.includes(job.status) || job.status === 'queued'
   const status: QueueJob['status'] = interrupted ? 'paused' : job.status
+  const phase = interrupted
+    ? 'paused'
+    : status === 'error' || status === 'cancelled'
+      ? status
+      : (job.progress?.phase ?? 'idle')
   return {
     ...job,
     status,
-    tasks: Array.isArray(job.tasks) ? job.tasks.map(normalizeTask) : [],
+    tasks: Array.isArray(job.tasks) ? job.tasks : [],
     works: Array.isArray(job.works) ? job.works : [],
     resolveFailures: Array.isArray(job.resolveFailures) ? job.resolveFailures : [],
-    progress: { ...job.progress, phase: status === 'paused' ? 'paused' : job.progress.phase }
+    progress: { ...job.progress, phase }
   }
-}
-
-function normalizeTask(task: QueueTask): QueueTask {
-  // 上次没跑完的：失败与进行中的都重置为等待，交给恢复流程决定是否重下
-  if (task.status === 'failed') return { ...task, status: 'pending', error: undefined }
-  return task
 }
 
 export async function loadStore(): Promise<void> {
@@ -110,7 +115,8 @@ function toSummary(job: QueueJob): QueueSummary {
     exists: tasks.filter((task) => task.status === 'exists').length,
     failed: tasks.filter((task) => task.status === 'failed').length,
     resolveFailed: (job.resolveFailures || []).length,
-    bytes: tasks.reduce((sum, task) => sum + (task.bytes || 0), 0)
+    bytes: tasks.reduce((sum, task) => sum + (task.bytes || 0), 0),
+    error: job.error
   }
 }
 
@@ -129,14 +135,16 @@ export function listFailures(jobId: string): FailureItem[] {
       illustId: task.illustId,
       label: task.label,
       error: task.error || '未知错误',
-      url: task.url
+      url: task.url,
+      retryable: classifyError(task.error).retryable
     }))
 
   const works: FailureItem[] = (job.resolveFailures || []).map((item) => ({
     kind: 'work',
     illustId: item.illustId,
     label: `${item.illustId || '未知作品'} ${item.title || ''}`.trim(),
-    error: item.error
+    error: item.error,
+    retryable: item.retryable
   }))
 
   return [...works, ...images]

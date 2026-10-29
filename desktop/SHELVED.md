@@ -32,7 +32,7 @@ npm run build        # 提交前必跑
 
 **协作约束**：中文回复；禁止面向对象写法，统一用函数式（纯函数 + hooks）；不主动创建文档文件。
 
-**当前进度**：读取类功能（搜索、用户、关注、预览、下载工作台、设置、自动更新）已完成；App API OAuth 凭据层与 App API 通道（GET / 表单 POST）已完成；收藏浏览页、浏览记录页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（收藏 / 关注 / 取关）、稍后看、系列聚合浏览已完成（2026-10-29）；图片查看器升级经确认**暂不做**。
+**当前进度**：读取类功能（搜索、用户、关注、预览、下载工作台、设置、自动更新）已完成；App API OAuth 凭据层与 App API 通道（GET / 表单 POST）已完成；收藏浏览页、浏览记录页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（作品收藏 / 关注 / 取关）、稍后看、系列聚合浏览已完成（2026-10-29）；**小说收藏与小说系列追更已完成（2026-10-29）**；图片查看器升级经确认**暂不做**。
 
 ## 搁置项
 
@@ -62,7 +62,7 @@ npm run build        # 提交前必跑
 | 系列聚合浏览 | `Series` 导航页 | **已实现**：`/series/:seriesId`，App API 取完整目录 + 追更；未连接凭据时用作品页 `seriesNavData` 兜底 | — | ✅ |
 | 收藏 / 关注 / 取关等写操作 | `MakoHelper.cs:54-77`；端点见 `IAppApiEndPoint.cs:21-128` | **已实现**：`appApi.ts` 表单 POST + `write.ts`；详情弹窗收藏（公开 / 私密）、用户主页关注 / 取关 | — | ✅ |
 | 推荐 / 排行榜 / 用户推荐 | `NavigationMenuYaml.cs:8-40`；`WorkRankingPage.axaml.cs:70-75` | **已实现**：`/ranking`（网页排行榜）与 `/recommend`（App API 推荐作品 / 画师，未连接时网页发现兜底） | — | ✅ |
-| 下载任务状态机 | `Channel` 队列 + `DownloadTaskKey` 去重，状态含 Queued / Running / Paused / Error / Cancelled / Completed，`DownloadManager.cs:83-140`、`DownloadItemViewModel.cs:38-131` | 已有排队 / 解析 / 下载 / 暂停 / 完成状态与单任务暂停恢复、同作者去重；缺 Error / Cancelled 独立状态与任务级错误重试策略 | 中 | P2 |
+| 下载任务状态机 | `Channel` 队列 + `DownloadTaskKey` 去重，状态含 Queued / Running / Paused / Error / Cancelled / Completed，`DownloadManager.cs:83-140`、`DownloadItemViewModel.cs:38-131` | **已实现（2026-10-29）**：排队 / 解析 / 下载 / 未完成 / 已取消 / 失败 / 完成七态，三种结束态语义互斥；中止分 pause / cancel / shutdown 三条路径；任务级自动重试（可重试错误退避重试、404/403 立即放弃）与连续失败熔断 | — | ✅ |
 | 稍后看 | `WatchLater` 导航页 | **已实现**：`/watch-later`，本地 `watchLater.json` + 详情弹窗「稍后看」按钮 + 搜索 / 移出 / 清空 | — | ✅ |
 | 订阅式增量下载 | 按收藏 / 关注 / 搜索条件定期拉新作，`WorkSubscriptionDownloadService.cs:601-625` | 无 | 高 | P3 |
 
@@ -83,7 +83,7 @@ npm run build        # 提交前必跑
 7. ✅ 写操作（2026-10-28 完成）：`appApi.ts` 增加 `appApiPost` 表单通道，`write.ts` 封装收藏状态 / 收藏 / 关注状态 / 关注四个操作；详情弹窗加收藏按钮与公开 / 私密切换，用户主页加关注按钮（自己的主页不显示），未连接 OAuth 时不渲染按钮。
 
 **第三档：不建议现在做**
-8. 下载引擎重构为队列式任务 + 订阅增量下载。收益大，但要重写 `QueuePanel` / `ProgressPanel` 与任务持久化，按独立迭代排期。
+8. ~~下载引擎重构为队列式任务~~（**已过时，2026-10-29 移除**：队列式任务早已是现状，`main/queue.ts` + `ipc.ts pumpQueue()` + `jobs.ts runDownloadJob`，`QueuePanel` / `ProgressPanel` 也已按队列模型实现；状态机与重试策略同日补齐）。剩下的只有订阅增量下载。
 
 **已完成补充（2026-10-29）**
 9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。
@@ -163,24 +163,24 @@ UI 初始化状态：收藏状态用 `GET /v2/illust/bookmark/detail`，关注�
 2. `src/main/pixiv/write.ts`：`getBookmarkState` / `setBookmark` / `getFollowState` / `setFollow`；401 / 403 翻成中文提示，凭据缺失时直接报「写操作需要先连接 App API 凭据」。
 3. IPC / preload：`write:bookmarkState`、`write:setBookmark`、`write:followState`、`write:setFollow`。
 4. UI：`WorkDetailDialog` 底部收藏按钮 + 公开 / 私密切换（打开时读取状态）；`UserDetailPage` 关注 / 取关按钮（自己的主页不显示）；未连接 OAuth 时按钮不渲染。
-5. 尚未覆盖：小说收藏与系列追更（端点已列在上表，需要小说阅读页 / 系列页的入口）。
+5. ✅ 小说收藏与小说系列追更（2026-10-29 完成）：`write.ts` 增 `getNovelBookmarkState` / `setNovelBookmark`（`/v2/novel/bookmark/detail|add`、`/v1/novel/bookmark/delete`，状态读不到时退回 `/v1/novel/detail` 的 `novel.is_bookmarked`）；阅读页顶栏加收藏按钮 + 公开 / 私密切段控件。`series.ts` 增 `getNovelSeriesWatchState` / `setNovelSeriesWatch`（`/v1/novel/series` 的 `watchlist_added` + `/v1/watchlist/novel/add|delete`）；小说系列页加「追更」按钮，未连接 OAuth 时不渲染。**App API 三个新端点未实机验证**（pixiv 域名在本机代理下不可达，仅类型检查与构建通过），状态读取均做了「读不到按未收藏 / 未追更处理」的降级。
 
 **验证方式**：填入有效凭据后点「保存并验证」，状态变为「已连接」即说明 token 换取成功；`oauth.json` 只出现在 `%APPDATA%/pixiv-client/`。
 
 ## 代码改进建议
 
-1. 统一分页数据源：`WorksSearchPage` / `UsersPage` / `UserDetailPage` / `UsersFollowingPage` 各自一套 `useState + useEffect + URL 参数`，抽 `usePagedQuery`（函数式 hook），页面只声明取数方式与参数映射。
+1. ✅ 统一分页数据源（2026-10-29 完成）：`lib/usePagedQuery.ts` 提供 `usePagedQuery`（远程：keep-alive 激活判断 + 条件签名去重 + 滚动回顶 + loading/error + 强制重载）与 `useLocalPage`（本地整表分页）；插画 / 漫画、用户搜索、用户主页、排行榜、收藏、我的关注、浏览记录、稍后看共八个页面已接入，各页重复的 `messageOf` 也收敛到 `lib/errors.ts`。
 2. 主进程请求层：底层已收敛到 `http.ts` 的 `requestJson`（GET 走 `fetchJson` / `fetchJsonWithHeaders`，表单 POST 走 `postFormJson` / `postFormWithHeaders`）；剩余问题是各业务模块仍各自拼错误文案，可再抽 `pixivRequest` 统一错误语义。
 3. 预览升级为路由：新增 `/viewer/:id?page=` 承载大图缩放与幻灯片，`WorkDetailDialog` 保留为轻量快速预览。
 4. 列表性能：搜索页一页 60+ 卡片全量渲染大图，加 `loading="lazy"` + IntersectionObserver 分批挂载，并统一使用 `c/250x250` 缩略图。
 5. ✅ 过滤下沉到数据层（2026-10-28 完成）：`shared/block.ts` + `withoutBlocked()`，屏蔽规则作用于搜索结果与用户作品，保证「看到什么就能下载什么」。
 6. ✅ 本地存储统一（2026-10-28 完成）：浏览历史走主进程 `viewHistory.json`（800ms 防抖 + 原子写 + 退出前 flush），与 `history.json` 同属主进程存储模块。
 7. ✅ 状态全放 URL（2026-10-28 完成）：新页面沿用 `word / order / mode / page / tab` 约定；`/ranking` 用 `kind / mode / date / page`，`/recommend` 用 `tab / kind`。
-8. 右键菜单：作品卡 / 用户卡加 portal 菜单，收纳「打开 pixiv / 复制链接 / 加入下载 / 屏蔽该作者」，减少卡片上的常驻图标。
+8. ✅ 右键菜单（2026-10-29 完成）：作品卡 / 用户卡接 portal 菜单（预览 / 打开 pixiv / 查看作者 / 加入下载 / 稍后看 / 复制链接与 ID / 屏蔽作者），动作结果用 `lib/toast.ts` 的轻提示反馈；卡片上的悬停图标保留，右键只是补上批量入口。
 
 ## 建议推进顺序
 
-图片查看器升级已按用户决定跳过。剩余候选：下载任务状态机补 Error / Cancelled、右键菜单、统一分页 hook；下载引擎重构单独排期。系列聚合浏览已于 2026-10-29 完成。
+图片查看器升级已按用户决定跳过。剩余候选：代码签名（等软件完善后再做）；订阅式增量下载、托盘常驻、SQLite 下载历史仍在排队。
 
 已完成（2026-10-28）：浏览历史、收藏浏览页、全局屏蔽、小说阅读设置、排行榜页、推荐页、写操作（收藏 / 关注 / 取关）。
-已完成（2026-10-29）：稍后看、系列聚合浏览。
+已完成（2026-10-29）：稍后看、系列聚合浏览、小说收藏、小说系列追更、下载任务状态机（Error / Cancelled + 自动重试与熔断）、卡片右键菜单、统一分页 hook。

@@ -5,6 +5,7 @@ import {
   Compass,
   Download,
   FolderOpen,
+  Filter,
   Images,
   Library,
   ListRestart,
@@ -62,6 +63,7 @@ import { ProgressPanel } from "./components/ProgressPanel";
 import { QueuePanel } from "./components/QueuePanel";
 import { CollectPanel } from "./components/CollectPanel";
 import { FilterDialog } from "./components/FilterDialog";
+import { FilterProvider } from "./lib/filterContext";
 import { ImagePreviewProvider } from "./components/ImagePreview";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -86,16 +88,11 @@ import { RankingPage } from "./pages/RankingPage";
 import { RecommendPage } from "./pages/RecommendPage";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Toaster } from "./components/Toaster";
+import { worksTag } from "./lib/files";
+import { CONFIG_CHANGED_EVENT } from "./lib/workActions";
+import { messageOf } from "./lib/errors";
 
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error);
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
-}
-
-/** 收藏夹来源统一存到「收藏夹」目录，避免标签过滤条件改变目录结构 */
-function worksTag(config: AppConfig): string {
-  return config.source === "bookmarks" ? "收藏夹" : config.tag;
-}
 
 /**
  * 配置读出来之前也要有语言可用，否则启动首屏只能是中文。
@@ -293,6 +290,21 @@ export default function App(): React.JSX.Element {
     return currentWord ? `${path}?word=${encodeURIComponent(currentWord)}` : path;
   };
 
+  /**
+   * 右键菜单里的「屏蔽作者」是直接写主进程配置的，App 内存里的 config 还是旧的。
+   * 不同步过来的话，下次下载前调 setConfig(config) 就会把刚加的屏蔽项覆盖掉。
+   */
+  useEffect(() => {
+    const reload = (): void => {
+      void window.pixiv
+        .getConfig()
+        .then((next) => setConfig(next))
+        .catch(() => undefined);
+    };
+    window.addEventListener(CONFIG_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(CONFIG_CHANGED_EVENT, reload);
+  }, []);
+
   useEffect(() => {
     let alive = true;
 
@@ -329,9 +341,13 @@ export default function App(): React.JSX.Element {
         setDownload(progress);
         const id = progress.jobId;
         if (!id) return;
-        // 结束的任务从运行集合里移除，界面据此显示并行数量
+        // 结束的任务从运行集合里移除，界面据此显示并行数量。
+        // 四种结束态都算结束：完成 / 暂停 / 取消 / 失败
         const finished =
-          progress.phase === "done" || progress.phase === "paused";
+          progress.phase === "done" ||
+          progress.phase === "paused" ||
+          progress.phase === "cancelled" ||
+          progress.phase === "error";
         setActiveIds((previous) => {
           if (finished) {
             if (!previous.has(id)) return previous;
@@ -445,7 +461,13 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     if (!config || works.length === 0 || !download) return;
-    if (download.phase !== "done" && download.phase !== "paused") return;
+    if (
+      download.phase !== "done" &&
+      download.phase !== "paused" &&
+      download.phase !== "cancelled" &&
+      download.phase !== "error"
+    )
+      return;
     void refreshDownloaded(works, config);
   }, [download?.phase]);
 
@@ -694,9 +716,9 @@ export default function App(): React.JSX.Element {
     }
   };
 
-  /** 批量同步是长任务、不进入队列，保留独立的中止入口 */
-  const cancelDownload = (): void => {
-    void window.pixiv.cancelDownload();
+  /** 批量同步是长任务、不进入队列，保留独立的中止入口（只停批量，不碰队列） */
+  const cancelBatch = (): void => {
+    void window.pixiv.cancelBatch();
   };
 
   /** 暂停单个任务：运行中只中止它自己，排队中直接转为未完成 */
@@ -704,6 +726,16 @@ export default function App(): React.JSX.Element {
     setError("");
     try {
       setQueue(await window.pixiv.pauseQueue(id));
+    } catch (reason) {
+      setError(messageOf(reason));
+    }
+  };
+
+  /** 取消单个任务：保留已下载文件，任务留在列表里显示「已取消」，可重新开始 */
+  const cancelQueue = async (id: string): Promise<void> => {
+    setError("");
+    try {
+      setQueue(await window.pixiv.cancelQueue(id));
     } catch (reason) {
       setError(messageOf(reason));
     }
@@ -1030,6 +1062,21 @@ export default function App(): React.JSX.Element {
             />
 
             <div className="flex shrink-0 items-center gap-1.5">
+              {/* 过滤规则是全局的：顶栏一个入口，所有列表页共用同一份规则 */}
+              <Button
+                variant="outline"
+                size="sm"
+                title={t("filter.button")}
+                onClick={() => setFilterOpen(true)}
+                className="relative"
+              >
+                <Filter />
+                {activeFilterCount > 0 ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </Button>
               <AccountMenu
                 selfUser={selfUser}
                 hasCookie={Boolean(cookie?.hasCookie)}
@@ -1060,215 +1107,219 @@ export default function App(): React.JSX.Element {
           </header>
 
           {/* 路由缓存宿主：目前只缓存 /recommend，其余页面照旧随路由挂载 / 卸载 */}
-          <Routes>
-            <Route element={<KeepAliveOutlet />}>
-              {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
-              <Route
-              path="/workbench"
-              element={
-                <>
-                  <main className="grid min-h-0 flex-1 grid-cols-[380px_1fr]">
-                    <aside className="min-h-0 border-r border-border/60 px-5 py-4">
-                      <CollectPanel
-                        config={config}
-                        selfUser={selfUser}
-                        hasCookie={Boolean(cookie?.hasCookie)}
-                        collecting={collecting}
-                        queued={queue.length > 0}
-                        selectedCount={selectedWorks.length}
-                        onConfigChange={updateConfig}
-                        onCollect={() => void collect()}
-                        onDownload={() => void startDownload()}
-                        onSuggestTags={(word) => window.pixiv.suggestTags(word)}
-                      />
-                    </aside>
-
-                    <section className="flex min-h-0 flex-col gap-3 px-6 py-4">
-                      {cookieExpired ? (
-                        <CookieExpiredBanner
-                          loading={loggingIn}
-                          onRelogin={() => void loginPixiv()}
-                          onRecheck={() => void recheckCookie()}
-                          onDismiss={() => setHealthDismissed(true)}
+          {/* 过滤规则的上下文：顶栏按钮打开同一个弹窗，各页面列表就地按规则过滤 */}
+          <FilterProvider config={config} onOpenFilter={() => setFilterOpen(true)}>
+            <Routes>
+              <Route element={<KeepAliveOutlet />}>
+                {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
+                <Route
+                path="/workbench"
+                element={
+                  <>
+                    <main className="grid min-h-0 flex-1 grid-cols-[380px_1fr]">
+                      <aside className="min-h-0 border-r border-border/60 px-5 py-4">
+                        <CollectPanel
+                          config={config}
+                          selfUser={selfUser}
+                          hasCookie={Boolean(cookie?.hasCookie)}
+                          collecting={collecting}
+                          queued={queue.length > 0}
+                          selectedCount={selectedWorks.length}
+                          onConfigChange={updateConfig}
+                          onCollect={() => void collect()}
+                          onDownload={() => void startDownload()}
+                          onSuggestTags={(word) => window.pixiv.suggestTags(word)}
                         />
-                      ) : null}
+                      </aside>
 
-                      {notice ? (
-                        <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-                          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                          <p className="flex-1 break-all leading-5">{notice}</p>
-                          <button
-                            type="button"
-                            onClick={() => setNotice("")}
-                            className="rounded p-0.5 text-emerald-500/70 transition-colors hover:bg-emerald-500/15 hover:text-emerald-500"
-                            aria-label={t("app.dismissNotice")}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {error ? (
-                        <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-                          <p className="flex-1 break-all leading-5">{error}</p>
-                          <button
-                            type="button"
-                            onClick={() => setError("")}
-                            className="rounded p-0.5 text-destructive/70 transition-colors hover:bg-destructive/15 hover:text-destructive"
-                            aria-label={t("app.dismissNotice")}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : null}
-
-                      <Tabs
-                        value={tab}
-                        onValueChange={setTab}
-                        className="flex min-h-0 flex-1 flex-col"
-                      >
-                        <div className="flex items-center justify-between">
-                          <TabsList>
-                            <TabsTrigger value="works">
-                              <Images className="h-3.5 w-3.5" />
-                              {t("app.tabWorks")}
-                              {works.length > 0 ? `（${works.length}）` : ""}
-                            </TabsTrigger>
-                            <TabsTrigger value="tasks">
-                              <ListRestart className="h-3.5 w-3.5" />
-                              {t("app.tabTasks")}
-                              {queue.length > 0 ? `（${queue.length}）` : ""}
-                            </TabsTrigger>
-                            <TabsTrigger value="log">
-                              <ScrollText className="h-3.5 w-3.5" />
-                              {t("app.tabLog")}
-                              {items.length > 0 ? `（${items.length}）` : ""}
-                            </TabsTrigger>
-                          </TabsList>
-
-                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                            {collecting ? (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                {collectText ?? t("app.collectingWorks")}
-                              </>
-                            ) : null}
-                            {running ? (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                {t("app.downloadRunning")}
-                              </>
-                            ) : null}
-                            {total > 0 && !collecting ? (
-                              <span>{t("app.apiTotal", { total })}</span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <TabsContent value="works" className="min-h-0">
-                          <WorksGrid
-                            works={pagedWorks}
-                            selected={selected}
-                            downloaded={downloaded}
-                            downloadedCount={downloadedCount}
-                            collecting={collecting}
-                            loaded={collectProgress?.loaded ?? 0}
-                            total={total}
-                            filteredTotal={filteredWorks.length}
-                            filteredOut={ruleFiltered.removed}
-                            onlyNew={onlyNew}
-                            sort={sort}
-                            activeFilterCount={activeFilterCount}
-                            onSortChange={changeSort}
-                            onOpenFilter={() => setFilterOpen(true)}
-                            onExport={() => void exportWorks()}
-                            page={currentPage}
-                            pageCount={pageCount}
-                            pageSize={pageSize}
-                            onPageChange={changePage}
-                            onToggle={toggleWork}
-                            onToggleAll={toggleAll}
-                            onOpen={setPreview}
-                            onToggleOnlyNew={toggleOnlyNew}
+                      <section className="flex min-h-0 flex-col gap-3 px-6 py-4">
+                        {cookieExpired ? (
+                          <CookieExpiredBanner
+                            loading={loggingIn}
+                            onRelogin={() => void loginPixiv()}
+                            onRecheck={() => void recheckCookie()}
+                            onDismiss={() => setHealthDismissed(true)}
                           />
-                        </TabsContent>
+                        ) : null}
 
-                        <TabsContent value="tasks" className="min-h-0">
-                          {/* 进度与队列集中在这里，主区高度全部留给作品网格 */}
-                          <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pb-2 pr-1">
-                            <ProgressPanel
-                              jobs={queue}
-                              parallel={activeIds.size}
-                              parallelJobs={config.parallelJobs}
-                              onOpenSettings={() => setSettingsOpen(true)}
-                              throttle={throttle}
-                              batch={batch}
-                              onCancelBatch={cancelDownload}
-                            />
-
-                            <QueuePanel
-                              jobs={queue}
-                              onResume={(id) => void resumeQueue(id)}
-                              onPause={(id) => void pauseQueue(id)}
-                              onRemove={(id) => void removeQueue(id)}
-                              loadFailures={(id) =>
-                                window.pixiv.listFailures(id)
-                              }
-                              onRetryFailure={retryFailure}
-                              onExportFailures={(id) => void exportFailures(id)}
-                              onOpenDir={(dir) =>
-                                void window.pixiv
-                                  .openDir(dir)
-                                  .catch((reason: unknown) =>
-                                    setError(messageOf(reason)),
-                                  )
-                              }
-                            />
+                        {notice ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
+                            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                            <p className="flex-1 break-all leading-5">{notice}</p>
+                            <button
+                              type="button"
+                              onClick={() => setNotice("")}
+                              className="rounded p-0.5 text-emerald-500/70 transition-colors hover:bg-emerald-500/15 hover:text-emerald-500"
+                              aria-label={t("app.dismissNotice")}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                        </TabsContent>
+                        ) : null}
 
-                        <TabsContent value="log" className="min-h-0">
-                          <LogPanel items={items} running={running} />
-                        </TabsContent>
-                      </Tabs>
-                    </section>
+                        {error ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+                            <p className="flex-1 break-all leading-5">{error}</p>
+                            <button
+                              type="button"
+                              onClick={() => setError("")}
+                              className="rounded p-0.5 text-destructive/70 transition-colors hover:bg-destructive/15 hover:text-destructive"
+                              aria-label={t("app.dismissNotice")}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : null}
+
+                        <Tabs
+                          value={tab}
+                          onValueChange={setTab}
+                          className="flex min-h-0 flex-1 flex-col"
+                        >
+                          <div className="flex items-center justify-between">
+                            <TabsList>
+                              <TabsTrigger value="works">
+                                <Images className="h-3.5 w-3.5" />
+                                {t("app.tabWorks")}
+                                {works.length > 0 ? `（${works.length}）` : ""}
+                              </TabsTrigger>
+                              <TabsTrigger value="tasks">
+                                <ListRestart className="h-3.5 w-3.5" />
+                                {t("app.tabTasks")}
+                                {queue.length > 0 ? `（${queue.length}）` : ""}
+                              </TabsTrigger>
+                              <TabsTrigger value="log">
+                                <ScrollText className="h-3.5 w-3.5" />
+                                {t("app.tabLog")}
+                                {items.length > 0 ? `（${items.length}）` : ""}
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              {collecting ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {collectText ?? t("app.collectingWorks")}
+                                </>
+                              ) : null}
+                              {running ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                  {t("app.downloadRunning")}
+                                </>
+                              ) : null}
+                              {total > 0 && !collecting ? (
+                                <span>{t("app.apiTotal", { total })}</span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <TabsContent value="works" className="min-h-0">
+                            <WorksGrid
+                              works={pagedWorks}
+                              selected={selected}
+                              downloaded={downloaded}
+                              downloadedCount={downloadedCount}
+                              collecting={collecting}
+                              loaded={collectProgress?.loaded ?? 0}
+                              total={total}
+                              filteredTotal={filteredWorks.length}
+                              filteredOut={ruleFiltered.removed}
+                              onlyNew={onlyNew}
+                              sort={sort}
+                              activeFilterCount={activeFilterCount}
+                              onSortChange={changeSort}
+                              onOpenFilter={() => setFilterOpen(true)}
+                              onExport={() => void exportWorks()}
+                              page={currentPage}
+                              pageCount={pageCount}
+                              pageSize={pageSize}
+                              onPageChange={changePage}
+                              onToggle={toggleWork}
+                              onToggleAll={toggleAll}
+                              onOpen={setPreview}
+                              onToggleOnlyNew={toggleOnlyNew}
+                            />
+                          </TabsContent>
+
+                          <TabsContent value="tasks" className="min-h-0">
+                            {/* 进度与队列集中在这里，主区高度全部留给作品网格 */}
+                            <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pb-2 pr-1">
+                              <ProgressPanel
+                                jobs={queue}
+                                parallel={activeIds.size}
+                                parallelJobs={config.parallelJobs}
+                                onOpenSettings={() => setSettingsOpen(true)}
+                                throttle={throttle}
+                                batch={batch}
+                                onCancelBatch={cancelBatch}
+                              />
+
+                              <QueuePanel
+                                jobs={queue}
+                                onResume={(id) => void resumeQueue(id)}
+                                onPause={(id) => void pauseQueue(id)}
+                                onCancel={(id) => void cancelQueue(id)}
+                                onRemove={(id) => void removeQueue(id)}
+                                loadFailures={(id) =>
+                                  window.pixiv.listFailures(id)
+                                }
+                                onRetryFailure={retryFailure}
+                                onExportFailures={(id) => void exportFailures(id)}
+                                onOpenDir={(dir) =>
+                                  void window.pixiv
+                                    .openDir(dir)
+                                    .catch((reason: unknown) =>
+                                      setError(messageOf(reason)),
+                                    )
+                                }
+                              />
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent value="log" className="min-h-0">
+                            <LogPanel items={items} running={running} />
+                          </TabsContent>
+                        </Tabs>
+                      </section>
+                    </main>
+                  </>
+                }
+              />
+              <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
+              <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
+              <Route path="/novel" element={<NovelSearchPage />} />
+              <Route
+                path="/novel/series/:seriesId"
+                element={<NovelSeriesPage />}
+              />
+              <Route path="/novel/local" element={<NovelLocalReaderPage />} />
+              <Route path="/series/:seriesId" element={<SeriesPage oauth={oauth} />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/following" element={<UsersFollowingPage />} />
+              <Route path="/user/:userId" element={<UserDetailPage oauth={oauth} />} />
+              <Route path="/favorites" element={<FavoritesPage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/recommend" element={<RecommendPage oauth={oauth} />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/watch-later" element={<WatchLaterPage />} />
+              {/* 本地图库独立成页，不再塞在插画的标签里 */}
+              <Route
+                path="/gallery"
+                element={
+                  <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
+                    <LibraryPanel />
                   </main>
-                </>
-              }
-            />
-            <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
-            <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
-            <Route path="/novel" element={<NovelSearchPage />} />
-            <Route
-              path="/novel/series/:seriesId"
-              element={<NovelSeriesPage />}
-            />
-            <Route path="/novel/local" element={<NovelLocalReaderPage />} />
-            <Route path="/series/:seriesId" element={<SeriesPage oauth={oauth} />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/users/following" element={<UsersFollowingPage />} />
-            <Route path="/user/:userId" element={<UserDetailPage oauth={oauth} />} />
-            <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/ranking" element={<RankingPage />} />
-            <Route path="/recommend" element={<RecommendPage oauth={oauth} />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/watch-later" element={<WatchLaterPage />} />
-            {/* 本地图库独立成页，不再塞在插画的标签里 */}
-            <Route
-              path="/gallery"
-              element={
-                <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
-                  <LibraryPanel />
-                </main>
-              }
-            />
-            <Route path="/library" element={<NovelLibraryPage />} />
-            <Route path="/novel/:novelId" element={<NovelReaderPage />} />
-            {/* 未匹配的路由，重定向到推荐页 */}
-            <Route path="*" element={<Navigate to="/recommend" replace />} />
-            </Route>
-          </Routes>
+                }
+              />
+              <Route path="/library" element={<NovelLibraryPage />} />
+              <Route path="/novel/:novelId" element={<NovelReaderPage />} />
+              {/* 未匹配的路由，重定向到推荐页 */}
+              <Route path="*" element={<Navigate to="/recommend" replace />} />
+              </Route>
+            </Routes>
+          </FilterProvider>
 
           {preview ? (
             <WorkDetailDialog
@@ -1316,6 +1367,7 @@ export default function App(): React.JSX.Element {
             />
           ) : null}
         </div>
+        <Toaster />
       </ImagePreviewProvider>
     </I18nProvider>
   );

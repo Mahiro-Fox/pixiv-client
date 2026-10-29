@@ -2,7 +2,10 @@ import { Bookmark, ExternalLink } from 'lucide-react'
 import type * as React from 'react'
 import type { SearchWork } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { useWorkContextMenu } from '@renderer/lib/cardMenu'
+import { useFilteredWorks } from '@renderer/lib/filterContext'
 import { AuthorPopover } from './AuthorPopover'
+import { FilteredHint } from './FilteredHint'
 import { Badge } from './ui/badge'
 
 /** 搜索结果 / 用户主页共用的作品卡片 */
@@ -14,6 +17,8 @@ export function SearchWorkCard(props: {
   const { t } = useI18n()
   const work = props.work
   const webUrl = `https://www.pixiv.net/artworks/${work.id}`
+  /** 右键菜单：下载 / 稍后看 / 复制 / 屏蔽作者，卡片右上角的常驻图标因此可以只留「去 pixiv」 */
+  const menu = useWorkContextMenu({ onPreview: props.onPreview })
 
   const openPreview = (): void => {
     if (props.onPreview) props.onPreview(work)
@@ -21,7 +26,10 @@ export function SearchWorkCard(props: {
   }
 
   return (
-    <li className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50">
+    <li
+      onContextMenu={(event) => menu.onContextMenu(event, work)}
+      className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50"
+    >
       {/* 点击图片只做应用内预览，右上角图标才是「去 pixiv」 */}
       <div
         role="button"
@@ -95,6 +103,7 @@ export function SearchWorkCard(props: {
           </p>
         ) : null}
       </div>
+      {menu.menuNode}
     </li>
   )
 }
@@ -107,10 +116,15 @@ export function SearchWorkGrid(props: {
   /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
   ref?: React.Ref<HTMLDivElement>
 }): React.JSX.Element {
+  // 过滤在这里统一做：搜索 / 排行 / 推荐 / 收藏 / 用户主页都用这个网格，
+  // 接一次就等于全站列表都按顶栏那套规则走，页面不必各自接线
+  const { items, hidden } = useFilteredWorks(props.works)
+
   return (
     <div className="scrollbar-thin overflow-y-auto" ref={props.ref}>
+      {hidden > 0 && items.length === 0 ? <FilteredHint count={hidden} /> : null}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-        {props.works.map((work) => (
+        {items.map((work) => (
           <SearchWorkCard key={work.id} work={work} onPreview={props.onPreview} />
         ))}
       </ul>

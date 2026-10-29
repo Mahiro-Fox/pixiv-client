@@ -28,6 +28,7 @@ import {
   TabsTrigger,
 } from "@renderer/components/ui/tabs";
 import { SearchWorkGrid } from "@renderer/components/WorkCard";
+import { usePagedQuery } from "@renderer/lib/usePagedQuery";
 import { useWorkPreview } from "@renderer/lib/workPreview";
 
 const PAGE_SIZE = 48;
@@ -63,9 +64,6 @@ export function UserDetailPage({
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileError, setProfileError] = useState("");
-  const [content, setContent] = useState<UserContentResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   /** 未登录时收藏接口必然失败，先取登录状态，避免把接口原始报错抛给用户 */
   const [hasCookie, setHasCookie] = useState<boolean | null>(null);
 
@@ -155,36 +153,20 @@ export function UserDetailPage({
     };
   }, [userId]);
 
-  useEffect(() => {
-    if (!userId) return;
-    // 未登录时收藏接口必然失败：登录状态确定后直接展示友好提示，不发请求
-    if (tab === "bookmarks" && hasCookie !== true) {
-      setContent(null);
-      setError("");
-      setLoading(false);
-      return;
-    }
-    let alive = true;
-    setLoading(true);
-    setError("");
-    void window.pixiv
-      .getUserContent({ userId, tab, page, limit: PAGE_SIZE })
-      .then((data) => {
-        if (alive) setContent(data);
-      })
-      .catch((reason: unknown) => {
-        if (alive) {
-          setContent(null);
-          setError(messageOf(reason));
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [userId, tab, page, hasCookie]);
+  const {
+    data: content,
+    loading,
+    error,
+  } = usePagedQuery<UserContentResult>({
+    page,
+    signature: [userId, tab].join("|"),
+    // 没选用户不发请求；收藏标签在登录状态确定前也不发（必然失败）
+    skip: !userId || (tab === "bookmarks" && hasCookie !== true),
+    // 切到别的作者时先清掉上一位的作品，避免看到别人的图闪一下
+    clearOnChange: true,
+    query: (next) =>
+      window.pixiv.getUserContent({ userId, tab, page: next, limit: PAGE_SIZE }),
+  });
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params);

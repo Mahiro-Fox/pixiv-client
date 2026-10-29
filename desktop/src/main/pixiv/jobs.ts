@@ -28,6 +28,14 @@ import {
 import { convertUgoira, isFfmpegAvailable, type UgoiraTarget } from './ugoira'
 import { downloadFile, sleep } from './http'
 import { mapPool } from './pool'
+import {
+  CONSECUTIVE_FAILURE_LIMIT,
+  TASK_MAX_ATTEMPTS,
+  abortReasonOf,
+  classifyError,
+  shouldRetryTask,
+  taskBackoffMs
+} from './retry'
 
 export interface DownloadJobOptions extends DownloadParams {
   cookie: string
@@ -143,10 +151,66 @@ function rebuildProgress(job: QueueJob, startedAt: number): DownloadProgress {
 }
 
 function statusOf(phase: DownloadPhase): QueueStatus {
+  if (phase === 'idle') return 'queued'
   if (phase === 'resolving') return 'resolving'
   if (phase === 'downloading') return 'downloading'
   if (phase === 'paused') return 'paused'
+  if (phase === 'cancelled') return 'cancelled'
+  if (phase === 'error') return 'error'
   return 'done'
+}
+
+/**
+ * 传输层单次尝试次数。
+ * 任务级重试还会再给 2 次机会，两层叠加最多 6 次请求；
+ * 压到 2 次是为了让失败更快冒到任务层，用更长的退避替换密集的短重试。
+ */
+const TRANSPORT_ATTEMPTS = 2
+
+function messageOf(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return message.replace(/\s+/g, ' ').slice(0, 200)
+}
+
+/**
+ * 连续失败熔断。
+ *
+ * 零星的失败是网络抖动，重试就好；但连续 8 项都失败说明是系统性问题
+ * （Cookie 失效、代理挂了、磁盘写不进去），继续跑只会把剩余作品全部标成失败、
+ * 还要多花几分钟。命中后停止启动新任务，已下载的文件全部保留。
+ *
+ * 只统计「本该成功却失败」的类别：作品被删除（missing）、没有权限（forbidden）
+ * 属于单条数据的确定性结果，收藏夹里本来就常见，不该因为几十个失效作品就中止整批。
+ */
+const SYSTEMIC_KINDS = new Set(['auth', 'network', 'server', 'rate-limit', 'unknown'])
+
+interface Breaker {
+  consecutive: number
+  /** 命中后写入中止原因，作为任务级 error 展示 */
+  tripped: string | null
+}
+
+function markSuccess(breaker: Breaker): void {
+  breaker.consecutive = 0
+}
+
+function markFailure(breaker: Breaker, error: unknown): void {
+  if (breaker.tripped) return
+  const hint = classifyError(error)
+  if (!SYSTEMIC_KINDS.has(hint.kind)) return
+  breaker.consecutive += 1
+  if (breaker.consecutive >= CONSECUTIVE_FAILURE_LIMIT) {
+    breaker.tripped = `连续 ${breaker.consecutive} 项失败，已中止剩余任务（最后一次：${messageOf(error)}）`
+  }
+}
+
+/** status 为 error 时的原因摘要：熔断说明优先，否则按失败类型统计 */
+function errorSummary(breaker: Breaker, progress: DownloadProgress): string {
+  if (breaker.tripped) return breaker.tripped
+  const parts: string[] = []
+  if (progress.failed > 0) parts.push(`${progress.failed} 个文件下载失败`)
+  if (progress.resolveFailed > 0) parts.push(`${progress.resolveFailed} 个作品解析失败`)
+  return parts.length ? `${parts.join('，')}，可展开任务查看清单` : '任务未完成'
 }
 
 /**
@@ -246,6 +310,8 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
   const ugoiraFormat: UgoiraFormat =
     requestedUgoira !== 'zip' && !isFfmpegAvailable() ? 'zip' : requestedUgoira
   job.ugoiraFormat = ugoiraFormat
+  // 重新开始的任务先清掉上一次的原因摘要，跑完时按当前结果重写
+  job.error = undefined
 
   // 续传：上次失败的图片重新排队；已在本地且完整的图片在下面单独校验。
   // 指定了 retry 时只放行命中的那一项，其余失败保持原状，避免「重试一条」变成「重试全部」
@@ -260,6 +326,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
     if (!targeted) return
     task.status = 'pending'
     task.error = undefined
+    task.attempts = undefined
   })
 
   const progress = resumed
@@ -290,6 +357,9 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
     (item) => !retryIds.has(item.illustId)
   )
 
+  /** 连续性失败计数器：解析与下载共用，成功一项就清零 */
+  const breaker: Breaker = { consecutive: 0, tripped: null }
+
   if (pendingWorks.length > 0) {
     progress.phase = 'resolving'
     emit()
@@ -298,7 +368,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
       pendingWorks,
       workers,
       async (work: PixivWork) => {
-        if (options.signal.aborted) return
+        if (options.signal.aborted || breaker.tripped) return
         if (options.delay > 0) await sleep(options.delay * 1000)
 
         const illustId = String(work.id || '').trim()
@@ -370,13 +440,21 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
           }
 
           if (!added) throw new Error('无可用图片地址')
+          markSuccess(breaker)
         } catch (error) {
           if (!options.signal.aborted) {
+            const hint = classifyError(error)
             progress.resolveFailed += 1
             job.resolveFailures = [
               ...(job.resolveFailures || []).filter((item) => item.illustId !== illustId),
-              { illustId, title: work.title, error: String(error) }
+              {
+                illustId,
+                title: work.title,
+                error: messageOf(error),
+                retryable: hint.retryable
+              }
             ]
+            markFailure(breaker, error)
             options.onItem({
               status: 'failed',
               label: `${illustId || '未知作品'} 解析失败`,
@@ -428,37 +506,61 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
       job.tasks.filter((task) => task.status === 'pending'),
       workers,
       async (task: QueueTask) => {
-        if (options.signal.aborted) return
+        // 熔断后不再启动新任务：剩下的保持 pending，继续任务时可以接着下
+        if (options.signal.aborted || breaker.tripped) return
         if (options.delay > 0) await sleep(options.delay * 1000)
 
         let replaced = false
-        try {
-          const complete = await isComplete(task.dest)
-          if (complete && !(await needsReplacement(task, quality))) {
-            task.status = 'exists'
-            task.bytes = 0
-          } else if (task.ugoira && ugoiraFormat !== 'zip') {
-            replaced = complete
-            task.bytes = await downloadUgoiraTask(
-              task,
-              ugoiraFormat,
-              options.cookie,
-              options.signal
-            )
-            task.status = 'ok'
-          } else {
-            replaced = complete
-            task.bytes = await downloadFile(task.url, task.dest, options.cookie, {
-              signal: options.signal
-            })
-            task.status = 'ok'
+        let attempts = 0
+        let lastError: unknown
+
+        while (attempts < TASK_MAX_ATTEMPTS) {
+          attempts += 1
+          replaced = false
+          try {
+            const complete = await isComplete(task.dest)
+            if (complete && !(await needsReplacement(task, quality))) {
+              task.status = 'exists'
+              task.bytes = 0
+            } else if (task.ugoira && ugoiraFormat !== 'zip') {
+              replaced = complete
+              task.bytes = await downloadUgoiraTask(
+                task,
+                ugoiraFormat,
+                options.cookie,
+                options.signal
+              )
+              task.status = 'ok'
+            } else {
+              replaced = complete
+              task.bytes = await downloadFile(task.url, task.dest, options.cookie, {
+                signal: options.signal,
+                attempts: TRANSPORT_ATTEMPTS
+              })
+              task.status = 'ok'
+            }
+            task.error = undefined
+            lastError = undefined
+            break
+          } catch (error) {
+            if (options.signal.aborted) return
+            lastError = error
+            const hint = classifyError(error)
+            // 确定性错误（404 / 403 / 401）一次就放弃；网络与服务端错误退避后再来
+            if (!shouldRetryTask(hint, attempts)) break
+            await sleep(taskBackoffMs(attempts, hint))
+            if (options.signal.aborted) return
           }
-          task.error = undefined
-        } catch (error) {
-          if (options.signal.aborted) return
+        }
+
+        task.attempts = attempts
+        if (lastError !== undefined) {
           task.status = 'failed'
           task.bytes = 0
-          task.error = String(error)
+          task.error = messageOf(lastError)
+          markFailure(breaker, lastError)
+        } else {
+          markSuccess(breaker)
         }
 
         progress.done += 1
@@ -507,19 +609,30 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
     )
   }
 
-  const paused = options.signal.aborted
+  // 结束态四选一：完成 / 暂停 / 取消 / 失败。
+  // 之前只看「有没有被 abort」，取消和暂停、以及「跑完但有失败项」全都落到 paused，
+  // 界面上三种完全不同的处境长得一模一样，用户没法判断该点「继续」还是该看失败清单。
+  const aborted = options.signal.aborted
+  const abortReason = aborted ? abortReasonOf(options.signal) : undefined
   // 单条重试时会出现「本次没处理的解析失败」，进度需以任务里实际残留的失败为准，
   // 否则会误判为全部完成而把任务从队列移除
   progress.resolveFailed = (job.resolveFailures || []).length
   const hasPending = job.tasks.some((task) => task.status === 'pending')
   const complete =
-    !paused && !hasPending && progress.failed === 0 && progress.resolveFailed === 0
-  progress.phase = complete ? 'done' : 'paused'
+    !aborted && !hasPending && progress.failed === 0 && progress.resolveFailed === 0
+
+  let phase: DownloadPhase
+  if (complete) phase = 'done'
+  else if (aborted) phase = abortReason === 'cancel' ? 'cancelled' : 'paused'
+  else phase = 'error'
+
+  progress.phase = phase
   // 记下结束时间，界面「用时」停止增长（否则切换标签页触发的重渲染会让数字继续变大）
   progress.finishedAt = Date.now()
   emit()
-  job.status = statusOf(progress.phase)
+  job.status = statusOf(phase)
   job.progress = { ...progress }
+  job.error = phase === 'error' ? errorSummary(breaker, progress) : undefined
   dropJobIfDone(job)
   await flushQueue()
   await flushHistory()
@@ -529,6 +642,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
     jobId: job.id,
     outDir: rootDir,
     elapsedMs: Date.now() - startedAt,
-    paused
+    paused: aborted,
+    abortReason
   }
 }

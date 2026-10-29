@@ -1,5 +1,5 @@
 import { Loader2, Search, Users } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type * as React from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { UserSearchResult } from '@shared/types'
@@ -7,14 +7,9 @@ import { useI18n } from '@renderer/i18n'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { UserCard } from '@renderer/components/UserCard'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
-import { usePageActive } from '@renderer/lib/pageActive'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
+import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 用户搜索页：关键词来自顶栏搜索框，筛选「只看投稿过作品的用户」 */
 export function UsersPage(): React.JSX.Element {
@@ -27,9 +22,6 @@ export function UsersPage(): React.JSX.Element {
   const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
   const postedOnly = params.get('mode') !== 'all'
 
-  const [result, setResult] = useState<UserSearchResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   /** 接口未给出每页条数，用第一页结果条数推算总页数（避免按最后一页的少量结果算错） */
   const [pageSize, setPageSize] = useState(48)
 
@@ -37,50 +29,18 @@ export function UsersPage(): React.JSX.Element {
   const submitVersion = useSearchSubmitVersion()
   /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLDivElement>('users')
-  /** 后台时不读全局 URL 参数（进详情页会被算成空值），effect 里直接忽略 */
-  const active = usePageActive()
-  /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
-  const loadedSig = useRef('')
 
-  useEffect(() => {
-    if (!active) return
-    if (!word) {
-      setResult(null)
-      setError('')
-      loadedSig.current = ''
-      return
+  const { data: result, loading, error } = usePagedQuery<UserSearchResult>({
+    page,
+    signature: [word, postedOnly ? 1 : 0, submitVersion].join('|'),
+    skip: !word,
+    scroll,
+    query: (next) => window.pixiv.searchUsers({ word, page: next, postedOnly }),
+    onData: (data) => {
+      // 第一页最接近整页条数（末页往往不满，会算大总页数）
+      if (page === 1 && data.users.length > 0) setPageSize(data.users.length)
     }
-    const sig = [word, page, postedOnly ? 1 : 0, submitVersion].join('|')
-    if (loadedSig.current === sig) return
-
-    let alive = true
-    // 参数变了就是换了内容，位置回顶
-    scroll.reset()
-    setLoading(true)
-    setError('')
-    void window.pixiv
-      .searchUsers({ word, page, postedOnly })
-      .then((data) => {
-        if (!alive) return
-        loadedSig.current = sig
-        setResult(data)
-        if (page === 1 && data.users.length > 0) setPageSize(data.users.length)
-      })
-      .catch((reason: unknown) => {
-        if (alive) {
-          // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
-          loadedSig.current = ''
-          setResult(null)
-          setError(messageOf(reason))
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [active, word, page, postedOnly, submitVersion])
+  })
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)

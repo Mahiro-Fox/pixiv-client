@@ -314,7 +314,24 @@ export interface DownloadParams {
   ugoiraFormat?: UgoiraFormat
 }
 
-export type DownloadPhase = 'idle' | 'resolving' | 'downloading' | 'paused' | 'done'
+/**
+ * 任务阶段。结束态有四种，语义互斥：
+ * - `done`：全部成功
+ * - `paused`：用户暂停或软件退出，可原地继续
+ * - `cancelled`：用户取消，保留已下载的文件，可重新开始
+ * - `error`：跑完了但有失败项（下载失败 / 解析失败 / 熔断中止），需要人工处理
+ */
+export type DownloadPhase =
+  | 'idle'
+  | 'resolving'
+  | 'downloading'
+  | 'paused'
+  | 'cancelled'
+  | 'error'
+  | 'done'
+
+/** 中止原因：三条路径共用一个 AbortController，靠 reason 区分 */
+export type AbortReason = 'pause' | 'cancel' | 'shutdown'
 
 export interface DownloadProgress {
   /** 所属队列任务 ID；并行下载时界面靠它区分不同任务的进度 */
@@ -348,10 +365,19 @@ export interface DownloadSummary extends DownloadProgress {
   outDir: string
   elapsedMs: number
   paused: boolean
+  /** 本次结束如果是被中止的，这里给出是哪条路径发起的 */
+  abortReason?: AbortReason
 }
 
 /** queued：已加入队列，等待并行额度空出后由主进程自动启动 */
-export type QueueStatus = 'queued' | 'resolving' | 'downloading' | 'paused' | 'done'
+export type QueueStatus =
+  | 'queued'
+  | 'resolving'
+  | 'downloading'
+  | 'paused'
+  | 'cancelled'
+  | 'error'
+  | 'done'
 
 export type QueueTaskStatus = 'pending' | 'ok' | 'exists' | 'failed'
 
@@ -372,6 +398,8 @@ export interface QueueTask {
   status: QueueTaskStatus
   bytes: number
   error?: string
+  /** 实际尝试次数（含任务级重试）；1 表示一次就成/一次就放弃 */
+  attempts?: number
 }
 
 export interface QueueJob {
@@ -400,12 +428,16 @@ export interface QueueJob {
   artistId?: string
   /** 任务归属展示用，单一作者为「{userId}-{userName}」，多作者为「N 位作者」 */
   artistLabel?: string
+  /** status 为 error 时的原因摘要（失败项统计 / 熔断说明 / 启动前校验失败） */
+  error?: string
 }
 
 export interface QueueResolveFailure {
   illustId: string
   title: string
   error: string
+  /** 该错误是否值得重试（404、403 这类确定性错误为 false） */
+  retryable?: boolean
 }
 
 /** 失败清单条目：图片下载失败或作品解析失败 */
@@ -416,6 +448,8 @@ export interface FailureItem {
   label: string
   error: string
   url?: string
+  /** false 表示重试也不会成功（作品已删除、没有权限等），界面据此提示 */
+  retryable?: boolean
 }
 
 /** 给渲染层展示的队列任务摘要 */
@@ -441,6 +475,8 @@ export interface QueueSummary {
   /** 解析失败的作品数（不计入 failed，单独展示） */
   resolveFailed: number
   bytes: number
+  /** status 为 error 时的原因摘要，卡片上直接展示 */
+  error?: string
 }
 
 export type ThrottleKind = 'api' | 'cdn'
@@ -1142,18 +1178,30 @@ export interface PixivApi {
   getWorkSeries: (params: WorkSeriesParams) => Promise<SeriesDetail>
   /** 加入 / 退出系列的追更列表（App API 的 manga watchlist），需 OAuth 凭据 */
   setSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>
+  /** 读取小说收藏状态（App API）；需 OAuth 凭据 */
+  getNovelBookmarkState: (novelId: string) => Promise<BookmarkState>
+  /** 收藏 / 取消收藏小说，返回最新状态 */
+  setNovelBookmark: (novelId: string, input: BookmarkInput) => Promise<BookmarkState>
+  /** 读取小说系列是否已追更（App API）；未连接凭据时恒为 false */
+  getNovelSeriesWatchState: (seriesId: string) => Promise<boolean>
+  /** 加入 / 退出小说系列的追更列表（App API 的 novel watchlist） */
+  setNovelSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>
   checkDownloaded: (params: DownloadedParams) => Promise<string[]>
   /** 加入下载队列：立即返回队列快照，任务由主进程按并行额度自动启动 */
   enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>
   /** 批量同步：选中多位画师，按当前标签与过滤规则逐个「抓取 → 下载」 */
   batchSync: (params: BatchSyncParams) => Promise<BatchSyncSummary>
   cancelDownload: () => Promise<boolean>
+  /** 只中止批量同步，不影响队列里的普通任务 */
+  cancelBatch: () => Promise<boolean>
   onBatchProgress: (callback: (progress: BatchSyncProgress) => void) => () => void
   listQueue: () => Promise<QueueSummary[]>
   /** 把未完成任务重新放回队列（排队等待额度） */
   resumeQueue: (id: string) => Promise<QueueSummary[]>
   /** 暂停单个任务：运行中立即中止，排队中直接转为未完成 */
   pauseQueue: (id: string) => Promise<QueueSummary[]>
+  /** 取消单个任务：保留已下载文件，任务留在列表里显示「已取消」，可重新开始 */
+  cancelQueue: (id: string) => Promise<QueueSummary[]>
   removeQueue: (id: string) => Promise<QueueSummary[]>
   listFailures: (jobId: string) => Promise<FailureItem[]>
   /** 重试失败清单中的单条（图片或作品解析），其余失败项保持不变 */

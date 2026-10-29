@@ -7,14 +7,12 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
+import { messageOf } from '@renderer/lib/errors'
+import { useWorkContextMenu } from '@renderer/lib/cardMenu'
+import { useLocalPage } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 24
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 浏览记录只有展示信息，预览弹窗仍需要 SearchWork 结构 */
 function toSearchWork(entry: ViewHistoryEntry): SearchWork {
@@ -44,11 +42,12 @@ function toSearchWork(entry: ViewHistoryEntry): SearchWork {
 export function HistoryPage(): React.JSX.Element {
   const { t } = useI18n()
   const { openPreview, previewNode } = useWorkPreview()
+  /** 记录卡片与搜索结果共用同一套右键菜单（下载 / 复制 / 屏蔽作者） */
+  const menu = useWorkContextMenu({ onPreview: openPreview })
   const [items, setItems] = useState<ViewHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
-  const [page, setPage] = useState(1)
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
 
@@ -84,8 +83,8 @@ export function HistoryPage(): React.JSX.Element {
     )
   }, [items, keyword])
 
-  const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const visible = filtered.slice((Math.min(page, lastPage) - 1) * PAGE_SIZE, Math.min(page, lastPage) * PAGE_SIZE)
+  /** 记录都在本地，取回整表后按关键词过滤 + 分页，不再请求主进程 */
+  const { page, lastPage, pageItems, setPage, reset } = useLocalPage(filtered, PAGE_SIZE)
 
   /** 相对时间：一天以内按分钟/小时，更早的显示日期 */
   const timeText = (at: number): string => {
@@ -102,7 +101,7 @@ export function HistoryPage(): React.JSX.Element {
       .clearViewHistory()
       .then((result) => {
         setItems(result)
-        setPage(1)
+        reset()
         setConfirming(false)
       })
       .catch((reason: unknown) => setError(messageOf(reason)))
@@ -127,7 +126,7 @@ export function HistoryPage(): React.JSX.Element {
               value={keyword}
               onChange={(event) => {
                 setKeyword(event.target.value)
-                setPage(1)
+                reset()
               }}
               placeholder={t('history.searchPlaceholder')}
               className="h-8 w-56 pl-7 text-xs"
@@ -138,7 +137,7 @@ export function HistoryPage(): React.JSX.Element {
                 aria-label={t('history.clearSearch')}
                 onClick={() => {
                   setKeyword('')
-                  setPage(1)
+                  reset()
                 }}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
               >
@@ -207,12 +206,13 @@ export function HistoryPage(): React.JSX.Element {
           </div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-            {visible.map((entry) => (
+            {pageItems.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
                 title={entry.title}
                 onClick={() => openPreview(toSearchWork(entry))}
+                onContextMenu={(event) => menu.onContextMenu(event, toSearchWork(entry))}
                 className="group flex cursor-zoom-in flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 text-left transition-colors hover:border-primary/50"
               >
                 <div className="relative aspect-square overflow-hidden bg-secondary/60">
@@ -250,10 +250,11 @@ export function HistoryPage(): React.JSX.Element {
       </div>
 
       {!loading && filtered.length > PAGE_SIZE ? (
-        <Pagination page={Math.min(page, lastPage)} lastPage={lastPage} onChange={setPage} />
+        <Pagination page={page} lastPage={lastPage} onChange={setPage} />
       ) : null}
 
       {previewNode}
+      {menu.menuNode}
     </main>
   )
 }

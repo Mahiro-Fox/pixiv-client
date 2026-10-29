@@ -226,3 +226,45 @@ export async function setSeriesWatch(seriesId: string, watch: boolean): Promise<
     throw explainAppError(error)
   }
 }
+
+/** 小说系列接口：详情里的 watchlist_added 即「是否已追更」 */
+interface RawAppNovelSeriesResponse {
+  novel_series_detail?: { watchlist_added?: boolean }
+  /** 少数版本的响应把详情放在 series 下 */
+  series?: { watchlist_added?: boolean }
+}
+
+/**
+ * 读取小说系列是否在追更列表里。
+ * 小说系列页走的是网页接口（无 OAuth 也能看），这里只补一个状态查询：
+ * 未连接凭据或接口不可用时一律按「未追更」处理，不阻断页面渲染。
+ */
+export async function getNovelSeriesWatchState(seriesId: string): Promise<boolean> {
+  const id = String(seriesId || '').trim()
+  if (!/^\d+$/.test(id)) return false
+  const status = await getOAuthStatus()
+  if (!status.connected) return false
+  try {
+    const page = await appApiGet<RawAppNovelSeriesResponse>(
+      `/v1/novel/series?series_id=${encodeURIComponent(id)}&filter=for_android`
+    )
+    const detail = page?.novel_series_detail || page?.series || {}
+    return Boolean(detail.watchlist_added)
+  } catch {
+    return false
+  }
+}
+
+/** 加入 / 退出小说系列追更（App API 的 novel watchlist） */
+export async function setNovelSeriesWatch(seriesId: string, watch: boolean): Promise<void> {
+  const id = String(seriesId || '').trim()
+  if (!/^\d+$/.test(id)) throw new Error('缺少系列 ID')
+  await ensureAppConnected()
+  try {
+    await appApiPost(watch ? '/v1/watchlist/novel/add' : '/v1/watchlist/novel/delete', {
+      series_id: id
+    })
+  } catch (error) {
+    throw explainAppError(error)
+  }
+}

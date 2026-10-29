@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { UserWorkThumb } from '@shared/types'
+import { useUserContextMenu } from '@renderer/lib/cardMenu'
 import { Badge } from './ui/badge'
 
 export interface UserCardData {
@@ -49,6 +50,8 @@ export function UserCard(props: {
   const navigate = useNavigate()
   const user = props.user
   const works = user.works || []
+  /** 右键菜单：打开主页 / pixiv / 复制 / 屏蔽该作者 */
+  const menu = useUserContextMenu()
 
   const open = (): void => {
     void navigate(`/user/${user.id}`)
@@ -56,6 +59,7 @@ export function UserCard(props: {
 
   return (
     <li
+      onContextMenu={(event) => menu.onContextMenu(event, { id: user.id, name: user.name })}
       role="button"
       tabIndex={0}
       onClick={open}
@@ -110,6 +114,7 @@ export function UserCard(props: {
           ))}
         </div>
       ) : null}
+      {menu.menuNode}
     </li>
   )
 }

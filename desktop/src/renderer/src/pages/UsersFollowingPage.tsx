@@ -1,18 +1,14 @@
 import { Loader2, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type * as React from 'react'
-import type { FollowUser } from '@shared/types'
+import type { FollowingResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { UserCard } from '@renderer/components/UserCard'
+import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 48
-
-function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 /** 我的关注：用户列表页面形式，复用用户卡片，点击进入用户主页 */
 export function UsersFollowingPage(): React.JSX.Element {
@@ -20,36 +16,16 @@ export function UsersFollowingPage(): React.JSX.Element {
   /** 关注列表与搜索用户页共用同一套四图预览 */
   const { openPreview, previewNode } = useWorkPreview()
   const [page, setPage] = useState(1)
-  const [users, setUsers] = useState<FollowUser[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let alive = true
-    setLoading(true)
-    setError('')
-    void window.pixiv
-      .getFollowing({ userId: '', offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE })
-      .then((result) => {
-        if (!alive) return
-        setUsers(result.users)
-        setTotal(result.total)
-      })
-      .catch((reason: unknown) => {
-        if (!alive) return
-        setUsers([])
-        setTotal(0)
-        setError(messageOf(reason))
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [page])
+  const { data, loading, error } = usePagedQuery<FollowingResult>({
+    page,
+    signature: '',
+    query: (next) =>
+      window.pixiv.getFollowing({ userId: '', offset: (next - 1) * PAGE_SIZE, limit: PAGE_SIZE })
+  })
 
+  const users = data?.users ?? []
+  const total = data?.total ?? 0
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (

@@ -18,10 +18,24 @@ interface Blockable {
 
 /** 把「逗号 / 空格 / 顿号 / 换行」分隔的输入拆成小写词条 */
 export function splitBlockTerms(raw: string): string[] {
+  return splitBlockTermsRaw(raw).map((term) => term.toLowerCase())
+}
+
+/**
+ * 原样拆分（保留大小写）。
+ * 取消屏蔽要从配置里删掉一条规则再写回，用原书写去重写才不会把用户手输的
+ * 大小写、顺序全都改掉。
+ */
+export function splitBlockTermsRaw(raw: string): string[] {
   return (raw || '')
     .split(/[,，、\s]+/)
-    .map((term) => term.trim().toLowerCase())
+    .map((term) => term.trim())
     .filter(Boolean)
+}
+
+/** 词条数组写回配置：统一用「逗号 + 空格」分隔，与手动输入的习惯一致 */
+export function joinBlockTerms(terms: string[]): string {
+  return terms.filter(Boolean).join(', ')
 }
 
 export function blockRulesOf(config: Pick<AppConfig, 'blockTags' | 'blockUsers'>): BlockRules {
@@ -33,6 +47,24 @@ export function blockRulesOf(config: Pick<AppConfig, 'blockTags' | 'blockUsers'>
 
 export function hasBlockRules(rules: BlockRules): boolean {
   return rules.tags.length > 0 || rules.users.length > 0
+}
+
+/**
+ * 命中该用户的屏蔽词条：用户 ID 全等，或作者名包含该词条。
+ *
+ * 取消屏蔽必须按「哪几条命中了」来删，不能只删 ID —— 用户可能是按昵称屏蔽的，
+ * 也可能同时写了 ID 和昵称。
+ */
+export function blockedUserTerms(
+  user: { userId?: string; userName?: string },
+  rules: BlockRules
+): string[] {
+  if (!user || rules.users.length === 0) return []
+  const userId = String(user.userId || '').trim()
+  const userName = String(user.userName || '').toLowerCase()
+  return rules.users.filter(
+    (term) => term === userId || (userName !== '' && userName.includes(term))
+  )
 }
 
 /**
@@ -50,13 +82,7 @@ export function isBlocked(work: Blockable, rules: BlockRules): boolean {
     if (tags.some((tag) => rules.tags.includes(tag))) return true
   }
 
-  if (rules.users.length > 0) {
-    const userId = String(work.userId || '').trim()
-    const userName = String(work.userName || '').toLowerCase()
-    if (rules.users.some((term) => term === userId || (userName && userName.includes(term)))) {
-      return true
-    }
-  }
+  if (blockedUserTerms(work, rules).length > 0) return true
 
   return false
 }
