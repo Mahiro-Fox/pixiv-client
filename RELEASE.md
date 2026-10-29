@@ -18,7 +18,7 @@
 
 `release/` 已被 `.gitignore` 忽略。
 
-产物文件名固定为 ASCII（`pixiv-client-...`），避免 Release 下载链接里出现中文百分号编码；用户看到的应用名仍是 `Pixiv 下载器`（`productName`）。
+产物文件名固定为 ASCII（`pixiv-client-...`），避免 Release 下载链接里出现中文百分号编码；用户看到的应用名仍是 `Pixiv Client`（`productName`）。
 
 ---
 

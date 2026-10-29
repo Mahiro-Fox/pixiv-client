@@ -197,7 +197,7 @@ const zhCN = {
   'batch.cancel': '取消批量同步',
   'follow.prev': '上一页',
   'follow.next': '下一页',
-  'app.title': 'Pixiv 下载器',
+  'app.title': 'Pixiv Client',
   'app.subtitle': 'Electron + React + TypeScript 原型',
   'app.settings': '设置',
   'app.openDir': '打开保存目录',

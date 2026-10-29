@@ -1,4 +1,4 @@
-# Pixiv 下载器（桌面端）需求文档
+# Pixiv Client（桌面端）需求文档
 
 - 文档版本：v1.0
 - 对应代码：`desktop/`（Electron + React + TypeScript + Tailwind）
