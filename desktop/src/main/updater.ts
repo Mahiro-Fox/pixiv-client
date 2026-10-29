@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import type { UpdateInfo } from 'electron-updater'
 import type { UpdateStatus } from '../shared/types'
 
 /** 启动后延迟检查，避开首屏的接口与图片请求 */
@@ -15,6 +16,12 @@ function setStatus(next: UpdateStatus): void {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** 更新包总体积（字节）：安装包 + 增量包，用于提示用户需要多少流量 */
+function sizeOf(info: UpdateInfo): number {
+  const files = (info.files || []) as Array<{ size?: number }>
+  return files.reduce((sum, file) => sum + (Number(file.size) || 0), 0)
 }
 
 export function getUpdateStatus(): UpdateStatus {
@@ -44,6 +51,22 @@ export function checkForUpdates(): Promise<UpdateStatus> {
     })
 }
 
+/**
+ * 用户确认后才开始下载。
+ * 之所以不自动下载：安装包动辄几十上百 MB，应该先让用户看到体积自己决定。
+ */
+export function downloadUpdate(): Promise<UpdateStatus> {
+  if (status.state !== 'available') return Promise.resolve(status)
+
+  return autoUpdater
+    .downloadUpdate()
+    .then(() => status)
+    .catch((error: unknown) => {
+      setStatus({ state: 'error', message: messageOf(error) })
+      return status
+    })
+}
+
 /** 重启并安装已下载的更新；没有可安装的更新时返回 false */
 export function installUpdate(): boolean {
   if (status.state !== 'downloaded') return false
@@ -64,13 +87,14 @@ export function initUpdater(send: (next: UpdateStatus) => void): void {
     return
   }
 
-  // 发现新版本后自动后台下载；退出时若已下载完成则自动安装
-  autoUpdater.autoDownload = true
+  // 只检查、不自动下载：由界面弹窗征得同意后再走 downloadUpdate()
+  autoUpdater.autoDownload = false
+  // 已下载但用户没点重启时，退出应用顺手装上，避免下次再下一次
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('checking-for-update', () => setStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) =>
-    setStatus({ state: 'available', version: info.version })
+    setStatus({ state: 'available', version: info.version, size: sizeOf(info) })
   )
   autoUpdater.on('update-not-available', (info) =>
     setStatus({ state: 'up-to-date', version: info.version })

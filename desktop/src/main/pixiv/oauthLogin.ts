@@ -2,7 +2,7 @@ import { BrowserWindow, shell } from 'electron'
 import { createHash, randomBytes } from 'node:crypto'
 import type { OAuthStatus } from '../../shared/types'
 import { LOGIN_PARTITION } from './login'
-import { completePixivAuthorization, OAUTH_REDIRECT_URI } from './oauth'
+import { completePixivAuthorization, getOAuthStatus, OAUTH_REDIRECT_URI } from './oauth'
 
 /**
  * PKCE 授权码登录。
@@ -17,6 +17,9 @@ import { completePixivAuthorization, OAUTH_REDIRECT_URI } from './oauth'
 const AUTHORIZE_URL = 'https://app-api.pixiv.net/web/v1/login'
 
 let activeLogin: Promise<OAuthStatus | null> | null = null
+
+/** 静默授权等不到回调时，多久后把窗口显示出来让用户处理（毫秒） */
+const REVEAL_AFTER_MS = 6_000
 
 /** 32 字节随机数转 base64url，长度与官方客户端一致 */
 function createCodeVerifier(): string {
@@ -53,7 +56,8 @@ function codeOf(url: string): string {
  */
 function runAuthorizeWindow(
   parent: BrowserWindow | null,
-  url: string
+  url: string,
+  silent: boolean
 ): Promise<string> {
   return new Promise<string>((resolve) => {
     const win = new BrowserWindow({
@@ -75,10 +79,12 @@ function runAuthorizeWindow(
     })
 
     let settled = false
+    let revealTimer: ReturnType<typeof setTimeout> | null = null
 
     const settle = (code: string): void => {
       if (settled) return
       settled = true
+      if (revealTimer) clearTimeout(revealTimer)
       if (!win.isDestroyed()) win.destroy()
       resolve(code)
     }
@@ -86,6 +92,7 @@ function runAuthorizeWindow(
     win.on('closed', () => {
       if (settled) return
       settled = true
+      if (revealTimer) clearTimeout(revealTimer)
       resolve('')
     })
 
@@ -109,7 +116,18 @@ function runAuthorizeWindow(
       if (code) settle(code)
     })
 
-    win.once('ready-to-show', () => win.show())
+    if (silent) {
+      // 静默模式：窗口一开始不显示。已登录状态下授权页会直接跳回 callback，
+      // 用户完全看不到界面；迟迟等不到就让窗口露出来，交给用户完成登录 / 验证码
+      revealTimer = setTimeout(() => {
+        revealTimer = null
+        if (!win.isDestroyed() && !win.isVisible()) win.show()
+      }, REVEAL_AFTER_MS)
+    } else {
+      win.once('ready-to-show', () => win.show())
+    }
+    // 加载失败（例如代理不通）不销毁窗口：留着错误页让用户自己关，
+    // 这样 Promise 仍会由 closed 事件收尾，不会悬着不放
     void win.loadURL(url).catch(() => undefined)
   })
 }
@@ -120,19 +138,21 @@ function runAuthorizeWindow(
  */
 export function loginOAuthWithPKCE(
   parent: BrowserWindow | null,
-  client: { clientId: string; clientSecret: string }
+  client: { clientId?: string; clientSecret?: string } = {},
+  options: { silent?: boolean } = {}
 ): Promise<OAuthStatus | null> {
   if (activeLogin) return activeLogin
 
   const task = (async (): Promise<OAuthStatus | null> => {
-    const clientId = client.clientId.trim()
-    const clientSecret = client.clientSecret.trim()
-    if (!clientId || !clientSecret) {
-      throw new Error('请先填写 client_id 与 client_secret 再登录授权')
-    }
+    const clientId = (client.clientId || '').trim()
+    const clientSecret = (client.clientSecret || '').trim()
 
     const verifier = createCodeVerifier()
-    const code = await runAuthorizeWindow(parent, authorizeUrl(challengeOf(verifier)))
+    const code = await runAuthorizeWindow(
+      parent,
+      authorizeUrl(challengeOf(verifier)),
+      Boolean(options.silent)
+    )
     if (!code) return null
 
     return completePixivAuthorization({ clientId, clientSecret, code, codeVerifier: verifier })
@@ -142,4 +162,21 @@ export function loginOAuthWithPKCE(
 
   activeLogin = task
   return task
+}
+
+/**
+ * Cookie 登录成功后的静默授权。
+ *
+ * refresh_token 只能通过 OAuth 授权码拿到，Cookie 换成不了（pixiv 没有这种端点），
+ * 但授权窗口复用了登录分区，已登录时打开授权页会直接跳回 callback、不出现任何界面。
+ * 所以这里可以在后台静默跑完；只有等不到回调时才把窗口显示出来。
+ * 失败一律忽略——读数据不依赖 App API，不该因为授权失败打断登录流程。
+ */
+export async function autoLoginOAuth(parent: BrowserWindow | null): Promise<void> {
+  try {
+    if ((await getOAuthStatus()).connected) return
+    await loginOAuthWithPKCE(parent, {}, { silent: true })
+  } catch {
+    // 授权失败不影响 Cookie 登录与读取功能
+  }
 }

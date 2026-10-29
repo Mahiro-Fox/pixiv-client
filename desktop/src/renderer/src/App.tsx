@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type * as React from "react";
-import KeepAliveRouteOutlet from "keepalive-for-react-router";
+import { KeepAlive } from "keepalive-for-react";
 import {
   Navigate,
   NavLink,
@@ -27,6 +27,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useOutlet,
   useSearchParams,
 } from "react-router-dom";
 import type { Locale } from "@shared/types";
@@ -49,6 +50,7 @@ import type {
   QueueSummary,
   SelfUser,
   ThrottleState,
+  UpdateStatus,
   WorkSort,
 } from "@shared/types";
 import { applyWorkFilters, countActiveFilters } from "./lib/filters";
@@ -68,6 +70,7 @@ import { ImagePreviewProvider } from "./components/ImagePreview";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { WorkDetailDialog } from "./components/WorkDetailDialog";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { WorksGrid } from "./components/WorksGrid";
 import { AccountMenu } from "./components/AccountMenu";
 import { SearchBox } from "./components/SearchBox";
@@ -180,21 +183,44 @@ const KEEP_ALIVE_ROUTES = [
 /** 顶栏搜索框同步关键词的范围：只有这四个搜索栏目页会随 URL 变化 */
 const SEARCH_SECTION_PATHS = new Set(["/illust", "/manga", "/novel", "/users"]);
 
+/** 非缓存路由共用一个占位缓存键，避免每个详情页都在缓存表里留一条 */
+const OFF_CACHE_KEY = "/(off)";
+
 /**
  * 路由缓存宿主。
  * KeepAlive 必须挂在不随路由变化的位置，所以用一个不带 path 的布局路由包住全部页面。
+ *
+ * 没有直接用 `keepalive-for-react-router` 的现成出口：它切换缓存键时把状态更新包进了
+ * startTransition，新路由要等一个额外的调度帧才挂载，这期间浏览器已经把旧页面画出来了
+ * （从推荐页点进用户详情 / 关注列表时会「闪一下推荐页」）。
+ *
+ * 这里改成：命中 KEEP_ALIVE_ROUTES 的页面才交给 KeepAlive 缓存；其它路由把 outlet
+ * 直接渲染在正常 DOM 里，切换是同步的。同时在离开缓存页时立刻把缓存容器隐藏，
+ * 免得那个还没被移除的旧节点在新页面上残留一帧。
  */
 function KeepAliveOutlet(): React.JSX.Element {
   const location = useLocation();
+  const outlet = useOutlet();
+  const cached = KEEP_ALIVE_ROUTES.some((pattern) =>
+    pattern.test(location.pathname),
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <KeepAliveRouteOutlet
-        include={KEEP_ALIVE_ROUTES}
-        max={12}
-        activeCacheKey={location.pathname}
-        containerClassName="flex h-full min-h-0 flex-col"
-        cacheNodeClassName="flex min-h-0 flex-col"
-      />
+      <div className={cached ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+        <KeepAlive
+          include={KEEP_ALIVE_ROUTES}
+          max={12}
+          activeCacheKey={cached ? location.pathname : OFF_CACHE_KEY}
+          containerClassName="flex h-full min-h-0 flex-col"
+          cacheNodeClassName="flex min-h-0 flex-col"
+        >
+          {cached ? outlet : null}
+        </KeepAlive>
+      </div>
+      {cached ? null : (
+        <div className="flex min-h-0 flex-1 flex-col">{outlet}</div>
+      )}
     </div>
   );
 }
@@ -236,6 +262,9 @@ export default function App(): React.JSX.Element {
   const [preview, setPreview] = useState<PixivWork | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 自动更新状态与弹窗开关；取消后保持关闭，直到下一次状态变化 */
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState("works");
@@ -517,6 +546,23 @@ export default function App(): React.JSX.Element {
       }),
     [],
   );
+
+  // 登录后静默完成的 App API 授权在后台结束，主进程推送结果过来
+  useEffect(() => window.pixiv.onOAuthChanged((status) => setOAuth(status)), []);
+
+  // 自动更新：主进程负责检查与下载，这里只在「发现新版本 / 下载完成」时弹窗征询
+  useEffect(() => {
+    let alive = true;
+    void window.pixiv.getUpdateStatus().then((value) => {
+      if (alive) setUpdateStatus(value);
+    });
+    return window.pixiv.onUpdateStatus((value) => setUpdateStatus(value));
+  }, []);
+
+  useEffect(() => {
+    if (updateStatus?.state === "available" || updateStatus?.state === "downloaded")
+      setUpdateOpen(true);
+  }, [updateStatus]);
 
   const updateConfig = (patch: Partial<AppConfig>): void => {
     setConfig((previous) => (previous ? { ...previous, ...patch } : previous));
@@ -1106,7 +1152,7 @@ export default function App(): React.JSX.Element {
             </div>
           </header>
 
-          {/* 路由缓存宿主：目前只缓存 /recommend，其余页面照旧随路由挂载 / 卸载 */}
+          {/* 路由缓存宿主：命中 KEEP_ALIVE_ROUTES 的页面缓存，其余随路由挂载 / 卸载 */}
           {/* 过滤规则的上下文：顶栏按钮打开同一个弹窗，各页面列表就地按规则过滤 */}
           <FilterProvider config={config} onOpenFilter={() => setFilterOpen(true)}>
             <Routes>
@@ -1339,6 +1385,13 @@ export default function App(): React.JSX.Element {
                 setFilterOpen(false);
                 persistConfig();
               }}
+            />
+          ) : null}
+
+          {updateOpen && updateStatus ? (
+            <UpdateDialog
+              status={updateStatus}
+              onClose={() => setUpdateOpen(false)}
             />
           ) : null}
 

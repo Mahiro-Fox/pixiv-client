@@ -199,10 +199,10 @@ export interface OAuthCredentials {
   refreshToken: string
 }
 
-/** PKCE 授权登录只需要客户端常量，refresh_token 由授权流程自动获得 */
+/** PKCE 授权登录的客户端常量；留空则用内置默认值 */
 export interface OAuthClientInput {
-  clientId: string
-  clientSecret: string
+  clientId?: string
+  clientSecret?: string
 }
 
 /**
@@ -1078,7 +1078,7 @@ export interface UserContentResult {
 export type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'available'; version: string }
+  | { state: 'available'; version: string; size: number }
   | {
       state: 'downloading'
       version: string
@@ -1112,7 +1112,7 @@ export interface PixivApi {
    * 打开 pixiv 授权页登录，用 PKCE 授权码自动换取并保存 refresh_token。
    * 用户关闭窗口或拒绝授权时返回 null。
    */
-  loginOAuth: (client: OAuthClientInput) => Promise<OAuthStatus | null>
+  loginOAuth: (client?: OAuthClientInput) => Promise<OAuthStatus | null>
   /** 清除 OAuth 凭据（不影响 Cookie） */
   clearOAuth: () => Promise<OAuthStatus>
   /**
@@ -1126,6 +1126,8 @@ export interface PixivApi {
    * 返回取消订阅函数。
    */
   onCookieInvalid: (handler: () => void) => () => void
+  /** 订阅凭据状态变化（例如登录后静默完成的授权） */
+  onOAuthChanged: (handler: (status: OAuthStatus) => void) => () => void
   pickDir: () => Promise<string | null>
   openDir: (dir: string) => Promise<void>
   collectWorks: (params: CollectParams) => Promise<CollectResult>
@@ -1255,8 +1257,10 @@ export interface PixivApi {
   getVersion: () => Promise<string>
   /** 读取最近一次更新状态（事件可能在界面订阅之前就已发生） */
   getUpdateStatus: () => Promise<UpdateStatus>
-  /** 手动检查更新，返回检查后的状态；下载仍会在后台继续 */
+  /** 手动检查更新，返回检查后的状态 */
   checkForUpdates: () => Promise<UpdateStatus>
+  /** 用户确认后开始下载新版本；仅在状态为 available 时有效 */
+  downloadUpdate: () => Promise<UpdateStatus>
   /** 重启并安装已下载的更新；返回 false 表示当前没有可安装的更新 */
   installUpdate: () => Promise<boolean>
   /** 订阅更新状态变化，返回取消订阅函数 */

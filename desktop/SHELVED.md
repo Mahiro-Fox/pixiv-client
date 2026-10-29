@@ -90,7 +90,8 @@ npm run build        # 提交前必跑
 10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。
 11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorkGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
 12. ✅ 列表页离开再回来保留数据（keep-alive + 已加载标记 + 滚动位置 hook）：
-   - **库**：`keepalive-for-react(-router)` v6。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
+   - **库**：`keepalive-for-react` v6（不再用 `keepalive-for-react-router` 的现成出口）。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
+   - **非缓存路由同步切换（2026-10-29 修）**：`keepalive-for-react-router` 的出口把缓存键更新包进了 `startTransition`，新路由要等一个额外调度帧才挂载，这期间旧页面已经画出来了——表现为「从推荐页点进用户详情 / 关注列表时闪一下推荐页」。现在只把命中 `include` 的页面交给 `KeepAlive`，其它路由的 `useOutlet()` 直接渲染在正常 DOM 里（同步），离开缓存页时用 `hidden` 立即藏起缓存容器；非缓存路由统一用占位缓存键 `/(off)`，避免每个详情页都在缓存表里留一条。
    - **推荐页切标签 / 切插画漫画不重取**：作品按 `kind` 分桶 `WorksBucket { works, next, token }`（`token = kind:连接状态`），命中即跳过；画师用 `usersLoaded` 布尔标记。只有点「刷新」才删掉当前桶重取；kind / 凭据变化会让标记不匹配并自动重取。
    - **后台页面不读全局 URL（关键根因）**：keep-alive 页面在后台没卸载，`useSearchParams()` 读到的是全局位置；进详情页时 URL 无 `word` / `page`，后台页把它们算成空值触发 effect，返回时参数复原又跑一遍，表现为「点作者→返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台不请求也不清空；六个缓存页均已接入。
    - **请求签名**：各页用 `loadedSig` ref 保存「取数据的条件」（kind / word / 筛选 / 页码 / 提交序号），一致即跳过，失败清空以便重试，作为第二道防线。
@@ -135,7 +136,7 @@ UI 初始化状态：收藏状态用 `GET /v2/illust/bookmark/detail`，关注�
 
 ### OAuth 层已实现（2026-10-28）
 
-**原则**：源码不含任何密钥。client_id / client_secret / refresh_token 全部由用户在设置里填写，存在本地 `userData/oauth.json`。
+**原则**：`client_id` / `client_secret` 是官方 Android 客户端的内置常量（随 APK 分发、公开可得、不绑定账号），内置在 `src/shared/appClient.ts`，设置里留空即用内置、可覆盖；只有用户自己的 `refresh_token` 是真正的秘密，存在本地 `userData/oauth.json`。
 
 - `src/main/pixiv/oauth.ts`
   - `getOAuthStatus()`：返回 `{ connected, hasClient, tail, expiresAt, userId }`。
@@ -149,6 +150,7 @@ UI 初始化状态：收藏状态用 `GET /v2/illust/bookmark/detail`，关注�
   - 打开 `https://app-api.pixiv.net/web/v1/login?code_challenge=…&code_challenge_method=S256&client=pixiv-android`，复用 `LOGIN_PARTITION`（Cookie 登录窗口分区，已登录则直接跳转）。
   - `will-navigate` / `will-redirect` / `did-navigate` 三处拦截 `…/auth/pixiv/callback?code=`，取到 code 后关窗并换令牌；关窗或拒绝授权返回 null。
   - IPC `oauth:login` → preload `loginOAuth`。
+  - 静默模式：`cookie:login` 成功后自动调用 `autoLoginOAuth()`，隐藏窗口跑完 PKCE（已登录时授权页直接跳回 callback），6 秒等不到回调才显示窗口；完成经 `oauth:changed` 事件推给渲染层。
 - `src/main/pixiv/http.ts`
   - 新增 `RequestOptions`（method / form / headers / readErrorBody / notifyAuthFailure），`buildRequest` 与 `open` 支持表单 POST。
   - 新增 `postFormJson<T>()`，复用同一套代理、超时、429 冷却与重试通道。

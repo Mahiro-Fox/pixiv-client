@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { OAuthCredentials, OAuthStatus } from '../../shared/types'
+import { resolveAppClient } from '../../shared/appClient'
 import { postFormJson } from './http'
 
 /**
@@ -13,11 +14,14 @@ import { postFormJson } from './http'
  * 因此这里只负责「用 refresh_token 换 access_token 并续期」，写操作接口
  * 后续通过 `getAccessToken()` 取凭据。
  *
- * 凭据（client_id / client_secret / refresh_token）全部由用户自行填入并
- * 存在本地，源码里不放任何密钥。refresh_token 可以手填，也可以点设置里的
- * 「通过 pixiv 登录获取」走 PKCE 授权码流程自动换取（见 `oauthLogin.ts`）。
+ * 凭据分两部分：
+ * - client_id / client_secret 是官方 Android 客户端的内置常量（见 `shared/appClient.ts`），
+ *   公开可得、不绑定账号，默认直接用内置值，设置里可覆盖；
+ * - refresh_token 属于用户自己的账号，只存在本地，可手填，也可以点设置里的
+ *   「通过 pixiv 登录获取」走 PKCE 授权码流程自动换取（见 `oauthLogin.ts`）。
  */
 const OAUTH_TOKEN_URL = 'https://oauth.secure.pixiv.net/auth/token'
+
 /** PKCE 授权码换 token 时回传的地址，必须与授权页一致 */
 export const OAUTH_REDIRECT_URI = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback'
 /** token 端点要求 Android 客户端 UA，不能沿用网页 UA */
@@ -84,7 +88,8 @@ async function persist(record: TokenRecord): Promise<void> {
 function statusOf(record: TokenRecord | null): OAuthStatus {
   return {
     connected: Boolean(record),
-    hasClient: Boolean(record?.clientId && record?.clientSecret),
+    // 客户端常量有内置默认值，永远是「有」
+    hasClient: true,
     tail: record?.refreshToken ? record.refreshToken.slice(-4) : '',
     expiresAt: record?.expiresAt ?? null,
     userId: record?.userId ?? null
@@ -137,10 +142,10 @@ export async function getOAuthStatus(): Promise<OAuthStatus> {
 }
 
 interface AuthorizationInput {
-  clientId: string
-  clientSecret: string
   code: string
   codeVerifier: string
+  clientId?: string
+  clientSecret?: string
 }
 
 /**
@@ -149,12 +154,13 @@ interface AuthorizationInput {
  * 并回传 code_verifier 与 redirect_uri。
  */
 async function requestTokensByCode(input: AuthorizationInput): Promise<TokenRecord> {
+  const client = resolveAppClient(input.clientId, input.clientSecret)
   const form = {
     grant_type: 'authorization_code',
     code: input.code,
     code_verifier: input.codeVerifier,
-    client_id: input.clientId,
-    client_secret: input.clientSecret,
+    client_id: client.clientId,
+    client_secret: client.clientSecret,
     redirect_uri: OAUTH_REDIRECT_URI,
     include_policy: 'true'
   }
@@ -182,8 +188,8 @@ async function requestTokensByCode(input: AuthorizationInput): Promise<TokenReco
   }
 
   return {
-    clientId: input.clientId,
-    clientSecret: input.clientSecret,
+    clientId: client.clientId,
+    clientSecret: client.clientSecret,
     refreshToken: response.refresh_token,
     accessToken: response.access_token,
     expiresAt: Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
@@ -199,8 +205,8 @@ export async function completePixivAuthorization(
   input: AuthorizationInput
 ): Promise<OAuthStatus> {
   const record = await requestTokensByCode({
-    clientId: input.clientId.trim(),
-    clientSecret: input.clientSecret.trim(),
+    clientId: input.clientId,
+    clientSecret: input.clientSecret,
     code: input.code.trim(),
     codeVerifier: input.codeVerifier
   })
@@ -213,12 +219,13 @@ export async function completePixivAuthorization(
  * 这样「保存成功」就等于「凭据可用」，避免存进一份死 token。
  */
 export async function saveOAuthCredentials(raw: OAuthCredentials): Promise<OAuthStatus> {
+  const client = resolveAppClient(raw.clientId, raw.clientSecret)
   const credentials: OAuthCredentials = {
-    clientId: raw.clientId.trim(),
-    clientSecret: raw.clientSecret.trim(),
+    clientId: client.clientId,
+    clientSecret: client.clientSecret,
     refreshToken: raw.refreshToken.trim()
   }
-  if (!isFilled(credentials)) throw new Error('client_id、client_secret、refresh_token 都要填写')
+  if (!credentials.refreshToken) throw new Error('refresh_token 不能为空')
 
   const next = await refreshTokens(credentials)
   await persist(next)
@@ -237,7 +244,7 @@ export async function clearOAuth(): Promise<OAuthStatus> {
 export async function getAccessToken(): Promise<string> {
   const record = await load()
   if (!record) {
-    throw new Error('未配置 App API 凭据：请在设置里填入 client_id / client_secret / refresh_token')
+    throw new Error('未配置 App API 凭据：请在设置里登录 pixiv 授权，或填入 refresh_token')
   }
 
   const stillValid =

@@ -1189,12 +1189,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 variant="outline"
                 size="sm"
                 className="w-full"
-                disabled={
-                  savingOAuth ||
-                  !oauthForm.clientId.trim() ||
-                  !oauthForm.clientSecret.trim() ||
-                  !oauthForm.refreshToken.trim()
-                }
+                disabled={savingOAuth || !oauthForm.refreshToken.trim()}
                 onClick={() => void saveOAuth()}
               >
                 {savingOAuth ? <Loader2 className="animate-spin" /> : <KeyRound />}
@@ -1204,7 +1199,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 variant="default"
                 size="sm"
                 className="w-full"
-                disabled={savingOAuth || !oauthForm.clientId.trim() || !oauthForm.clientSecret.trim()}
+                disabled={savingOAuth}
                 onClick={() => void loginOAuth()}
               >
                 {savingOAuth ? <Loader2 className="animate-spin" /> : <LogIn />}
@@ -1244,6 +1239,16 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               {updateBusy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {t('settings.update.check')}
             </Button>
+            {updateStatus.state === 'available' ? (
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => void window.pixiv.downloadUpdate()}
+              >
+                <Download />
+                {t('update.update')}
+              </Button>
+            ) : null}
             {updateStatus.state === 'downloaded' ? (
               <Button
                 size="sm"

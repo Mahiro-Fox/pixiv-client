@@ -80,7 +80,7 @@ import {
 import { fetchUserContent, fetchUserProfile, searchUsers } from './pixiv/user'
 import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
-import { loginOAuthWithPKCE } from './pixiv/oauthLogin'
+import { loginOAuthWithPKCE, autoLoginOAuth } from './pixiv/oauthLogin'
 import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
 import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
 import { throttleLimitsFromConfig } from '../shared/throttle'
@@ -106,7 +106,13 @@ import {
   listWatchLater,
   removeWatchLater
 } from './watchLater'
-import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate } from './updater'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateStatus,
+  initUpdater,
+  installUpdate
+} from './updater'
 
 interface ActiveRun {
   controller: AbortController
@@ -591,6 +597,12 @@ export function registerIpcHandlers(): void {
     const parent = BrowserWindow.fromWebContents(event.sender)
     const cookie = await openPixivLogin(parent)
     if (!cookie) return null
+    // 登录成功顺手静默完成 App API 授权（复用同一登录分区，通常不弹任何界面），
+    // 完成后通知界面刷新凭据状态，这样收藏 / 关注按钮不用重启就能用
+    void autoLoginOAuth(parent).then(async () => {
+      const status = await getOAuthStatus()
+      if (status.connected) broadcast('oauth:changed', status)
+    })
     return saveCookie(cookie)
   })
 
@@ -622,8 +634,8 @@ export function registerIpcHandlers(): void {
     const value = (client ?? {}) as Partial<OAuthClientInput>
     const parent = BrowserWindow.fromWebContents(event.sender)
     return loginOAuthWithPKCE(parent, {
-      clientId: String(value.clientId ?? '').slice(0, 200),
-      clientSecret: String(value.clientSecret ?? '').slice(0, 200)
+      clientId: value.clientId ? String(value.clientId).slice(0, 200) : undefined,
+      clientSecret: value.clientSecret ? String(value.clientSecret).slice(0, 200) : undefined
     })
   })
 
@@ -1298,9 +1310,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('app:version', () => app.getVersion())
 
-  // 自动更新：check 会在后台继续下载，install 仅在已下载完成时生效
+  // 自动更新：check 只检查，下载需用户确认（update:download），install 仅在已下载完成时生效
   ipcMain.handle('update:status', () => getUpdateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
+  ipcMain.handle('update:download', () => downloadUpdate())
   ipcMain.handle('update:install', () => installUpdate())
 
   ipcMain.handle('proxy:get', () => getProxyState())

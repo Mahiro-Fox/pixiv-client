@@ -111,8 +111,20 @@ interface BookmarksResponse {
 /** profile/all 的 illusts/manga/novels 可能是「id -> null」的对象，也可能是数组 */
 function idList(raw: IdMap | undefined): string[] {
   if (!raw) return []
-  if (Array.isArray(raw)) return raw.map((id) => String(id).trim()).filter(Boolean)
-  return Object.keys(raw).filter(Boolean)
+  const ids = Array.isArray(raw)
+    ? raw.map((id) => String(id).trim()).filter(Boolean)
+    : Object.keys(raw).filter(Boolean)
+  /**
+   * 必须显式按 id 降序：接口给的是「id -> null」对象，JS 对整数形式的键
+   * 会按数值升序枚举，而作品 id 随时间递增——升序就是「旧作品在前」。
+   * 非数字 id 保持原相对顺序（sort 稳定）。
+   */
+  return ids.sort((left, right) => {
+    const a = Number(left)
+    const b = Number(right)
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return 0
+    return b - a
+  })
 }
 
 /** works 字段可能是「id -> 作品」的对象，也可能是数组 */

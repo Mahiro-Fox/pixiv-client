@@ -86,8 +86,10 @@ const api: PixivApi = {
   saveOAuthCredentials: (credentials: OAuthCredentials) =>
     ipcRenderer.invoke('oauth:save', credentials) as Promise<OAuthStatus>,
   clearOAuth: () => ipcRenderer.invoke('oauth:clear') as Promise<OAuthStatus>,
-  loginOAuth: (client: OAuthClientInput) =>
+  loginOAuth: (client: OAuthClientInput = {}) =>
     ipcRenderer.invoke('oauth:login', client) as Promise<OAuthStatus | null>,
+  onOAuthChanged: (handler: (status: OAuthStatus) => void) =>
+    subscribe<OAuthStatus>('oauth:changed', handler),
   onCookieInvalid: (handler: () => void) => subscribe<unknown>('cookie:invalid', () => handler()),
   pickDir: () => ipcRenderer.invoke('dialog:pick-dir') as Promise<string | null>,
   openDir: (dir: string) => ipcRenderer.invoke('shell:open-dir', dir) as Promise<void>,
@@ -198,6 +200,7 @@ const api: PixivApi = {
   getVersion: () => ipcRenderer.invoke('app:version') as Promise<string>,
   getUpdateStatus: () => ipcRenderer.invoke('update:status') as Promise<UpdateStatus>,
   checkForUpdates: () => ipcRenderer.invoke('update:check') as Promise<UpdateStatus>,
+  downloadUpdate: () => ipcRenderer.invoke('update:download') as Promise<UpdateStatus>,
   installUpdate: () => ipcRenderer.invoke('update:install') as Promise<boolean>,
   onUpdateStatus: (callback: (status: UpdateStatus) => void) =>
     subscribe('update:status', callback),

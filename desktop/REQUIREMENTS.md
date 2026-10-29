@@ -127,7 +127,9 @@
 
 **需求**
 
-- 录入三项：`client_id`、`client_secret`、`refresh_token`。全部由用户自行填写并只保存在本地 `userData/oauth.json`，**程序源码不内置任何密钥**。
+- 凭据分两部分：
+  - `client_id` / `client_secret`：pixiv 官方 Android 客户端的内置常量，随 APK 分发、公开可得、不绑定账号。程序内置默认值（`shared/appClient.ts`），设置里留空即用内置；也可覆盖，以便常量被轮换或封禁时无需改代码。只填其中一个会被拒绝。
+  - `refresh_token`：属于用户账号的真实秘密，只保存在本地 `userData/oauth.json`，可手填或经登录授权自动获取。
 - 保存即校验：点击「保存并验证」时先调用 `POST https://oauth.secure.pixiv.net/auth/token`（`grant_type=refresh_token`）刷新一次，成功才落盘，失败则原凭据不变并就地显示原因。
   - `invalid_grant` → 「refresh_token 无效或已被吊销，请重新导入」。
   - `invalid_client` → 「client_id 或 client_secret 不正确」。
@@ -258,6 +260,7 @@
 - 排序在过滤与「只看未下载」之后、分页之前执行，因此翻页与全选都以排序后的顺序为准。
 - 默认顺序保留接口返回顺序；页数、发布时间排序为本地计算，不额外请求。
 - 发布时间的空值或无法解析时按 0 处理，不会导致顺序错乱。
+- 用户主页（插画 / 漫画 / 小说）默认按作品 ID 降序，即最新作品在前。`profile/all` 返回 `id -> null` 的对象，JS 对整数形式的键按数值升序枚举，因此必须显式反转，否则旧作品会排在前面。
 
 **清单导出**
 
@@ -674,9 +677,11 @@
 **需求**
 
 - 基于 `electron-updater`，更新源为 GitHub Releases（与 `electron-builder.yml` 的 publish 配置一致）；仅在打包后的安装版生效，开发环境不检查更新。
-- 启动后延迟数秒自动检查一次；设置面板可手动「检查更新」，并显示当前版本号。
-- 发现新版本后自动后台下载，界面显示下载进度（百分比）；下载完成后提示「重启并安装」，点击即退出并安装。
-- 检查失败、无更新、发现更新、下载中、下载完成等状态实时推送到渲染层；失败时保留当前版本可继续使用。
+- 启动后延迟 8 秒自动检查一次；设置面板可手动「检查更新」，并显示当前版本号。
+- **发现新版本不自动下载**：弹出更新弹窗，显示最新版本号与所需流量（`files` 体积之和），提供「更新 / 取消更新」两个按钮。取消后本次不再打扰，状态保持 `available`；再次手动检查会重新弹窗。
+- 点「更新」后开始下载，弹窗显示百分比、已下载 / 总量与速度，可「后台下载」关窗；设置面板也能启动下载。
+- 下载完成后再次弹窗提示「立即重启并安装 / 稍后重启」。
+- 检查失败、无更新、发现更新、下载中、下载完成等状态实时推送到渲染层；失败时保留当前版本可继续使用，弹窗提供「重试」。
 - 关闭应用时若安装包已下载，交由 `autoInstallOnAppQuit` 在退出时安装。
 
 ### 3.25 小说搜索与阅读
@@ -774,6 +779,8 @@
 - 凭据获取：设置页支持两种方式——手工填入三项后「保存并验证」；或填好 client_id / client_secret 后点「通过 pixiv 登录获取」，走 PKCE 授权码流程自动换来 refresh_token 并保存。
   - 授权页 `https://app-api.pixiv.net/web/v1/login?code_challenge={S256}&code_challenge_method=S256&client=pixiv-android`，复用 Cookie 登录窗口分区，已登录过无需再输密码。
   - 主进程拦截 `web/v1/users/auth/pixiv/callback?code=`，用 `grant_type=authorization_code` + `code_verifier` + `redirect_uri` 到 `oauth.secure.pixiv.net/auth/token` 换取令牌；关窗或拒绝授权视为取消，不改动已保存凭据。
+  - Cookie 换成不了 refresh_token（pixiv 没有这种端点），但授权窗口与 Cookie 登录共用分区，已登录时打开授权页会直接跳回 callback，可在隐藏窗口中静默完成。
+- 登录后自动授权：Cookie 登录成功后自动静默跑一次 PKCE；6 秒内等不到回调才把窗口显示出来交给用户处理；已连接则跳过；成功后经 `oauth:changed` 事件让界面立即刷新凭据状态。
 - IPC：`write:bookmarkState`、`write:setBookmark`、`write:followState`、`write:setFollow`、`write:novelBookmarkState`、`write:setNovelBookmark`、`novelSeries:watchState`、`novelSeries:watch`。
 
 ### 3.32 稍后看（本地待看列表）

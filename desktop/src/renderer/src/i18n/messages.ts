@@ -122,15 +122,15 @@ const zhCN = {
   'settings.oauth.connected': '已连接',
   'settings.oauth.notConnected': '未连接',
   'settings.oauth.hint':
-    '收藏、关注等写操作走 pixiv App API，需要 client_id、client_secret 与 refresh_token。三项均由你自行填写，只保存在本地，程序不内置任何密钥',
+    '收藏、关注等写操作走 pixiv App API。client_id / client_secret 是官方客户端的内置常量，留空即用内置值；真正要保密的是你账号的 refresh_token，它只保存在本地',
   'settings.oauth.connectedHint': '用户 {userId} · refresh_token 尾号 {tail}',
-  'settings.oauth.clientId': 'client_id',
-  'settings.oauth.clientSecret': 'client_secret',
-  'settings.oauth.refreshToken': 'refresh_token',
+  'settings.oauth.clientId': 'client_id（留空用内置）',
+  'settings.oauth.clientSecret': 'client_secret（留空用内置）',
+  'settings.oauth.refreshToken': 'refresh_token（登录授权可自动获取）',
   'settings.oauth.save': '保存并验证',
   'settings.oauth.login': '通过 pixiv 登录获取',
   'settings.oauth.loginHint':
-    '填好 client_id 与 client_secret 后点上方按钮：会打开 pixiv 授权页，登录成功后自动换取并保存 refresh_token，无需手工复制',
+    '点上方按钮会打开 pixiv 授权页，登录成功后自动换取并保存 refresh_token，无需手工复制；client_id / client_secret 留空即用内置值',
   'settings.oauth.loginDone': '已获取 refresh_token 并保存，可以开始收藏 / 关注',
   'settings.oauth.loginCanceled': '已取消授权登录',
   'settings.oauth.clear': '清除凭据',
@@ -764,17 +764,32 @@ const zhCN = {
 
   'settings.update.title': '版本与更新',
   'settings.update.current': '当前版本 v{version}',
-  'settings.update.hint': '启动时会自动检查更新，也可以在这里手动检查',
+  'settings.update.hint': '启动时会自动检查更新；发现新版本会弹窗提示，由你决定是否下载',
   'settings.update.check': '检查更新',
   'settings.update.checking': '正在检查更新…',
   'settings.update.idle': '尚未检查更新',
-  'settings.update.available': '发现新版本 v{version}，正在后台下载',
+  'settings.update.available': '发现新版本 v{version}',
   'settings.update.downloading': '正在下载新版本：{percent}%',
   'settings.update.downloaded': '新版本 v{version} 已下载完成，重启后安装',
   'settings.update.install': '重启并安装',
   'settings.update.upToDate': '当前已是最新版本',
   'settings.update.error': '检查更新失败：{message}',
-  'settings.update.unsupported': '开发环境不检查更新；安装版会在启动后自动检查'
+  'settings.update.unsupported': '开发环境不检查更新；安装版会在启动后自动检查',
+
+  'update.title': '发现新版本 v{version}',
+  'update.hint': '下载完成后才会替换当前版本，期间可以继续正常使用',
+  'update.size': '需要下载约 {size}',
+  'update.update': '更新',
+  'update.cancel': '取消更新',
+  'update.downloading': '正在下载新版本：{percent}%（{transferred} / {total}）',
+  'update.speed': '速度 {speed}/s',
+  'update.background': '后台下载',
+  'update.readyTitle': '新版本 v{version} 已就绪',
+  'update.readyHint': '重启后自动安装，未重启时也会在退出程序时安装',
+  'update.restart': '立即重启并安装',
+  'update.later': '稍后重启',
+  'update.failedTitle': '更新失败',
+  'update.retry': '重试'
 }
 
 export type MessageKey = keyof typeof zhCN
@@ -901,15 +916,15 @@ const en: Record<MessageKey, string> = {
   'settings.oauth.connected': 'Connected',
   'settings.oauth.notConnected': 'Not connected',
   'settings.oauth.hint':
-    'Bookmarking and following use the pixiv App API, which needs client_id, client_secret and refresh_token. You provide all three; they stay local and no keys are bundled',
+    'Bookmarking and following use the pixiv App API. client_id / client_secret are the official app constants — leave them empty to use the built-in values. Only your account refresh_token is secret, and it stays local',
   'settings.oauth.connectedHint': 'User {userId} · refresh_token ending {tail}',
-  'settings.oauth.clientId': 'client_id',
-  'settings.oauth.clientSecret': 'client_secret',
-  'settings.oauth.refreshToken': 'refresh_token',
+  'settings.oauth.clientId': 'client_id (empty = built-in)',
+  'settings.oauth.clientSecret': 'client_secret (empty = built-in)',
+  'settings.oauth.refreshToken': 'refresh_token (auto-filled by login)',
   'settings.oauth.save': 'Save and verify',
   'settings.oauth.login': 'Sign in with pixiv',
   'settings.oauth.loginHint':
-    'Fill in client_id and client_secret, then press the button above: a pixiv authorization page opens and the refresh_token is fetched and saved automatically — no copying needed',
+    'The button opens the pixiv authorization page and saves the refresh_token automatically — no copying needed. Leave client_id / client_secret empty to use the built-in values',
   'settings.oauth.loginDone': 'refresh_token saved — bookmarking and following are ready',
   'settings.oauth.loginCanceled': 'Authorization cancelled',
   'settings.oauth.clear': 'Clear credentials',
@@ -1570,18 +1585,33 @@ const en: Record<MessageKey, string> = {
   'settings.update.title': 'Version & updates',
   'settings.update.current': 'Current version v{version}',
   'settings.update.hint':
-    'Updates are checked automatically on launch; you can also check manually here',
+    'Updates are checked on launch; when one is found you decide whether to download it',
   'settings.update.check': 'Check for updates',
   'settings.update.checking': 'Checking for updates…',
   'settings.update.idle': 'Not checked yet',
-  'settings.update.available': 'Version v{version} found, downloading in background',
+  'settings.update.available': 'Version v{version} is available',
   'settings.update.downloading': 'Downloading update: {percent}%',
   'settings.update.downloaded': 'Version v{version} is ready; restart to install',
   'settings.update.install': 'Restart and install',
   'settings.update.upToDate': 'You are up to date',
   'settings.update.error': 'Update check failed: {message}',
   'settings.update.unsupported':
-    'Updates are disabled in development builds; the installed app checks on launch'
+    'Updates are disabled in development builds; the installed app checks on launch',
+
+  'update.title': 'Version v{version} is available',
+  'update.hint': 'The package is only installed after it finishes downloading; you can keep using this version meanwhile',
+  'update.size': 'Download size: about {size}',
+  'update.update': 'Update',
+  'update.cancel': 'Cancel',
+  'update.downloading': 'Downloading: {percent}% ({transferred} / {total})',
+  'update.speed': 'Speed {speed}/s',
+  'update.background': 'Download in background',
+  'update.readyTitle': 'Version v{version} is ready',
+  'update.readyHint': 'It installs on restart — or when you quit the app without restarting',
+  'update.restart': 'Restart and install',
+  'update.later': 'Restart later',
+  'update.failedTitle': 'Update failed',
+  'update.retry': 'Retry'
 }
 
 const ja: Record<MessageKey, string> = {
@@ -1706,15 +1736,15 @@ const ja: Record<MessageKey, string> = {
   'settings.oauth.connected': '接続済み',
   'settings.oauth.notConnected': '未接続',
   'settings.oauth.hint':
-    'ブックマークやフォローは pixiv App API を使うため、client_id・client_secret・refresh_token が必要です。すべてご自身で入力し、ローカルにのみ保存されます',
+    'ブックマークやフォローは pixiv App API を使います。client_id / client_secret は公式クライアントの定数で、空欄なら内蔵値を使用します。秘密にすべきはご自身の refresh_token のみで、ローカルに保存されます',
   'settings.oauth.connectedHint': 'ユーザー {userId} · refresh_token 末尾 {tail}',
-  'settings.oauth.clientId': 'client_id',
-  'settings.oauth.clientSecret': 'client_secret',
-  'settings.oauth.refreshToken': 'refresh_token',
+  'settings.oauth.clientId': 'client_id（空欄なら内蔵値）',
+  'settings.oauth.clientSecret': 'client_secret（空欄なら内蔵値）',
+  'settings.oauth.refreshToken': 'refresh_token（ログインで自動取得可）',
   'settings.oauth.save': '保存して検証',
   'settings.oauth.login': 'pixiv ログインで取得',
   'settings.oauth.loginHint':
-    'client_id と client_secret を入力して上のボタンを押すと、pixiv の認証ページが開き、refresh_token を自動で取得・保存します（手動コピー不要）',
+    '上のボタンで pixiv の認証ページが開き、refresh_token を自動で取得・保存します（手動コピー不要）。client_id / client_secret は空欄なら内蔵値を使用します',
   'settings.oauth.loginDone': 'refresh_token を保存しました。ブックマーク / フォローが使えます',
   'settings.oauth.loginCanceled': '認証ログインをキャンセルしました',
   'settings.oauth.clear': '認証情報を削除',
@@ -2370,17 +2400,32 @@ const ja: Record<MessageKey, string> = {
 
   'settings.update.title': 'バージョンと更新',
   'settings.update.current': '現在のバージョン v{version}',
-  'settings.update.hint': '起動時に自動で更新を確認します。ここから手動でも確認できます',
+  'settings.update.hint': '起動時に更新を確認します。見つかった場合はダウンロードするか選べます',
   'settings.update.check': 'アップデートを確認',
   'settings.update.checking': 'アップデートを確認しています…',
   'settings.update.idle': 'まだ確認していません',
-  'settings.update.available': '新しいバージョン v{version} を検出、バックグラウンドでダウンロード中',
+  'settings.update.available': '新しいバージョン v{version} があります',
   'settings.update.downloading': 'アップデートをダウンロード中：{percent}%',
   'settings.update.downloaded': 'バージョン v{version} の準備ができました。再起動でインストール',
   'settings.update.install': '再起動してインストール',
   'settings.update.upToDate': '最新バージョンです',
   'settings.update.error': 'アップデート確認に失敗：{message}',
-  'settings.update.unsupported': '開発版では更新を確認しません。インストール版は起動時に自動確認します'
+  'settings.update.unsupported': '開発版では更新を確認しません。インストール版は起動時に自動確認します',
+
+  'update.title': '新しいバージョン v{version} があります',
+  'update.hint': 'ダウンロード完了後にのみ置き換わります。現在のバージョンはそのまま使えます',
+  'update.size': 'ダウンロード量は約 {size}',
+  'update.update': '更新する',
+  'update.cancel': 'キャンセル',
+  'update.downloading': 'ダウンロード中：{percent}%（{transferred} / {total}）',
+  'update.speed': '速度 {speed}/s',
+  'update.background': 'バックグラウンドで続行',
+  'update.readyTitle': 'バージョン v{version} の準備ができました',
+  'update.readyHint': '再起動でインストールされます。再起動せず終了した場合も終了時にインストールされます',
+  'update.restart': '再起動してインストール',
+  'update.later': 'あとで再起動',
+  'update.failedTitle': '更新に失敗しました',
+  'update.retry': '再試行'
 }
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
