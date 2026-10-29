@@ -13,35 +13,36 @@ permissions:
   contents: write
 
 # 同一个 tag 同一时间只跑一个发布任务。
-# GitHub 允许同一个 tag 存在多个 Release，如果两个任务并发执行，
-# 它们会各自查不到已存在的 Release 而各创建一个，出现重复 Release。
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # 发布前检查该 tag 是否已有 Release，已有则整体跳过，避免重复创建
+  # 发布前检查该 tag 是否已经发布完成（已挂上安装包）。
+  # 只认「带 setup.exe 的 Release」：上一次跑挂了可能留下一个空 Release，
+  # 那种情况必须允许重跑，否则永远补不回来。
   guard:
     runs-on: ubuntu-latest
     outputs:
-      exists: ${{ steps.check.outputs.exists }}
+      published: ${{ steps.check.outputs.published }}
     steps:
       - name: Check existing release
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release $GITHUB_REF_NAME 已存在，跳过本次发布"
+          assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if printf '%s\n' "$assets" | grep -q -- '-setup\.exe$'; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "Release $GITHUB_REF_NAME 已带安装包，跳过本次发布"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
   release:
     needs: guard
-    # 需要重新发布同一个 tag 时，先在 GitHub 上删掉旧 Release 再重跑本工作流
-    if: needs.guard.outputs.exists == 'false'
+    if: needs.guard.outputs.published == 'false'
     runs-on: windows-latest
 
     defaults:
@@ -66,9 +67,66 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # 关键：先把 Release 建好，再让 electron-builder 只上传资产。
+      #
+      # electron-builder 的 PublishManager.getOrCreatePublisher 不是并发安全的：
+      # 安装包、blockmap、latest.yml 三个 artifact 几乎同时触发上传，可能各建一个
+      # publisher，每个 publisher 都会「查 Release -> 没有 -> 新建」，
+      # 结果同一个 tag 出现两个 Release，资产被拆到两边（安装包 + latest.yml 在一边，
+      # blockmap 在另一边）。GitHub 只按 tag 服务其中一个 Release 的资产，
+      # 于是 .../download/v0.1.3/xxx.exe.blockmap 直接 404，
+      # electron-updater 拿不到差分映射，只能每次全量下载 140MB。
+      #
+      # 预先建好 Release 后，两个 publisher 都只会复用同一个，不再新建。
+      - name: Ensure release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --title "${tag#v}" --notes "Release ${tag}"
+            exit 0
+          fi
+
+          assets=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if printf '%s\n' "$assets" | grep -q -- '-setup\.exe$'; then
+            echo "Release $tag 已带安装包，本次直接复用"
+            exit 0
+          fi
+
+          # 走到这里说明上次构建失败留下了一个空 Release。
+          # electron-builder 只肯向「发布未满 2 小时」的已有 Release 上传资产，
+          # 空壳放久了会变成「上传被静默跳过」，所以删掉重建一个。
+          echo "Release $tag 存在但没有安装包（上次失败留下的），删除后重建"
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --title "${tag#v}" --notes "Release ${tag}"
+
       # dist:publish = build + electron-builder --publish always
       # electron-builder.yml 里的 publish 指向本仓库，GITHUB_TOKEN 由 Actions 注入
       - name: Build and publish
         run: npm run dist:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 发布后自检：安装包、blockmap、latest.yml 必须都在同一个 Release 里。
+      # 只要有一个不在，差分更新就会退化为全量下载，这里直接让流水线失败。
+      - name: Verify release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          names=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          echo "$names"
+          for file in \
+            "pixiv-client-${tag#v}-setup.exe" \
+            "pixiv-client-${tag#v}-setup.exe.blockmap" \
+            "latest.yml"; do
+            if ! printf '%s\n' "$names" | grep -qx -- "$file"; then
+              echo "::error::Release $tag 缺少资产 $file（差分更新会退化为全量下载）"
+              exit 1
+            fi
+          done

@@ -52,6 +52,8 @@ import type {
 } from "@shared/types";
 import { applyWorkFilters, countActiveFilters } from "./lib/filters";
 import { bumpSearchSubmit } from "./lib/searchSubmit";
+import { getSectionSearch, rememberSectionSearch } from "./lib/sectionQuery";
+import type { SearchSection } from "./lib/sectionQuery";
 import { applyTheme, watchSystemTheme } from "./lib/theme";
 import { I18nProvider, translate, useI18n } from "./i18n";
 import type { Translate } from "./i18n";
@@ -253,13 +255,18 @@ export default function App(): React.JSX.Element {
         : "illust";
   const sectionPath = `/${section}`;
 
-  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词。
+  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词，
+  // 同时记住该栏目这一份查询串，供顶栏导航原样还原。
   // 只在四个搜索栏目页同步：进作者/作品详情页时 URL 没有 word，
   // 否则搜索框会被清空，返回后又跳回原词，用户会觉得输入框在乱变。
   useEffect(() => {
     if (!SEARCH_SECTION_PATHS.has(location.pathname)) return;
     setKeyword(currentWord);
-  }, [currentWord, location.pathname]);
+    rememberSectionSearch(
+      location.pathname.slice(1) as SearchSection,
+      location.search,
+    );
+  }, [currentWord, location.search, location.pathname]);
 
   const submitSearch = (value?: string): void => {
     const word = (value ?? keyword).trim();
@@ -273,9 +280,18 @@ export default function App(): React.JSX.Element {
     );
   };
 
-  /** 顶部导航跳转时带上当前关键词，实现搜索词与栏目同步 */
-  const linkWithWord = (path: string): string =>
-    currentWord ? `${path}?word=${encodeURIComponent(currentWord)}` : path;
+  /**
+   * 顶部导航跳到某个栏目时，原样还原该栏目上次的查询串（关键词 / 页码 / 筛选）。
+   *
+   * 不能只看当前 URL 的 `currentWord`：站在「推荐 / 排行榜」上它恒为空，
+   * 会把插画页刚搜过的词丢掉。该栏目没有记录时才退回当前关键词，
+   * 保留「换栏目继续搜同一个词」的原有行为。
+   */
+  const linkWithWord = (path: string): string => {
+    const saved = getSectionSearch(path.slice(1) as SearchSection);
+    if (saved) return `${path}${saved}`;
+    return currentWord ? `${path}?word=${encodeURIComponent(currentWord)}` : path;
+  };
 
   useEffect(() => {
     let alive = true;

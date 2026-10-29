@@ -780,6 +780,10 @@
 - **后台页面不读全局 URL**：keep-alive 缓存的页面在后台并未卸载，`useSearchParams()` 读到的仍是全局当前位置。进详情页时 URL 没有 `word` / `page`，后台页面会把这些参数算成空值并触发 effect——返回时参数又变回来，于是再跑一遍，表现为「点进作者、返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台一律不做任何请求或清空；推荐页、插画、漫画、小说、用户、排行榜六页都已接入。
 - **请求签名**：各页再用 `loadedSig`（ref 保存「取数据的条件」字符串，含 kind/word/筛选/页码/提交序号）作为第二道防线，签名一致直接跳过；请求失败时清空签名，允许下次激活或改参数重试。这样从详情页返回时参数即使短暂抖回也会被拦下。
 - **搜索框同步只在搜索栏目页**：`App.tsx` 只在 `/illust`、`/manga`、`/novel`、`/users` 四个 pathname 上用 URL 的 `word` 回填输入框；进 `/user/:id` 等详情页时 URL 没有 `word`，不做同步，避免输入框被清空后再跳回。
+- **切到其它栏目再回来要保留原样**：顶栏「推荐 / 排行榜」的 URL 里没有 `word`，若按当前 URL 拼栏目链接，从它们回到插画 / 漫画 / 小说 / 用户时会把已经搜过的词、页码与筛选全部丢掉（表现为搜索框被清空、列表也空了）。`lib/sectionQuery.ts` 按栏目在内存里记住最后一次的查询串（`location.search`），顶栏栏目导航优先还原它；该栏目没有记录时才退回当前关键词，保留「换栏目继续搜同一个词」的原有行为。
+  - 例：`/illust?word=A&page=3` → 推荐 → 点「插画」，回到的仍是 `/illust?word=A&page=3`；keep-alive 实例、已取到的数据与滚动位置都不变，不重新请求。
+  - 各栏目互不影响：插画记 `A`、小说记 `B`，来回切换各回各家。
+  - 记录只放内存，重启即失效，与 keep-alive 缓存、滚动位置的策略保持一致。
 - **滚动位置**：库本身不做滚动恢复。`src/renderer/src/lib/scrollMemory.ts` 导出 `useKeepAliveScroll(key)`（回调 ref + 挂载还原 + `useLayoutEffectOnActive` 激活还原，rAF 兜底）与 `useScrollMemory(key)`（非缓存页面用）。**`ref` 必须挂到真正滚动的容器上**：页面外层 `main` 往往只是 flex 容器，实际滚动的是内部 `overflow-y-auto` 元素，挂错位置读到的 `scrollTop` 永远是 0。推荐页与排行榜的滚动容器确实是外层 `main`（推荐页把列表包一层 `shrink-0`，防止内部 grid 在 flex 收缩下变成独立滚动区）；插画 / 漫画 / 小说 / 用户四页挂在内层 `overflow-y-auto` 列表容器上。
 - **滚动键按内容切换**：推荐页用动态键 `recommend:works:{kind}` / `recommend:users`，切标签或切插画漫画时直接还原新键的位置，两个列表各自停在自己的老位置。位置只在滚动事件里实时记录，**不要在切键时补读 `scrollTop`**：此时 React 已换上新的列表内容，旧列表更长的话 `scrollTop` 会被 clamp，补读反而把真实位置覆盖成 0（表现就是切回去总在顶部）。
 - 数据整批重置（改筛选 / 翻页 / 刷新 / 换 kind）时调 `reset()` 回到顶部；`reset` 同时把记忆归零，避免下次挂载又跳回去。

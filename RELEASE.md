@@ -141,6 +141,38 @@ File: `d:\soft\myFile\code\pixiv-client\.github\workflows\release.yml`
 
 GitHub Actions **只读取仓库根目录**的 `.github/workflows/`。本项目根目录是 `pixiv-client/`，桌面端在 `pixiv-client/desktop/`，因此工作流用 `defaults.run.working-directory: desktop` 切到子目录，缓存路径写 `desktop/package-lock.json`。
 
+### 5.2 一个 tag 只能有一个 Release（否则差分更新失效）
+
+**现象**：Release 列表里同一个 tag 出现两条；其中一条只有 `latest.yml` 与安装包，另一条只有一个 `.blockmap`；更新时每次都全量下载 140MB。
+
+**根因**：electron-builder 的 `PublishManager.getOrCreatePublisher` 不是并发安全的。安装包、`latest.yml`、`.blockmap` 三个 artifact 几乎同时触发上传，`createPublisher` 内部有 `await`（读取 release notes），等待期间后来的 artifact 看到的缓存仍为空，于是又建了一个 publisher。两个 publisher 各自执行「列出 Release → 没有本 tag → 新建」，就创建了两个 Release，资产被拆到两边。而 `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>` 只服务其中一个 Release 的资产，所以 `xxx.exe.blockmap` 返回 404，`electron-updater` 拿不到差分映射，日志出现 `Cannot download differentially, fallback to full download`。
+
+**修法**：工作流在 `Build and publish` 之前用 `gh release create` 先把 Release 建好（`Ensure release exists` 步骤），electron-builder 就只会复用、不再新建；发布后再用 `Verify release assets` 断言安装包 / `.blockmap` / `latest.yml` 三者都在同一个 Release 里，缺一个直接让流水线失败。
+
+**注意**：差分更新同时需要「新版本的 blockmap」和「旧版本的 blockmap」。旧版本的也要能被下载到，所以历史 Release 必须自带 `.blockmap`：如果某个版本的 `.blockmap` 不在它的 Release 里，从这个版本升级到下一个版本依然会全量下载（跳过这个版本之后才恢复增量）。
+
+**清理已产生的重复 Release**（`gh` 需要 repo 写权限）：
+
+```bash
+repo=Mahiro-Fox/pixiv-client
+tag=v0.1.3
+
+# 1) 先把 blockmap 从「只有 blockmap」的那条 Release 里取出来（按 asset id）
+gh api /repos/$repo/releases --jq ".[] | select(.tag_name==\"$tag\") | {id, assets:[.assets[].name]}"
+curl -L -H "Accept: application/octet-stream" \
+  -o pixiv-client-0.1.3-setup.exe.blockmap \
+  https://api.github.com/repos/$repo/releases/assets/<blockmap_asset_id>
+
+# 2) 删掉那条只有 blockmap 的重复 Release
+gh api -X DELETE /repos/$repo/releases/<只有blockmap的release_id>
+
+# 3) 把 blockmap 补进真正带安装包的那条 Release
+gh release upload $tag pixiv-client-0.1.3-setup.exe.blockmap
+```
+
+补完后 `https://github.com/$repo/releases/download/$tag/pixiv-client-0.1.3-setup.exe.blockmap` 应当返回 200（而不是 404）。
+
+
 ---
 
 ## 6. 手动发布（CI 不可用时的兜底）
@@ -184,6 +216,9 @@ CI 中把 `CSC_LINK`（base64 的 pfx）与 `CSC_KEY_PASSWORD` 配成 secrets，
 | 构建报 URL/文件名为乱码 | 曾在 PowerShell 5.1 下出现过：含中文的 `.ps1` 会被按 ANSI 解码，脚本应保持纯 ASCII |
 | 上传 Release 报 403 | `permissions: contents: write` 缺失，或用了只读的 token |
 | tag 推了但没有产物 | tag 名与 package.json `version` 不一致（必须是 `v` + 完全相同的版本号） |
+| 同一个 tag 出现两条 Release | electron-builder 并发建 publisher 的竞态，见 5.2；清掉重复项，工作流已改为先建 Release |
+| 更新每次都全量下载 140MB | Release 里缺少 `xxx.exe.blockmap`（或它挂在同 tag 的另一条 Release 上），见 5.2 |
+| 日志 `Cannot download differentially, fallback to full download` | 同上；也可能是本机没有上一版安装包缓存（首次从旧版本升级时属正常，成功一次后就会有） |
 
 ---
 
