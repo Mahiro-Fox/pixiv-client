@@ -766,7 +766,8 @@ const zhCN = {
 
   'settings.update.title': '版本与更新',
   'settings.update.current': '当前版本 v{version}',
-  'settings.update.hint': '启动时会自动检查更新；发现新版本会弹窗提示，由你决定是否下载',
+  'settings.update.hint':
+    '启动时自动检查更新，发现新版本会在后台直接下载（差分更新通常只有几 MB），下完才弹窗问是否重启',
   'settings.update.check': '检查更新',
   'settings.update.checking': '正在检查更新…',
   'settings.update.idle': '尚未检查更新',
@@ -778,21 +779,13 @@ const zhCN = {
   'settings.update.error': '检查更新失败：{message}',
   'settings.update.unsupported': '开发环境不检查更新；安装版会在启动后自动检查',
 
-  'update.title': '发现新版本 v{version}',
-  'update.hint': '下载完成后才会替换当前版本，期间可以继续正常使用',
-  'update.size': '更新包约 {size}（差分更新时实际流量更少）',
-  'update.update': '更新',
-  'update.cancel': '取消更新',
-  'update.downloadingTitle': '正在下载新版本 v{version}',
-  'update.downloading': '已完成 {percent}%',
-  'update.speed': '速度 {speed}/s',
-  'update.background': '后台下载',
   'update.readyTitle': '新版本 v{version} 已就绪',
-  'update.readyHint': '重启后自动安装，未重启时也会在退出程序时安装',
+  'update.readyHint': '安装包已在后台下载完成，重启后即可用上新版本',
+  'update.laterHint':
+    '点「取消更新」不会安装，当前版本继续可用；下次启动会再问一次，安装包已经存好，不会重复下载',
   'update.restart': '立即重启并安装',
-  'update.later': '稍后重启',
-  'update.failedTitle': '更新失败',
-  'update.retry': '重试'
+  'update.cancel': '取消更新',
+  'update.installFailed': '安装包还没准备好，请在设置里重新检查更新'
 }
 
 export type MessageKey = keyof typeof zhCN
@@ -1590,7 +1583,7 @@ const en: Record<MessageKey, string> = {
   'settings.update.title': 'Version & updates',
   'settings.update.current': 'Current version v{version}',
   'settings.update.hint':
-    'Updates are checked on launch; when one is found you decide whether to download it',
+    'Updates are checked on launch and downloaded in the background automatically (a differential update is usually a few MB); you are asked whether to restart once it is ready',
   'settings.update.check': 'Check for updates',
   'settings.update.checking': 'Checking for updates…',
   'settings.update.idle': 'Not checked yet',
@@ -1603,21 +1596,13 @@ const en: Record<MessageKey, string> = {
   'settings.update.unsupported':
     'Updates are disabled in development builds; the installed app checks on launch',
 
-  'update.title': 'Version v{version} is available',
-  'update.hint': 'The package is only installed after it finishes downloading; you can keep using this version meanwhile',
-  'update.size': 'Update package: about {size} (differential updates use less traffic)',
-  'update.update': 'Update',
-  'update.cancel': 'Cancel',
-  'update.downloadingTitle': 'Downloading version v{version}',
-  'update.downloading': '{percent}% done',
-  'update.speed': 'Speed {speed}/s',
-  'update.background': 'Download in background',
   'update.readyTitle': 'Version v{version} is ready',
-  'update.readyHint': 'It installs on restart — or when you quit the app without restarting',
+  'update.readyHint': 'The package finished downloading in the background — restart to start using it',
+  'update.laterHint':
+    'Cancel skips installing; this version keeps working. The next launch asks again and reuses the downloaded package instead of fetching it twice',
   'update.restart': 'Restart and install',
-  'update.later': 'Restart later',
-  'update.failedTitle': 'Update failed',
-  'update.retry': 'Retry'
+  'update.cancel': 'Cancel',
+  'update.installFailed': 'The package is not ready yet — check for updates again in Settings'
 }
 
 const ja: Record<MessageKey, string> = {
@@ -2408,7 +2393,8 @@ const ja: Record<MessageKey, string> = {
 
   'settings.update.title': 'バージョンと更新',
   'settings.update.current': '現在のバージョン v{version}',
-  'settings.update.hint': '起動時に更新を確認します。見つかった場合はダウンロードするか選べます',
+  'settings.update.hint':
+    '起動時に更新を確認し、見つかればバックグラウンドで自動ダウンロードします（差分更新なら通常数 MB）。完了後に再起動するか確認します',
   'settings.update.check': 'アップデートを確認',
   'settings.update.checking': 'アップデートを確認しています…',
   'settings.update.idle': 'まだ確認していません',
@@ -2420,21 +2406,14 @@ const ja: Record<MessageKey, string> = {
   'settings.update.error': 'アップデート確認に失敗：{message}',
   'settings.update.unsupported': '開発版では更新を確認しません。インストール版は起動時に自動確認します',
 
-  'update.title': '新しいバージョン v{version} があります',
-  'update.hint': 'ダウンロード完了後にのみ置き換わります。現在のバージョンはそのまま使えます',
-  'update.size': '更新パッケージは約 {size}（差分更新の場合、実際の通信量は少なくなります）',
-  'update.update': '更新する',
-  'update.cancel': 'キャンセル',
-  'update.downloadingTitle': 'バージョン v{version} をダウンロード中',
-  'update.downloading': '{percent}% 完了',
-  'update.speed': '速度 {speed}/s',
-  'update.background': 'バックグラウンドで続行',
   'update.readyTitle': 'バージョン v{version} の準備ができました',
-  'update.readyHint': '再起動でインストールされます。再起動せず終了した場合も終了時にインストールされます',
+  'update.readyHint':
+    '更新パッケージはバックグラウンドでダウンロード済みです。再起動すると新しいバージョンになります',
+  'update.laterHint':
+    '「キャンセル」を選ぶとインストールされません。現在のバージョンはそのまま使え、次回起動時にもう一度確認します（ダウンロード済みのパッケージは再利用されます）',
   'update.restart': '再起動してインストール',
-  'update.later': 'あとで再起動',
-  'update.failedTitle': '更新に失敗しました',
-  'update.retry': '再試行'
+  'update.cancel': 'キャンセル',
+  'update.installFailed': 'インストールの準備ができていません。設定から更新を再確認してください'
 }
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {

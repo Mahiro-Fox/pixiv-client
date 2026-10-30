@@ -200,7 +200,6 @@ const api: PixivApi = {
   getVersion: () => ipcRenderer.invoke('app:version') as Promise<string>,
   getUpdateStatus: () => ipcRenderer.invoke('update:status') as Promise<UpdateStatus>,
   checkForUpdates: () => ipcRenderer.invoke('update:check') as Promise<UpdateStatus>,
-  downloadUpdate: () => ipcRenderer.invoke('update:download') as Promise<UpdateStatus>,
   installUpdate: () => ipcRenderer.invoke('update:install') as Promise<boolean>,
   onUpdateStatus: (callback: (status: UpdateStatus) => void) =>
     subscribe('update:status', callback),

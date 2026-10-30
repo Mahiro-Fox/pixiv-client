@@ -108,7 +108,6 @@ import {
 } from './watchLater'
 import {
   checkForUpdates,
-  downloadUpdate,
   getUpdateStatus,
   initUpdater,
   installUpdate
@@ -1310,10 +1309,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('app:version', () => app.getVersion())
 
-  // 自动更新：check 只检查，下载需用户确认（update:download），install 仅在已下载完成时生效
+  // 自动更新：新版本由主进程在后台自动下载，check 只用来手动触发一次检查，
+  // install 仅在已下载完成时生效
   ipcMain.handle('update:status', () => getUpdateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
-  ipcMain.handle('update:download', () => downloadUpdate())
   ipcMain.handle('update:install', () => installUpdate())
 
   ipcMain.handle('proxy:get', () => getProxyState())

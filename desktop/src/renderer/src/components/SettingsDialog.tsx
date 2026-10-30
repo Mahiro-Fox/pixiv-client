@@ -220,8 +220,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [version, setVersion] = useState('')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
   const [checkingUpdate, setCheckingUpdate] = useState(false)
-  const updateBusy =
-    checkingUpdate || updateStatus.state === 'checking' || updateStatus.state === 'downloading'
+  // 后台下载期间不禁用「检查更新」：下载可能持续一阵，没必要让按钮一直转圈；
+  // 此时点它只会拿到当前状态，主进程不会重复触发下载
+  const updateBusy = checkingUpdate || updateStatus.state === 'checking'
 
   useEffect(() => {
     let alive = true
@@ -1242,16 +1243,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               {updateBusy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {t('settings.update.check')}
             </Button>
-            {updateStatus.state === 'available' ? (
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={() => void window.pixiv.downloadUpdate()}
-              >
-                <Download />
-                {t('update.update')}
-              </Button>
-            ) : null}
             {updateStatus.state === 'downloaded' ? (
               <Button
                 size="sm"

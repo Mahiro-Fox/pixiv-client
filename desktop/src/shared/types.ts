@@ -1074,17 +1074,15 @@ export interface UserContentResult {
 /**
  * 自动更新状态：由主进程推送，渲染层只负责展示。
  * `unsupported` 表示开发环境或非打包运行，此时不做更新检查。
+ *
+ * 新版本由主进程在后台自动下载，因此 `available` 只是一瞬间的中间态，
+ * 界面只在 `downloaded` 时弹窗问一句「现在重启安装吗」。
  */
 export type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'available'; version: string; size: number }
-  | {
-      state: 'downloading'
-      version: string
-      percent: number
-      bytesPerSecond: number
-    }
+  | { state: 'available'; version: string }
+  | { state: 'downloading'; version: string; percent: number }
   | { state: 'downloaded'; version: string }
   | { state: 'up-to-date'; version: string }
   | { state: 'error'; message: string }
@@ -1255,10 +1253,8 @@ export interface PixivApi {
   getVersion: () => Promise<string>
   /** 读取最近一次更新状态（事件可能在界面订阅之前就已发生） */
   getUpdateStatus: () => Promise<UpdateStatus>
-  /** 手动检查更新，返回检查后的状态 */
+  /** 手动检查更新，返回检查后的状态；新版本由主进程自动在后台下载 */
   checkForUpdates: () => Promise<UpdateStatus>
-  /** 用户确认后开始下载新版本；仅在状态为 available 时有效 */
-  downloadUpdate: () => Promise<UpdateStatus>
   /** 重启并安装已下载的更新；返回 false 表示当前没有可安装的更新 */
   installUpdate: () => Promise<boolean>
   /** 订阅更新状态变化，返回取消订阅函数 */

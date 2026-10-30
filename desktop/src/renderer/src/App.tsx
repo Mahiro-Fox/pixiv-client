@@ -571,7 +571,8 @@ export default function App(): React.JSX.Element {
   // 登录后静默完成的 App API 授权在后台结束，主进程推送结果过来
   useEffect(() => window.pixiv.onOAuthChanged((status) => setOAuth(status)), []);
 
-  // 自动更新：主进程负责检查与下载，这里只在「发现新版本 / 下载完成」时弹窗征询
+  // 自动更新：主进程在后台检查并下载，这里只在「安装包已就绪」时弹窗问一句是否重启。
+  // 发现新版本（available）不弹窗——那只是下载前的瞬间状态，弹了用户也没得选。
   useEffect(() => {
     let alive = true;
     void window.pixiv.getUpdateStatus().then((value) => {
@@ -581,8 +582,7 @@ export default function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    if (updateStatus?.state === "available" || updateStatus?.state === "downloaded")
-      setUpdateOpen(true);
+    if (updateStatus?.state === "downloaded") setUpdateOpen(true);
   }, [updateStatus]);
 
   const updateConfig = (patch: Partial<AppConfig>): void => {
