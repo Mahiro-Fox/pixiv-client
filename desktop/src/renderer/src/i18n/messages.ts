@@ -17,7 +17,8 @@ const zhCN = {
   'theme.dark': '深色',
   'theme.system': '跟随系统',
   'settings.appearance.language': '界面语言',
-  'settings.appearance.languageHint': '切换后立即生效，其余界面文案随后补齐',
+  'settings.appearance.languageHint': '切换后界面会重新加载，已抓取的列表需要重新获取',
+  'settings.appearance.languageSuccess': '语言切换成功, 即将自动刷新页面...',
 
   'settings.quality.title': '下载质量',
   'settings.quality.hint': '下载前也可在左栏快速切换',
@@ -836,7 +837,8 @@ const en: Record<MessageKey, string> = {
   'theme.system': 'System',
   'settings.appearance.language': 'Language',
   'settings.appearance.languageHint':
-    'Takes effect immediately; the remaining screens will be translated next',
+    'Switching reloads the interface; fetched lists will be requested again',
+  'settings.appearance.languageSuccess': 'Language switched, page will reload in a moment',
 
   'settings.quality.title': 'Download quality',
   'settings.quality.hint': 'You can also switch quickly in the left panel before downloading',
@@ -1682,7 +1684,8 @@ const ja: Record<MessageKey, string> = {
   'theme.system': 'システムに従う',
   'settings.appearance.language': '表示言語',
   'settings.appearance.languageHint':
-    '切り替えるとすぐ反映されます。他の画面の翻訳は順次対応します',
+    '切り替えると画面を再読み込みします。取得済みの一覧は再取得が必要です',
+  'settings.appearance.languageSuccess': '言語を切り替えた。画面を再読み込み中です',
 
   'settings.quality.title': 'ダウンロード画質',
   'settings.quality.hint': 'ダウンロード前に左パネルからも切り替えられます',

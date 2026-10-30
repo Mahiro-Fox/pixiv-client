@@ -11,26 +11,13 @@ import type {
   UserSearchResult,
   UserWorkThumb
 } from '../../shared/types'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
 import { toSearchWork } from './search'
 import { toNovel } from './novels'
+import { webEndpoints } from './endpoints'
 
 /** 用户主页每页条数；profile/illusts 支持一次传多个 ids */
 const PROFILE_PAGE_SIZE = 48
-
-const USER_URL = BASE + '/ajax/user/{id}?full=1&lang=zh'
-const PROFILE_ALL_URL = BASE + '/ajax/user/{id}/profile/all?lang=zh'
-const PROFILE_WORKS_URL =
-  BASE +
-  '/ajax/user/{id}/profile/illusts?{ids}&work_category=illustManga&is_first_page=1&lang=zh'
-const PROFILE_NOVELS_URL =
-  BASE + '/ajax/user/{id}/profile/novels?{ids}&work_category=novel&is_first_page=1&lang=zh'
-const BOOKMARKS_URL =
-  BASE +
-  '/ajax/user/{id}/illusts/bookmarks?tag={tag}&offset={offset}&limit={limit}&rest={rest}&lang=zh'
-// i=1 只搜「投稿过作品」的用户，i=0 为全部用户；翻页用 p（不传默认第一页）
-const USER_SEARCH_URL =
-  BASE + '/ajax/search/users?nick={nick}&s_mode=s_usr&p={page}&i={scope}&lang=zh'
 
 interface RawUserItem {
   userId?: string | number
@@ -195,9 +182,8 @@ export async function searchUsers(
   if (!word) return { users: [], total: 0 }
 
   const page = Math.max(1, Math.round(Number(params.page) || 1))
-  const url = USER_SEARCH_URL.replace('{nick}', encodeURIComponent(word))
-    .replace('{page}', String(page))
-    .replace('{scope}', params.postedOnly ? '1' : '0')
+  // i=1 只搜「投稿过作品」的用户，i=0 为全部用户
+  const url = webEndpoints.userSearch({ word, page, postedOnly: Boolean(params.postedOnly) })
 
   const data = await fetchJson<UserSearchResponse>(url, cookie, signal)
   if (data.error) throw new Error(`用户搜索接口报错：${data.message || '未知错误'}`)
@@ -242,12 +228,8 @@ export async function fetchUserProfile(
   if (!id) throw new Error('用户 ID 无效')
 
   const [info, all] = await Promise.all([
-    fetchJson<UserInfoResponse>(USER_URL.replace('{id}', encodeURIComponent(id)), cookie, signal),
-    fetchJson<ProfileAllResponse>(
-      PROFILE_ALL_URL.replace('{id}', encodeURIComponent(id)),
-      cookie,
-      signal
-    )
+    fetchJson<UserInfoResponse>(webEndpoints.userInfo(id), cookie, signal),
+    fetchJson<ProfileAllResponse>(webEndpoints.userProfileAll(id), cookie, signal)
   ])
   if (info.error) throw new Error(`用户信息接口报错：${info.message || '未知错误'}`)
 
@@ -290,11 +272,12 @@ export async function fetchUserContent(
   if (tab === 'bookmarks') {
     const rest: BookmarkRest = params.bookmarkRest === 'hide' ? 'hide' : 'show'
     const tag = String(params.bookmarkTag || '').trim()
-    const url = BOOKMARKS_URL.replace('{id}', encodeURIComponent(userId))
-      .replace('{offset}', String((page - 1) * limit))
-      .replace('{limit}', String(limit))
-      .replace('{rest}', rest)
-      .replace('{tag}', encodeURIComponent(tag))
+    const url = webEndpoints.userBookmarks(userId, {
+      tag,
+      offset: (page - 1) * limit,
+      limit,
+      rest
+    })
     const data = await fetchJson<BookmarksResponse>(url, cookie, signal)
     if (data.error) throw new Error(`收藏接口报错：${data.message || '未知错误'}`)
 
@@ -306,19 +289,12 @@ export async function fetchUserContent(
   }
 
   if (tab === 'novel') {
-    const all = await fetchJson<ProfileAllResponse>(
-      PROFILE_ALL_URL.replace('{id}', encodeURIComponent(userId)),
-      cookie,
-      signal
-    )
+    const all = await fetchJson<ProfileAllResponse>(webEndpoints.userProfileAll(userId), cookie, signal)
     const ids = idList(all.body?.novels)
     const pageIds = pageOf(ids, page, limit)
     if (pageIds.length === 0) return { works: [], novels: [], total: ids.length, hasMore: false }
 
-    const url = PROFILE_NOVELS_URL.replace('{id}', encodeURIComponent(userId)).replace(
-      '{ids}',
-      pageIds.map((id) => `ids[]=${encodeURIComponent(id)}`).join('&')
-    )
+    const url = webEndpoints.userProfileNovels(userId, pageIds)
     const data = await fetchJson<ProfileWorksResponse>(url, cookie, signal)
     const novels: NovelWork[] = pickById(workValues(data.body?.works), pageIds).map((raw) =>
       toNovel(raw as Parameters<typeof toNovel>[0])
@@ -326,19 +302,12 @@ export async function fetchUserContent(
     return { works: [], novels, total: ids.length, hasMore: page * limit < ids.length }
   }
 
-  const all = await fetchJson<ProfileAllResponse>(
-    PROFILE_ALL_URL.replace('{id}', encodeURIComponent(userId)),
-    cookie,
-    signal
-  )
+  const all = await fetchJson<ProfileAllResponse>(webEndpoints.userProfileAll(userId), cookie, signal)
   const ids = idList(tab === 'manga' ? all.body?.manga : all.body?.illusts)
   const pageIds = pageOf(ids, page, limit)
   if (pageIds.length === 0) return { works: [], novels: [], total: ids.length, hasMore: false }
 
-  const url = PROFILE_WORKS_URL.replace('{id}', encodeURIComponent(userId)).replace(
-    '{ids}',
-    pageIds.map((id) => `ids[]=${encodeURIComponent(id)}`).join('&')
-  )
+  const url = webEndpoints.userProfileIllusts(userId, pageIds)
   const data = await fetchJson<ProfileWorksResponse>(url, cookie, signal)
   const works: SearchWork[] = pickById(workValues(data.body?.works), pageIds)
     .map((raw) => toSearchWork(raw as Parameters<typeof toSearchWork>[0]))

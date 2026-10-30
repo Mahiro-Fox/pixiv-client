@@ -13,25 +13,13 @@ import type {
   WorkPage
 } from '../../shared/types'
 import { buildTagQuery, hasTagFilter, matchesTagQuery } from '../../shared/tags'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
+import { webEndpoints } from './endpoints'
+import { pickLangText } from './lang'
 import { mapPool } from './pool'
 
-const TAG_URL =
-  BASE +
-  '/ajax/user/{userId}/illustmanga/tag?tag={tag}&offset={offset}&limit={limit}' +
-  '&sensitiveFilterMode=userSetting&lang=zh'
-const BOOKMARKS_URL =
-  BASE +
-  '/ajax/user/{userId}/illusts/bookmarks?tag={tag}&offset={offset}&limit={limit}' +
-  '&rest={rest}&lang=zh'
-const SELF_URL = BASE + '/ajax/user/self'
 /** 自省接口候选：按顺序尝试，命中即止 */
-const SELF_CANDIDATES = [SELF_URL, BASE + '/ajax/user/extra']
-const FOLLOWING_URL =
-  BASE + '/ajax/user/{userId}/following?offset={offset}&limit={limit}&rest=show&lang=zh'
-const PAGES_URL = BASE + '/ajax/illust/{id}/pages?lang=zh'
-const UGOIRA_URL = BASE + '/ajax/illust/{id}/ugoira_meta?lang=zh'
-const TAG_SUGGEST_URL = BASE + '/ajax/search/tags/{word}?lang=zh'
+const SELF_CANDIDATES = [webEndpoints.self(), webEndpoints.selfAlt()]
 
 /** 翻页并发上限，避免连续请求触发 429 */
 const PAGE_CONCURRENCY = 3
@@ -187,10 +175,7 @@ export async function fetchWorks(
   cookie = '',
   signal?: AbortSignal
 ): Promise<{ works: PixivWork[]; total: number }> {
-  const url = TAG_URL.replace('{userId}', encodeURIComponent(userId))
-    .replace('{tag}', encodeURIComponent(tag))
-    .replace('{offset}', String(offset))
-    .replace('{limit}', String(limit))
+  const url = webEndpoints.userTagWorks(userId, { tag, offset, limit })
 
   const data = await fetchJson<ListResponse>(url, cookie, signal)
   if (data.error) throw new Error(`作品列表接口报错：${data.message || '未知错误'}`)
@@ -212,11 +197,7 @@ export async function fetchBookmarks(
   cookie = '',
   signal?: AbortSignal
 ): Promise<{ works: PixivWork[]; total: number }> {
-  const url = BOOKMARKS_URL.replace('{userId}', encodeURIComponent(userId))
-    .replace('{tag}', encodeURIComponent(tag))
-    .replace('{offset}', String(offset))
-    .replace('{limit}', String(limit))
-    .replace('{rest}', rest)
+  const url = webEndpoints.userBookmarks(userId, { tag, offset, limit, rest })
 
   const data = await fetchJson<ListResponse>(url, cookie, signal)
   if (data.error) throw new Error(`收藏夹接口报错：${data.message || '未知错误'}`)
@@ -270,7 +251,7 @@ export async function probeCookieHealth(cookie: string): Promise<CookieHealth> {
   if (!cookie) return 'expired'
   try {
     // 体检只打一次，失败就下结论，不走进 fetchJson 的重试链
-    const data = await fetchJson<SelfResponse>(SELF_URL, cookie, undefined, 1)
+    const data = await fetchJson<SelfResponse>(webEndpoints.self(), cookie, undefined, 1)
     const info = data.body?.userData || data.userData
     const id = String(info?.id || data.body?.userId || '').trim()
     return id ? 'valid' : 'expired'
@@ -309,9 +290,10 @@ export async function fetchFollowing(
     target = self.id
   }
 
-  const url = FOLLOWING_URL.replace('{userId}', encodeURIComponent(target))
-    .replace('{offset}', String(Math.max(0, offset)))
-    .replace('{limit}', String(Math.max(1, Math.min(100, limit))))
+  const url = webEndpoints.following(target, {
+    offset: Math.max(0, offset),
+    limit: Math.max(1, Math.min(100, limit))
+  })
 
   const data = await fetchJson<FollowingResponse>(url, cookie, signal)
   if (data.error) throw new Error(`关注列表接口报错：${data.message || '未知错误'}`)
@@ -336,7 +318,7 @@ export async function fetchPages(
   signal?: AbortSignal
 ): Promise<PageInfo[]> {
   const data = await fetchJson<PagesResponse>(
-    PAGES_URL.replace('{id}', encodeURIComponent(illustId)),
+    webEndpoints.illustPages(illustId),
     cookie,
     signal
   )
@@ -351,7 +333,7 @@ export async function fetchUgoiraMeta(
   signal?: AbortSignal
 ): Promise<UgoiraMeta> {
   const data = await fetchJson<UgoiraResponse>(
-    UGOIRA_URL.replace('{id}', encodeURIComponent(illustId)),
+    webEndpoints.ugoiraMeta(illustId),
     cookie,
     signal
   )
@@ -409,7 +391,7 @@ export async function suggestTags(
   if (keyword.length < 2) return []
 
   const data = await fetchJson<TagSuggestResponse>(
-    TAG_SUGGEST_URL.replace('{word}', encodeURIComponent(keyword)),
+    webEndpoints.tagSuggest(keyword),
     cookie,
     signal
   )
@@ -432,14 +414,14 @@ export async function suggestTags(
     const key = (tag || '').trim()
     if (!key) return undefined
     const dict = body.tagTranslation?.[key]
-    if (dict) return dict.zh || dict.zh_tw || dict.romaji || dict.en || undefined
+    if (dict) return pickLangText(dict) || undefined
     return translations.get(key.toLowerCase())
   }
 
   successors.forEach((item) => {
     if (!item.tag) return
-    const zh = item.translation?.zh
-    if (zh) translations.set(item.tag.toLowerCase(), zh)
+    const text = pickLangText(item.translation)
+    if (text) translations.set(item.tag.toLowerCase(), text)
   })
 
   push(body.word)

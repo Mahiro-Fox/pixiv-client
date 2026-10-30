@@ -4,6 +4,7 @@ import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { acquireSlot, noteRateLimited, noteSuccess, retryAfterMs, sleep } from './throttle'
 import { explainNetError, proxyCredentials } from '../proxy'
+import { pixivAcceptLanguage, withLang } from './lang'
 import type { ErrorKind } from './retry'
 
 export { sleep }
@@ -100,7 +101,7 @@ function buildRequest(
   })
   request.setHeader('User-Agent', USER_AGENT)
   request.setHeader('Referer', `${BASE}/`)
-  request.setHeader('Accept-Language', 'zh-CN,zh;q=0.9')
+  request.setHeader('Accept-Language', pixivAcceptLanguage())
   if (cookie) request.setHeader('Cookie', cookie)
   if (options.form) {
     request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
@@ -186,6 +187,9 @@ async function requestJson<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   let lastError: unknown
+  // 各接口模板里留的 `{lang}` 在这里一次性换成界面语言：pixiv 会按它返回标题 /
+  // 标签译文，收到请求的每一处都要对，挨个调用点替换容易漏
+  const target = withLang(url)
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (signal?.aborted) throw fail('已取消', false, 0, 'cancelled')
@@ -193,7 +197,7 @@ async function requestJson<T>(
     // 全局 API 闸门：冷却 / 并发 / 最小间隔都在这里排队
     const release = await acquireSlot('api', signal)
     try {
-      const response = await open(url, cookie, signal, TIMEOUT, options)
+      const response = await open(target, cookie, signal, TIMEOUT, options)
       const status = response.statusCode
 
       if (status === 429) {
@@ -246,7 +250,7 @@ async function requestJson<T>(
 
   const hint = hintOf(lastError)
   const detail = lastError instanceof Error ? lastError.message : String(lastError)
-  throw fail(`请求失败：${url}（${detail}）`, hint.retryable, hint.waitMs, hint.kind)
+  throw fail(`请求失败：${target}（${detail}）`, hint.retryable, hint.waitMs, hint.kind)
 }
 
 export async function fetchJson<T>(

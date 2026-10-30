@@ -7,7 +7,8 @@ import type {
   UserSearchItem,
   WorkSearchMode
 } from '../../shared/types'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
+import { appEndpoints, webEndpoints } from './endpoints'
 import { appApiGet } from './appApi'
 import { getOAuthStatus } from './oauth'
 
@@ -82,12 +83,6 @@ interface DiscoveryResponse {
   body?: { illusts?: RawDiscoveryWork[] }
 }
 
-const ILLUST_URL =
-  '/v1/illust/recommended?filter=for_android&include_ranking_illusts=true&include_privacy_policy=true'
-const USER_URL = '/v1/user/recommended?filter=for_android'
-/** 网页兜底：未连接 App API 时仍能看到 10 件发现内容 */
-const DISCOVERY_URL = BASE + '/ajax/illust/discovery'
-
 function toSearchWork(raw: AppIllust): SearchWork {
   const images = raw.image_urls || {}
   return {
@@ -155,9 +150,10 @@ function toUserCard(preview: AppUserPreview): UserSearchItem | null {
   }
 }
 
+/** 未连接 App API 时的网页兜底地址：发现接口按内容分级筛选 */
 function discoverUrl(mode: WorkSearchMode | undefined): string {
   const value = mode === 'safe' || mode === 'r18' ? mode : 'all'
-  return `${DISCOVERY_URL}?mode=${value}&lang=zh`
+  return webEndpoints.discovery(value)
 }
 
 /**
@@ -182,7 +178,7 @@ export async function fetchRecommendedWorks(
 
   const path =
     params.nextUrl ||
-    `${ILLUST_URL}&content_type=${params.kind === 'manga' ? 'manga' : 'illust'}`
+    appEndpoints.recommendedIllusts(params.kind === 'manga' ? 'manga' : 'illust')
   const data = await appApiGet<AppIllustResponse>(path, signal)
   const works = (data.illusts || []).map(toSearchWork).filter((work) => work.id)
   return { works, nextUrl: data.next_url || '', source: 'app' }
@@ -193,7 +189,10 @@ export async function fetchRecommendedUsers(
   params: RecommendUsersParams,
   signal?: AbortSignal
 ): Promise<RecommendUsersResult> {
-  const data = await appApiGet<AppUserResponse>(params.nextUrl || USER_URL, signal)
+  const data = await appApiGet<AppUserResponse>(
+    params.nextUrl || appEndpoints.recommendedUsers(),
+    signal
+  )
   const users = (data.user_previews || [])
     .map(toUserCard)
     .filter((user): user is UserSearchItem => Boolean(user))

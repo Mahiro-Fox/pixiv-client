@@ -64,6 +64,8 @@ interface SettingsDialogProps {
   /** 代理配置与生效状态；密码本身不会传给渲染层 */
   proxy: ProxyState | null
   onConfigChange: (patch: Partial<AppConfig>) => void
+  /** 切换界面语言：落盘后整页刷新，交由上层处理，弹窗只负责触发 */
+  onChangeLocale: (locale: Locale) => void
   /** 保存并立即应用代理；password 传 undefined 表示保持原密码，空串表示清除 */
   onSaveProxy: (patch: Partial<ProxyConfig>, password?: string) => Promise<ProxyState>
   onTestProxy: () => Promise<ProxyTestResult>
@@ -551,7 +553,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => props.onConfigChange({ locale: option.value })}
+                  onClick={() => props.onChangeLocale(option.value)}
                   className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
                     config.locale === option.value
                       ? 'border-primary/60 bg-primary/10 text-primary'

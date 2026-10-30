@@ -10,7 +10,9 @@ import type {
   WorkSearchScope,
   WorkSeriesNav
 } from '../../shared/types'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
+import { webEndpoints } from './endpoints'
+import { pickLangText } from './lang'
 
 /** 每页条数由 pixiv 决定（插画/漫画为 60），翻页上限沿用接口返回的 lastPage */
 const ORDERS: WorkSearchOrder[] = [
@@ -179,12 +181,7 @@ function parseBookmarkRanges(raw: RawBookmarkRange[] | undefined): number[] {
   return Array.from(new Set(values)).sort((left, right) => right - left)
 }
 
-/** 搜索结果里标签的展示语言优先级：中文优先，其次罗马音，最后英文 */
-function pickTranslation(dict?: Record<string, string>): string {
-  if (!dict) return ''
-  return dict.zh || dict.zh_tw || dict.romaji || dict.en || ''
-}
-
+/** 搜索结果里标签的展示译文：取界面语言那条，见 lang.ts 的 pickLangText */
 /** 无系列时接口可能返回空对象 `{}`，缺 seriesId 即视为不在系列中 */
 export function toWorkSeriesNav(raw: RawSeriesNav | null | undefined): WorkSeriesNav | null {
   if (!raw) return null
@@ -288,21 +285,16 @@ async function requestPage(
   kind: WorkSearchKind,
   query: PageQuery
 ): Promise<WorkSearchResult> {
-  const search = new URLSearchParams({
+  const url = webEndpoints.searchWorks({
+    kind,
+    word: query.word,
     order: query.order,
     mode: query.mode,
-    p: String(query.page),
-    ai_type: '0',
-    csw: query.csw ? '1' : '0',
-    s_mode: query.scope === 'tag_tc' ? 's_tag_tc' : 's_tag',
-    ratio: '',
-    lang: 'zh'
+    page: query.page,
+    csw: query.csw,
+    blt: query.blt,
+    scope: query.scope
   })
-  if (query.blt > 0) search.set('blt', String(query.blt))
-  if (kind === 'illust') search.set('type', 'illust_and_ugoira')
-
-  const path = kind === 'illust' ? 'illustrations' : 'manga'
-  const url = `${BASE}/ajax/search/${path}/${encodeURIComponent(query.word)}?${search.toString()}`
 
   const data = await fetchJson<SearchResponse>(url, query.cookie, query.signal)
   if (data.error) throw new Error(`搜索接口报错：${data.message || '未知错误'}`)
@@ -315,7 +307,7 @@ async function requestPage(
 
   const tagTranslation: Record<string, string> = {}
   Object.entries(body.tagTranslation || {}).forEach(([tag, dict]) => {
-    const text = pickTranslation(dict)
+    const text = pickLangText(dict)
     if (text) tagTranslation[tag] = text
   })
 
@@ -329,9 +321,6 @@ async function requestPage(
     bookmarkRanges: parseBookmarkRanges(group?.bookmarkRanges)
   }
 }
-
-const WORK_DETAIL_URL = BASE + '/ajax/illust/{id}?lang=zh'
-const DISCOVERY_URL = BASE + '/ajax/illust/discovery?mode=all&lang=zh'
 
 /** 详情接口给的标签结构与搜索结果不同（tags.tags 里是 { tag, translation }） */
 type RawWorkDetail = Omit<RawSearchWork, 'tags'> & {
@@ -357,7 +346,7 @@ export async function fetchWorkDetail(
   if (!/^\d+$/.test(id)) return null
 
   const data = await fetchJson<{ error?: boolean; body?: RawWorkDetail }>(
-    WORK_DETAIL_URL.replace('{id}', id),
+    webEndpoints.workDetail(id),
     cookie,
     signal
   )
@@ -379,7 +368,7 @@ export async function fetchTrendingTags(
   const data = await fetchJson<{
     error?: boolean
     body?: Record<string, { tags?: string[]; xRestrict?: number }>
-  }>(DISCOVERY_URL, cookie, signal)
+  }>(webEndpoints.discovery('all'), cookie, signal)
   if (data.error) return []
 
   const counts = new Map<string, number>()

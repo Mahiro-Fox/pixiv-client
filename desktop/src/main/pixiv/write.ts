@@ -1,5 +1,6 @@
 import type { BookmarkInput, BookmarkPrivacy, BookmarkState, FollowInput } from '../../shared/types'
 import { appApiGet, appApiPost, ensureAppConnected, explainAppError } from './appApi'
+import { appEndpoints } from './endpoints'
 
 /** `/v2/illust/bookmark/detail` 的响应 */
 interface BookmarkDetailResponse {
@@ -30,7 +31,7 @@ export async function getBookmarkState(workId: string): Promise<BookmarkState> {
   await ensureAppConnected()
   try {
     const data = await appApiGet<BookmarkDetailResponse>(
-      `/v2/illust/bookmark/detail?illust_id=${encodeURIComponent(id)}`
+      appEndpoints.illustBookmarkDetail(id)
     )
     const detail = data.bookmark_detail || {}
     return {
@@ -49,9 +50,9 @@ export async function setBookmark(workId: string, input: BookmarkInput): Promise
   const restrict = privacyOf(input?.restrict)
   try {
     if (input?.bookmarked) {
-      await appApiPost('/v2/illust/bookmark/add', { illust_id: id, restrict })
+      await appApiPost(appEndpoints.illustBookmark(true), { illust_id: id, restrict })
     } else {
-      await appApiPost('/v1/illust/bookmark/delete', { illust_id: id })
+      await appApiPost(appEndpoints.illustBookmark(false), { illust_id: id })
     }
   } catch (error) {
     throw explainAppError(error)
@@ -66,7 +67,7 @@ export async function getNovelBookmarkState(novelId: string): Promise<BookmarkSt
   await ensureAppConnected()
   try {
     const data = await appApiGet<BookmarkDetailResponse>(
-      `/v2/novel/bookmark/detail?novel_id=${encodeURIComponent(id)}`
+      appEndpoints.novelBookmarkDetail(id)
     )
     const detail = data?.bookmark_detail || {}
     return {
@@ -76,7 +77,7 @@ export async function getNovelBookmarkState(novelId: string): Promise<BookmarkSt
   } catch (primary) {
     try {
       const data = await appApiGet<NovelDetailResponse>(
-        `/v1/novel/detail?novel_id=${encodeURIComponent(id)}`
+        appEndpoints.novelDetail(id)
       )
       const novel = data?.novel || {}
       return {
@@ -99,9 +100,9 @@ export async function setNovelBookmark(
   const restrict = privacyOf(input?.restrict)
   try {
     if (input?.bookmarked) {
-      await appApiPost('/v2/novel/bookmark/add', { novel_id: id, restrict })
+      await appApiPost(appEndpoints.novelBookmark(true), { novel_id: id, restrict })
     } else {
-      await appApiPost('/v1/novel/bookmark/delete', { novel_id: id })
+      await appApiPost(appEndpoints.novelBookmark(false), { novel_id: id })
     }
   } catch (error) {
     throw explainAppError(error)
@@ -115,7 +116,7 @@ export async function getFollowState(userId: string): Promise<boolean> {
   await ensureAppConnected()
   try {
     const data = await appApiGet<SingleUserResponse>(
-      `/v1/user/detail?user_id=${encodeURIComponent(id)}`
+      appEndpoints.userDetail(id)
     )
     return Boolean(data.user?.is_followed)
   } catch (error) {
@@ -129,12 +130,12 @@ export async function setFollow(userId: string, input: FollowInput): Promise<boo
   await ensureAppConnected()
   try {
     if (input?.followed) {
-      await appApiPost('/v1/user/follow/add', {
+      await appApiPost(appEndpoints.follow(true), {
         user_id: id,
         restrict: privacyOf(input?.restrict)
       })
     } else {
-      await appApiPost('/v1/user/follow/delete', { user_id: id })
+      await appApiPost(appEndpoints.follow(false), { user_id: id })
     }
   } catch (error) {
     throw explainAppError(error)

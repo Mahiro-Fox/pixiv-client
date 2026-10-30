@@ -1,7 +1,8 @@
 import type { SeriesDetail, SeriesEpisode, WorkSeriesParams } from '../../shared/types'
 import { appApiGet, appApiPost, ensureAppConnected, explainAppError } from './appApi'
 import { getOAuthStatus } from './oauth'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
+import { appEndpoints, webEndpoints } from './endpoints'
 
 /** `/v1/illust/series` 的作品条目，只需要列表展示用到的字段 */
 interface RawAppIllust {
@@ -64,7 +65,6 @@ interface RawWebIllust {
  * 系列详情接口。
  * App API 的列表带 next_url 分页，这里循环取完；每页条数由服务端决定。
  */
-const APP_SERIES_URL = '/v1/illust/series?illust_series_id={id}&filter=for_android'
 /** 防御性上限：异常响应不至于把翻页变成死循环 */
 const MAX_SERIES_PAGES = 30
 
@@ -90,7 +90,7 @@ function avatarOf(detail: RawAppSeriesDetail): string {
 }
 
 async function fetchAppSeries(seriesId: string): Promise<SeriesDetail> {
-  let next = APP_SERIES_URL.replace('{id}', encodeURIComponent(seriesId))
+  let next = appEndpoints.illustSeries(seriesId)
   const raw: RawAppIllust[] = []
   let detail: RawAppSeriesDetail | undefined
 
@@ -137,7 +137,7 @@ async function fetchAppSeries(seriesId: string): Promise<SeriesDetail> {
  */
 async function fetchWebSeries(seriesId: string, workId: string, cookie: string): Promise<SeriesDetail> {
   const data = await fetchJson<{ error?: boolean; message?: string; body?: RawWebIllust }>(
-    `${BASE}/ajax/illust/${encodeURIComponent(workId)}?lang=zh`,
+    webEndpoints.workDetail(workId),
     cookie
   )
   if (data.error) throw new Error(`作品详情接口报错：${data.message || '未知错误'}`)
@@ -219,7 +219,7 @@ export async function setSeriesWatch(seriesId: string, watch: boolean): Promise<
   if (!/^\d+$/.test(id)) throw new Error('缺少系列 ID')
   await ensureAppConnected()
   try {
-    await appApiPost(watch ? '/v1/watchlist/manga/add' : '/v1/watchlist/manga/delete', {
+    await appApiPost(appEndpoints.seriesWatchlist('manga', watch), {
       series_id: id
     })
   } catch (error) {
@@ -246,7 +246,7 @@ export async function getNovelSeriesWatchState(seriesId: string): Promise<boolea
   if (!status.connected) return false
   try {
     const page = await appApiGet<RawAppNovelSeriesResponse>(
-      `/v1/novel/series?series_id=${encodeURIComponent(id)}&filter=for_android`
+      appEndpoints.novelSeries(id)
     )
     const detail = page?.novel_series_detail || page?.series || {}
     return Boolean(detail.watchlist_added)
@@ -261,7 +261,7 @@ export async function setNovelSeriesWatch(seriesId: string, watch: boolean): Pro
   if (!/^\d+$/.test(id)) throw new Error('缺少系列 ID')
   await ensureAppConnected()
   try {
-    await appApiPost(watch ? '/v1/watchlist/novel/add' : '/v1/watchlist/novel/delete', {
+    await appApiPost(appEndpoints.seriesWatchlist('novel', watch), {
       series_id: id
     })
   } catch (error) {

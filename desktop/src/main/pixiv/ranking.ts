@@ -4,7 +4,8 @@ import type {
   RankingResult,
   SearchWork
 } from '../../shared/types'
-import { BASE, fetchJson } from './http'
+import { fetchJson } from './http'
+import { webEndpoints } from './endpoints'
 
 /** 与 pixiv 网页端 ranking.php 的 mode 参数一致 */
 const MODES: RankingMode[] = [
@@ -95,18 +96,11 @@ export async function fetchRanking(
   const content = params.kind === 'manga' ? 'manga' : 'illust'
   const page = Math.max(1, Math.min(MAX_PAGE, Math.round(Number(params.page) || 1)))
 
-  const search = new URLSearchParams({
-    mode,
-    content,
-    p: String(page),
-    format: 'json',
-    lang: 'zh'
-  })
   // 日期只接受 YYYYMMDD，其它输入交给 pixiv 报错反而更难懂
-  const date = String(params.date || '').trim()
-  if (/^\d{8}$/.test(date)) search.set('date', date)
+  const rawDate = String(params.date || '').trim()
+  const date = /^\d{8}$/.test(rawDate) ? rawDate : ''
 
-  const url = `${BASE}/ranking.php?${search.toString()}`
+  const url = webEndpoints.ranking({ mode, content, page, date })
   const data = await fetchJson<RankingResponse>(url, cookie, signal)
   if (data.error) throw new Error(data.message || '排行榜接口报错')
 

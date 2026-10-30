@@ -12,8 +12,6 @@ import {
   ListRestart,
   Loader2,
   ScrollText,
-  Settings2,
-  Sparkles,
   Trophy,
   Users,
   X,
@@ -100,6 +98,7 @@ import { Toaster } from "./components/Toaster";
 import { worksTag } from "./lib/files";
 import { CONFIG_CHANGED_EVENT } from "./lib/workActions";
 import { messageOf } from "./lib/errors";
+import { toast } from "./lib/toast";
 
 
 /**
@@ -622,11 +621,37 @@ export default function App(): React.JSX.Element {
     return watchSystemTheme(() => applyTheme("system"));
   }, [themeMode]);
 
+  // 这里只同步 DOM 与本地副本，不刷新页面：
+  // 页面加载时 locale 会从 undefined 变成配置里的值，effect 必然再跑一次；
+  // 若在此处 reload，就变成「刷新 → 加载 → 又触发 effect → 再刷新」的死循环。
   useEffect(() => {
     if (!locale) return;
     document.documentElement.lang = locale;
     window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
   }, [locale]);
+
+  /**
+   * 切换界面语言：先落盘，再整页刷新。
+   *
+   * 刷新挂在点击这一处，而不是监听 locale 变化的 effect 里 ——
+   * 只有用户真的换了语言才会刷新，也保证刷新前磁盘配置与主进程的
+   * pixivLang 都已换成新语言（否则新页面还是按旧语言取数据，甚至会
+   * 因为读到旧配置而反复刷新）。刷新后 HashRouter 会保留当前 hash，
+   * 页面位置不丢，但列表数据需要重新获取。
+   */
+  const changeLocale = async (next: Locale): Promise<void> => {
+    if (!config || config.locale === next) return;
+    updateConfig({ locale: next });
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+    try {
+      await window.pixiv.setConfig({ ...config, locale: next });
+    } catch (reason) {
+      setError(messageOf(reason));
+      return;
+    }
+    toast.success(t("settings.appearance.languageSuccess"));
+    setTimeout(() => window.location.reload(), 3000);
+  };
 
   /** 关闭弹窗时把当前配置整份落盘，避免设置在下次抓取前丢失 */
   const persistConfig = (): void => {
@@ -1522,6 +1547,7 @@ export default function App(): React.JSX.Element {
               selfUser={selfUser}
               proxy={proxy}
               onConfigChange={updateConfig}
+              onChangeLocale={(next) => void changeLocale(next)}
               onSaveProxy={saveProxy}
               onTestProxy={testProxy}
               onSaveCookie={saveCookie}

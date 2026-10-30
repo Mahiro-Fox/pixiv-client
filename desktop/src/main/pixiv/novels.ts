@@ -15,24 +15,19 @@ import type {
   NovelSeriesNav,
   NovelWork
 } from '../../shared/types'
+// BASE 只用于拼下载文档里的「原文链接」，接口地址统一走 endpoints.ts
 import { BASE, fetchJson } from './http'
+import { webEndpoints } from './endpoints'
 import { safeName } from './files'
 
-const SEARCH_URL =
-  BASE +
-  '/ajax/search/novels/{word}?word={word}&order={order}&mode={mode}' +
-  '&s_mode={target}&p={page}&gs=0&lang=zh'
-const NOVEL_URL = BASE + '/ajax/novel/{id}?lang=zh'
-const SERIES_URL = BASE + '/ajax/novel/series/{id}?lang=zh'
-// limit 超过 30 会直接返回 HTTP 400「不正确的请求」
-const SERIES_PAGE_SIZE = 30
-const SERIES_CONTENT_URL = `${BASE}/ajax/novel/series_content/{id}?limit=${SERIES_PAGE_SIZE}&last_order={last}&order_by=asc&lang=zh`
-
-/** pixiv 小说搜索最多翻到第 10 页 */
+/** 小说搜索最多翻到第 10 页 */
 const MAX_SEARCH_PAGE = 10
 const ORDERS: NovelOrder[] = ['date_d', 'date', 'popular_d', 'popular_male_d', 'popular_female_d']
 const MODES: NovelSearchMode[] = ['all', 'safe']
 const TARGETS: NovelSearchTarget[] = ['s_tag_full', 's_tag', 's_tc']
+
+/** limit 超过 30 会直接返回 HTTP 400「不正确的请求」 */
+const SERIES_PAGE_SIZE = 30
 
 interface RawNovel {
   id?: string | number
@@ -199,12 +194,13 @@ export async function searchNovels(
   const target = TARGETS.includes(params.target) ? params.target : 's_tag_full'
   const page = Math.max(1, Math.min(MAX_SEARCH_PAGE, Math.round(Number(params.page) || 1)))
 
-  const url = SEARCH_URL.replace('{word}', encodeURIComponent(word))
-    .replace('{word}', encodeURIComponent(word))
-    .replace('{order}', order)
-    .replace('{mode}', mode)
-    .replace('{target}', target)
-    .replace('{page}', String(page))
+  const url = webEndpoints.novelSearch({
+    word,
+    order,
+    mode,
+    target,
+    page
+  })
 
   const data = await fetchJson<SearchResponse>(url, cookie, signal)
   if (data.error) throw new Error(`小说搜索接口报错：${data.message || '未知错误'}`)
@@ -224,7 +220,7 @@ export async function fetchNovelDetail(
   signal?: AbortSignal
 ): Promise<NovelDetail> {
   const data = await fetchJson<DetailResponse>(
-    NOVEL_URL.replace('{id}', encodeURIComponent(novelId)),
+    webEndpoints.novelDetail(novelId),
     cookie,
     signal
   )
@@ -291,7 +287,7 @@ async function fetchSeries(
   signal?: AbortSignal
 ): Promise<NovelSeries> {
   const data = await fetchJson<SeriesResponse>(
-    SERIES_URL.replace('{id}', encodeURIComponent(seriesId)),
+    webEndpoints.novelSeries(seriesId),
     cookie,
     signal
   )
@@ -311,10 +307,7 @@ async function fetchSeriesEpisodes(
   let lastOrder = 0
 
   for (let guard = 0; guard < 20; guard += 1) {
-    const url = SERIES_CONTENT_URL.replace('{id}', encodeURIComponent(seriesId)).replace(
-      '{last}',
-      String(lastOrder)
-    )
+    const url = webEndpoints.novelSeriesContent(seriesId, lastOrder, SERIES_PAGE_SIZE)
     const data = await fetchJson<SeriesContentResponse>(url, cookie, signal)
     if (data.error) throw new Error(`系列目录接口报错：${data.message || '未知错误'}`)
 

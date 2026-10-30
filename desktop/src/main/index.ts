@@ -9,6 +9,7 @@ import { flushQueue } from './queue'
 import { loadConfig } from './config'
 import { applyProxy } from './proxy'
 import { USER_AGENT } from './pixiv/http'
+import { setPixivLang } from './pixiv/lang'
 
 const LOCAL_SCHEME = 'pixivfile'
 
@@ -120,6 +121,10 @@ app.whenReady().then(async () => {
   installImageReferer()
   // 先应用代理再建窗口：首屏的接口与图片请求就要走对网络
   await applyProxy().catch(() => undefined)
+  // 接口的 lang 参数跟着界面语言走，首屏抓取前就得对齐，否则第一批标题是中文译文
+  await loadConfig()
+    .then((config) => setPixivLang(config.locale))
+    .catch(() => undefined)
   serveLocalFile()
   registerIpcHandlers()
   createWindow()

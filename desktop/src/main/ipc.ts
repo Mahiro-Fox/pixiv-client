@@ -60,6 +60,7 @@ import {
   searchNovelLibraryText
 } from './pixiv/novelLibrary'
 import { setAuthFailureHandler } from './pixiv/http'
+import { setPixivLang } from './pixiv/lang'
 import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
 import { fetchRanking } from './pixiv/ranking'
 import { fetchRecommendedUsers, fetchRecommendedWorks } from './pixiv/recommend'
@@ -578,6 +579,8 @@ export function registerIpcHandlers(): void {
     const rest = { ...patch }
     delete rest.proxy
     const config = await saveConfig(rest)
+    // 语言可能刚被改过：接口的 lang 参数要立刻跟着变，下一次抓取就是新语言
+    setPixivLang(config.locale)
     libraryCache = null
     // 限流参数改完立即生效，不必等下一次下载；保存目录变化时重建监听
     applyThrottleLimits(throttleLimitsFromConfig(config))

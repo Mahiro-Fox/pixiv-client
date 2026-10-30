@@ -1,4 +1,5 @@
 import { fetchJsonWithHeaders, postFormWithHeaders } from './http'
+import { pixivAcceptLanguage } from './lang'
 import { getAccessToken, getOAuthStatus } from './oauth'
 
 /**
@@ -13,13 +14,16 @@ export const APP_BASE = 'https://app-api.pixiv.net'
 /** App API 要求客户端 UA；与 oauth.ts 刷新 token 时保持一致 */
 const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)'
 
-const APP_HEADERS: Record<string, string> = {
-  'User-Agent': APP_USER_AGENT,
-  'App-OS': 'android',
-  'App-OS-Version': '15.0',
-  'App-Version': '6.140.2',
-  'Accept-Language': 'zh-CN,zh;q=0.9',
-  Referer: `${APP_BASE}/`
+function appHeaders(): Record<string, string> {
+  return {
+    'User-Agent': APP_USER_AGENT,
+    'App-OS': 'android',
+    'App-OS-Version': '15.0',
+    'App-Version': '6.140.2',
+    // 网页接口靠 `lang` 参数，App API 没有这个参数，只能由请求头决定译文
+    'Accept-Language': pixivAcceptLanguage(),
+    Referer: `${APP_BASE}/`
+  }
 }
 
 /**
@@ -44,7 +48,7 @@ export async function appApiGet<T>(pathOrUrl: string, signal?: AbortSignal): Pro
   const token = await getAccessToken()
   return fetchJsonWithHeaders<T>(
     resolveAppUrl(pathOrUrl),
-    { ...APP_HEADERS, Authorization: `Bearer ${token}` },
+    { ...appHeaders(), Authorization: `Bearer ${token}` },
     signal
   )
 }
@@ -60,7 +64,7 @@ export async function appApiPost<T>(
 ): Promise<T> {
   const token = await getAccessToken()
   return postFormWithHeaders<T>(resolveAppUrl(path), form, {
-    ...APP_HEADERS,
+    ...appHeaders(),
     Authorization: `Bearer ${token}`
   }, signal)
 }
