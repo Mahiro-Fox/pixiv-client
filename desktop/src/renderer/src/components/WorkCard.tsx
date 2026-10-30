@@ -53,6 +53,7 @@ export function SearchWorkCard(props: {
         delay: reduce ? 0 : Math.min((props.index ?? 0) * 0.012, 0.18)
       }}
       onContextMenu={(event) => menu.onContextMenu(event, work)}
+      data-tour="work-card"
       className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50"
     >
       {/* 点击图片只做应用内预览，右上角图标才是「去 pixiv」 */}

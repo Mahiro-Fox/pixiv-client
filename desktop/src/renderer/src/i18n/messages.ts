@@ -785,7 +785,38 @@ const zhCN = {
     '点「取消更新」不会安装，当前版本继续可用；下次启动会再问一次，安装包已经存好，不会重复下载',
   'update.restart': '立即重启并安装',
   'update.cancel': '取消更新',
-  'update.installFailed': '安装包还没准备好，请在设置里重新检查更新'
+  'update.installFailed': '安装包还没准备好，请在设置里重新检查更新',
+
+  'tour.progress': '第 {current} / {total} 步',
+  'tour.close': '关闭引导',
+  'tour.next': '下一步',
+  'tour.prev': '上一步',
+  'tour.skip': '跳过',
+  'tour.done': '开始使用',
+  'tour.replay': '重新观看产品引导',
+
+  'tour.search.title': '搜索与栏目记忆',
+  'tour.search.body':
+    '回车即可搜索；下拉里有搜索历史、联想词和热门标签。多个词用空格隔开就是「与」组合。切到别的栏目再切回来，关键词和列表位置都还在。',
+  'tour.account.title': '账号与常用入口',
+  'tour.account.body':
+    '关注列表、收藏、浏览记录、设置都收在这个头像里；没登录时也在这里登录或粘贴 Cookie。',
+  'tour.filter.title': '过滤规则（全站生效）',
+  'tour.filter.body':
+    '这里的规则对所有列表页生效，角标是当前生效的条数。底部「管理屏蔽名单」能逐条撤销屏蔽——屏蔽之后卡片就不再出现，从别的入口很难找回来。',
+  'tour.card.title': '右键卡片',
+  'tour.card.body': '试着右键任意一张作品卡。',
+  'tour.card.done':
+    '菜单里能应用内预览、在 pixiv 打开、进作者主页、加入下载队列、稍后看、复制链接与 ID，也能一键屏蔽作者。',
+  'tour.collect.title': '采集来源',
+  'tour.collect.body':
+    '列表还是空的话，这一步会自动填一个示例作者并抓一页，后面的步骤才有东西可指。来源也可以换成自己的收藏夹（支持增量同步）；多个标签用空格隔开，按「与」组合。',
+  'tour.toolbar.title': '作品工具栏',
+  'tour.toolbar.body':
+    '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
+  'tour.tabs.title': '三个标签',
+  'tour.tabs.body':
+    '作品列表、下载任务、下载日志各自独立。任务支持断点续传，失败的条目可以在任务标签里重试或取消。'
 }
 
 export type MessageKey = keyof typeof zhCN
@@ -1602,7 +1633,38 @@ const en: Record<MessageKey, string> = {
     'Cancel skips installing; this version keeps working. The next launch asks again and reuses the downloaded package instead of fetching it twice',
   'update.restart': 'Restart and install',
   'update.cancel': 'Cancel',
-  'update.installFailed': 'The package is not ready yet — check for updates again in Settings'
+  'update.installFailed': 'The package is not ready yet — check for updates again in Settings',
+
+  'tour.progress': 'Step {current} of {total}',
+  'tour.close': 'Close the tour',
+  'tour.next': 'Next',
+  'tour.prev': 'Back',
+  'tour.skip': 'Skip',
+  'tour.done': 'Get started',
+  'tour.replay': 'Replay the product tour',
+
+  'tour.search.title': 'Search and per-section memory',
+  'tour.search.body':
+    'Press Enter to search. The dropdown holds your history, suggestions and hot tags; separate words with spaces to combine them. Switch to another section and back — the keyword and list position are still there.',
+  'tour.account.title': 'Account and shortcuts',
+  'tour.account.body':
+    'Following, favourites, history and settings all live behind this avatar. When you are not signed in, this is also where you sign in or paste a Cookie.',
+  'tour.filter.title': 'Filter rules (app-wide)',
+  'tour.filter.body':
+    'These rules apply to every list and the badge shows how many are active. “Manage blocked list” at the bottom undoes blocks one by one — once blocked, those cards stop appearing and are hard to find again.',
+  'tour.card.title': 'Right-click a card',
+  'tour.card.body': 'Try right-clicking any artwork card.',
+  'tour.card.done':
+    'The menu previews in-app, opens the work on pixiv, jumps to the artist page, queues a download, saves it for later, copies the link or ID, and can block the artist in one click.',
+  'tour.collect.title': 'Where to collect from',
+  'tour.collect.body':
+    'If the list is still empty, this step fills in a sample author and collects one page so the next steps have something to point at. You can also switch to your own bookmarks (incremental sync); separate tags with spaces to combine them.',
+  'tour.toolbar.title': 'Works toolbar',
+  'tour.toolbar.body':
+    'Sort, export the selected list, or show only undownloaded works. 50 per page — your position survives leaving and coming back.',
+  'tour.tabs.title': 'Three tabs',
+  'tour.tabs.body':
+    'Works, download tasks and the download log are separate. Tasks resume where they stopped, and failed items can be retried or cancelled from the tasks tab.'
 }
 
 const ja: Record<MessageKey, string> = {
@@ -2413,7 +2475,38 @@ const ja: Record<MessageKey, string> = {
     '「キャンセル」を選ぶとインストールされません。現在のバージョンはそのまま使え、次回起動時にもう一度確認します（ダウンロード済みのパッケージは再利用されます）',
   'update.restart': '再起動してインストール',
   'update.cancel': 'キャンセル',
-  'update.installFailed': 'インストールの準備ができていません。設定から更新を再確認してください'
+  'update.installFailed': 'インストールの準備ができていません。設定から更新を再確認してください',
+
+  'tour.progress': 'ステップ {current} / {total}',
+  'tour.close': 'ツアーを閉じる',
+  'tour.next': '次へ',
+  'tour.prev': '戻る',
+  'tour.skip': 'スキップ',
+  'tour.done': '使い始める',
+  'tour.replay': 'ツアーをもう一度見る',
+
+  'tour.search.title': '検索とセクションの記憶',
+  'tour.search.body':
+    'Enter で検索。ドロップダウンには検索履歴・サジェスト・人気タグが並びます。複数の語を空白で区切ると AND 検索になります。別のセクションへ移動して戻っても、キーワードと一覧の位置はそのままです。',
+  'tour.account.title': 'アカウントと主な入口',
+  'tour.account.body':
+    'フォロー一覧・ブックマーク・閲覧履歴・設定はこのアバターの中にまとまっています。未ログインのときは、ここからログインや Cookie の貼り付けもできます。',
+  'tour.filter.title': 'フィルタールール（全体に適用）',
+  'tour.filter.body':
+    'ここのルールはすべての一覧に適用され、バッジは有効な件数です。下部の「ブロックリストの管理」から 1 件ずつ解除できます。ブロックするとカードは表示されなくなり、他の入口からは探しにくくなります。',
+  'tour.card.title': 'カードを右クリック',
+  'tour.card.body': '作品カードを右クリックしてみてください。',
+  'tour.card.done':
+    'メニューからはアプリ内プレビュー、pixiv で開く、作者ページへ、ダウンロードキューに追加、あとで見る、リンクや ID のコピー、作者のブロックができます。',
+  'tour.collect.title': '収集元',
+  'tour.collect.body':
+    'リストが空の場合は、このステップでサンプル作者を入れて 1 ページ分を取得します（次のステップで指し示すため）。取得元は自分のブックマーク（差分同期対応）にも切り替えられます。複数のタグは空白区切りで AND 条件になります。',
+  'tour.toolbar.title': '作品ツールバー',
+  'tour.toolbar.body':
+    '並び替え、選択分の書き出し、未ダウンロードのみ表示ができます。1 ページ 50 件で、離れて戻っても位置は失われません。',
+  'tour.tabs.title': '3 つのタブ',
+  'tour.tabs.body':
+    '作品一覧・ダウンロードタスク・ログはそれぞれ独立しています。タスクはレジューム対応で、失敗した項目はタスクタブから再試行やキャンセルができます。'
 }
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {

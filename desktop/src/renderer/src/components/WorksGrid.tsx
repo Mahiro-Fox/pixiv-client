@@ -244,7 +244,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 pb-3">
+      <div className="flex items-center justify-between gap-2 pb-3" data-tour="works-toolbar">
         <p className="min-w-0 truncate text-xs text-muted-foreground">
           {t('works.totalPrefix')}
           <span className="font-medium text-foreground">{props.filteredTotal}</span>

@@ -83,6 +83,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
       return (
         <button
           type="button"
+          data-tour="account-menu"
           onClick={props.onOpenSettings}
           className="flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/40"
         >
@@ -92,7 +93,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
       )
     }
     return (
-      <Button size="sm" disabled={props.loggingIn} onClick={props.onLogin}>
+      <Button size="sm" data-tour="account-menu" disabled={props.loggingIn} onClick={props.onLogin}>
         {props.loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
         {props.loggingIn ? t('header.loggingIn') : t('header.login')}
       </Button>
@@ -109,7 +110,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
   }
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} data-tour="account-menu" className="relative">
       <button
         type="button"
         onClick={() => setOpen((previous) => !previous)}

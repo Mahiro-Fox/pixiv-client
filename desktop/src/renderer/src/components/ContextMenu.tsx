@@ -105,6 +105,7 @@ export function ContextMenu(props: ContextMenuProps): React.JSX.Element {
     <div
       ref={box}
       role="menu"
+      data-tour-menu=""
       aria-orientation="vertical"
       onContextMenu={(event) => event.preventDefault()}
       onKeyDown={handleKeyDown}

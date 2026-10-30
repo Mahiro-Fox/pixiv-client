@@ -125,7 +125,11 @@ export function SearchBox(props: {
   const hasPanel = word.length >= 2 || history.length > 0 || hot.length > 0 || loading
 
   return (
-    <div ref={boxRef} className="relative ml-auto w-full min-w-[9rem] max-w-[24rem]">
+    <div
+      ref={boxRef}
+      data-tour="search-box"
+      className="relative ml-auto w-full min-w-[9rem] max-w-[24rem]"
+    >
       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
       <input
         value={props.value}

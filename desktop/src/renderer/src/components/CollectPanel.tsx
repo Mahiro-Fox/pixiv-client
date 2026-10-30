@@ -440,7 +440,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
     config.imageQuality === 'original' ? 'collect.qualityOriginal' : 'collect.qualityRegular'
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" data-tour="collect-panel">
       <div className="scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
         <Card>
           <CardHeader className="pb-3">

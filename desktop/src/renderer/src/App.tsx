@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BookOpen,
+  CircleHelp,
   Clock3,
   Compass,
   Download,
@@ -16,6 +17,7 @@ import {
   Trophy,
   Users,
   X,
+  Settings,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type * as React from "react";
@@ -67,6 +69,8 @@ import { QueuePanel } from "./components/QueuePanel";
 import { CollectPanel } from "./components/CollectPanel";
 import { FilterDialog } from "./components/FilterDialog";
 import { FilterProvider } from "./lib/filterContext";
+import { TourProvider, startTour } from "./lib/tour/TourProvider";
+import { TOUR_DEMO_AUTHOR, type TourAction } from "./lib/tour/steps";
 import { ImagePreviewProvider } from "./components/ImagePreview";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -697,6 +701,36 @@ export default function App(): React.JSX.Element {
   };
 
   /**
+   * 引导第 5 步（采集来源）需要一个「有内容」的工作台。
+   *
+   * 没抓过作品时右侧工具栏根本不渲染，第 6 步（作品工具栏）的锚点就落空了，
+   * 气泡只能原地降级。所以列表为空时先填一个示例作者、抓一页——
+   * 只影响这一次抓取，不改变下载行为。
+   * 已经抓过、或用户自己填过条件（只是没点「抓取」）时不覆盖他的参数。
+   */
+  const prepareTourWorks = (action: TourAction): void => {
+    if (action !== "demo-works") return;
+    if (!config || collecting || works.length > 0) return;
+
+    const hasParams = Boolean(
+      config.userId.trim() || config.tag.trim() || config.tagExtra.trim(),
+    );
+    if (hasParams) {
+      void collect();
+      return;
+    }
+
+    void collect({
+      source: "tag",
+      userId: TOUR_DEMO_AUTHOR,
+      tag: "",
+      tagExtra: "",
+      tagExclude: "",
+      offset: 0,
+    });
+  };
+
+  /**
    * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
    * 主进程串行执行，这里只负责转进度与汇总结果。
    *
@@ -1051,14 +1085,14 @@ export default function App(): React.JSX.Element {
       <ImagePreviewProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-background to-background">
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 px-4">
-            <div className="flex shrink-0 items-center gap-2">
+            {/* <div className="flex shrink-0 items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
               <h1 className="text-sm font-semibold leading-5">
                 {t("app.title")}
               </h1>
-            </div>
+            </div> */}
 
             {/* 插画 / 漫画 / 小说 / 用户：切换栏目时保留搜索框里的关键词 */}
             <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
@@ -1191,6 +1225,7 @@ export default function App(): React.JSX.Element {
               <Button
                 variant="outline"
                 size="sm"
+                data-tour="filter-button"
                 title={t("filter.button")}
                 onClick={() => setFilterOpen(true)}
                 className="relative"
@@ -1209,6 +1244,23 @@ export default function App(): React.JSX.Element {
                 onClick={openDir}
               >
                 <FolderOpen />
+              </Button>
+              {/* 产品引导：第一次启动自动播放，看过之后从这里可以随时重看 */}
+              <Button
+                variant="outline"
+                size="sm"
+                title={t("tour.replay")}
+                onClick={startTour}
+              >
+                <CircleHelp />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                title={t("app.settings")}
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings />
               </Button>
             </div>
           </header>
@@ -1284,7 +1336,10 @@ export default function App(): React.JSX.Element {
                           onValueChange={setTab}
                           className="flex min-h-0 flex-1 flex-col"
                         >
-                          <div className="flex items-center justify-between">
+                          <div
+                            className="flex items-center justify-between"
+                            data-tour="workbench-tabs"
+                          >
                             <TabsList>
                               <TabsTrigger value="works">
                                 <Images className="h-3.5 w-3.5" />
@@ -1322,7 +1377,11 @@ export default function App(): React.JSX.Element {
                             </div>
                           </div>
 
-                          <TabsContent value="works" className="min-h-0">
+                          <TabsContent
+                            value="works"
+                            className="min-h-0"
+                            data-tour="works-panel"
+                          >
                             <WorksGrid
                               works={pagedWorks}
                               selected={selected}
@@ -1481,6 +1540,12 @@ export default function App(): React.JSX.Element {
             />
           ) : null}
         </div>
+        <TourProvider
+          blocked={
+            settingsOpen || filterOpen || updateOpen || Boolean(preview)
+          }
+          onAction={prepareTourWorks}
+        />
         <Toaster />
       </ImagePreviewProvider>
     </I18nProvider>
