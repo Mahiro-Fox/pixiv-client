@@ -5,15 +5,15 @@ import { dismissToast, useToasts, type ToastKind } from '@renderer/lib/toast'
 /** 不同语气对应的图标与配色，避免用模板字符串拼 class（Tailwind 扫不到） */
 const STYLE: Record<ToastKind, { icon: React.JSX.Element; className: string }> = {
   info: {
-    icon: <Info className="h-3.5 w-3.5 shrink-0" />,
+    icon: <Info className="h-4 w-4 shrink-0" />,
     className: 'border-border/70 bg-popover text-foreground'
   },
   success: {
-    icon: <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />,
+    icon: <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />,
     className: 'border-emerald-500/40 bg-popover text-foreground'
   },
   error: {
-    icon: <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />,
+    icon: <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />,
     className: 'border-destructive/40 bg-popover text-foreground'
   }
 }
@@ -44,7 +44,7 @@ export function Toaster(): React.JSX.Element | null {
               onClick={() => dismissToast(item.id)}
               className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         )

@@ -128,7 +128,7 @@ export function RankingPage(): React.JSX.Element {
               type="date"
               value={date}
               onChange={(event) => apply({ date: event.target.value, page: '' })}
-              className="h-8 w-36 text-xs"
+              className="h-8 w-46 text-xs"
             /> */}
             {date ? (
               <Button
@@ -147,7 +147,7 @@ export function RankingPage(): React.JSX.Element {
               disabled={loading}
               onClick={reload}
             >
-              {loading ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
               {t('ranking.refresh')}
             </Button>
           </div>
@@ -194,7 +194,7 @@ export function RankingPage(): React.JSX.Element {
       ) : null}
 
       {loading && !result ? (
-        <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('works.loading')}
         </div>

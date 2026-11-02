@@ -1,5 +1,5 @@
 import { BrowserWindow, app, net, protocol, session, shell } from 'electron'
-import { join, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers, shutdownActiveJob } from './ipc'
 import { flushHistory } from './history'
@@ -10,6 +10,7 @@ import { loadConfig } from './config'
 import { applyProxy } from './proxy'
 import { USER_AGENT } from './pixiv/http'
 import { setPixivLang } from './pixiv/lang'
+import { ugoiraCoverDir } from './pixiv/ugoiraCover'
 
 const LOCAL_SCHEME = 'pixivfile'
 
@@ -23,7 +24,16 @@ const LOCAL_SCHEME = 'pixivfile'
  */
 app.userAgentFallback = USER_AGENT
 
-/** 本地图库缩略图协议：只允许读取保存目录内的文件，避免越权访问 */
+/**
+ * 判断路径是否落在某个根目录内。协议只服务两类文件：
+ * 用户下载目录，以及动图首帧缩略图的缓存目录（后者不在下载目录里）。
+ */
+function isInside(root: string, target: string): boolean {
+  const inside = relative(resolve(root), resolve(target))
+  return Boolean(inside) && !inside.startsWith('..') && !isAbsolute(inside)
+}
+
+/** 本地图库缩略图协议：只允许读取保存目录与缩略图缓存目录内的文件，避免越权访问 */
 function registerLocalFileProtocol(): void {
   protocol.registerSchemesAsPrivileged([
     {
@@ -42,8 +52,9 @@ function serveLocalFile(): void {
       // 形如 pixivfile://local/?path=D%3A%2F... ，host 仅作占位
       const raw = url.searchParams.get('path') || ''
       const target = resolve(raw)
-      const inside = relative(root, target)
-      if (!inside || inside.startsWith('..') || resolve(root, inside) !== target) {
+      // 缩略图缓存不在下载目录里，单独放行一个根
+      const allowed = isInside(root, target) || isInside(ugoiraCoverDir(), target)
+      if (!allowed) {
         return new Response('Forbidden', { status: 403 })
       }
       return await net.fetch(pathToFileURL(target).toString())

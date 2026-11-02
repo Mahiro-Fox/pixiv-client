@@ -39,7 +39,7 @@ interface Anchor {
   y: number
 }
 
-const ICON = 'h-3.5 w-3.5'
+const ICON = 'h-4 w-4'
 
 /**
  * 作品卡右键菜单。

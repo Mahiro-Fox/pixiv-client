@@ -57,7 +57,7 @@ export function BlockManagerDialog(props: BlockManagerDialogProps): React.JSX.El
       >
         <div className="space-y-5">
           <Section
-            icon={<UserRound className="h-3.5 w-3.5" />}
+            icon={<UserRound className="h-4 w-4" />}
             title={t('block.users')}
             count={users.length}
             empty={t('block.emptyUsers')}
@@ -77,7 +77,7 @@ export function BlockManagerDialog(props: BlockManagerDialogProps): React.JSX.El
                       onClick={() => window.open(userWebUrl(term), '_blank')}
                       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-4 w-4" />
                     </button>
                   ) : null
                 }
@@ -86,7 +86,7 @@ export function BlockManagerDialog(props: BlockManagerDialogProps): React.JSX.El
           </Section>
 
           <Section
-            icon={<Tag className="h-3.5 w-3.5" />}
+            icon={<Tag className="h-4 w-4" />}
             title={t('block.tags')}
             count={tags.length}
             empty={t('block.emptyTags')}
@@ -172,7 +172,7 @@ function Row(props: {
         onClick={props.onRemove}
         className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 className="h-4 w-4" />
         {t('block.remove')}
       </Button>
     </li>

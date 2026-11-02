@@ -109,7 +109,7 @@ export function SearchWorkCard(props: {
           onKeyDown={(event) => event.stopPropagation()}
           className="absolute right-1 top-1 rounded bg-black/55 p-1 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
         >
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-4 w-4" />
         </a>
       </div>
 
@@ -123,7 +123,7 @@ export function SearchWorkCard(props: {
             avatar={work.profileImageUrl}
           />
           <span className="flex shrink-0 items-center gap-0.5" title={t('works.bookmarks', { count: work.bookmarkCount })}>
-            <Bookmark className="h-3 w-3" />
+            <Bookmark className="h-4 w-4" />
             {work.bookmarkCount}
           </span>
         </div>

@@ -1224,7 +1224,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <Compass className="relative h-3.5 w-3.5" />
+                    <Compass className="relative h-4 w-4" />
                     <span className="relative">{t("nav.recommend")}</span>
                   </>
                 )}
@@ -1236,7 +1236,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <Trophy className="relative h-3.5 w-3.5" />
+                    <Trophy className="relative h-4 w-4" />
                     <span className="relative">{t("nav.ranking")}</span>
                   </>
                 )}
@@ -1248,7 +1248,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <Images className="relative h-3.5 w-3.5" />
+                    <Images className="relative h-4 w-4" />
                     <span className="relative">{t("nav.illust")}</span>
                   </>
                 )}
@@ -1260,7 +1260,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <BookOpen className="relative h-3.5 w-3.5" />
+                    <BookOpen className="relative h-4 w-4" />
                     <span className="relative">{t("nav.manga")}</span>
                   </>
                 )}
@@ -1272,7 +1272,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <ScrollText className="relative h-3.5 w-3.5" />
+                    <ScrollText className="relative h-4 w-4" />
                     <span className="relative">{t("nav.novel")}</span>
                   </>
                 )}
@@ -1284,7 +1284,7 @@ export default function App(): React.JSX.Element {
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
-                    <Users className="relative h-3.5 w-3.5" />
+                    <Users className="relative h-4 w-4" />
                     <span className="relative">{t("nav.users")}</span>
                   </>
                 )}
@@ -1298,21 +1298,21 @@ export default function App(): React.JSX.Element {
                 title={t("nav.workbench")}
                 className={({ isActive }) => navClass(isActive)}
               >
-                <Download className="h-3.5 w-3.5" />
+                <Download className="h-4 w-4" />
               </NavLink>
               <NavLink
                 to="/gallery"
                 title={t("nav.gallery")}
                 className={({ isActive }) => navClass(isActive)}
               >
-                <Library className="h-3.5 w-3.5" />
+                <Library className="h-4 w-4" />
               </NavLink>
               <NavLink
                 to="/watch-later"
                 title={t("nav.watchLater")}
                 className={({ isActive }) => navClass(isActive)}
               >
-                <Clock3 className="h-3.5 w-3.5" />
+                <Clock3 className="h-4 w-4" />
               </NavLink>
             </nav>
 
@@ -1344,7 +1344,7 @@ export default function App(): React.JSX.Element {
                 onClick={() => setFilterOpen(true)}
                 className="relative"
               >
-                <Filter className="h-3.5 w-3.5" />
+                <Filter className="h-4 w-4" />
                 {activeFilterCount > 0 ? (
                   <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground">
                     {activeFilterCount}
@@ -1357,7 +1357,7 @@ export default function App(): React.JSX.Element {
                 title={t("app.openDir")}
                 onClick={openDir}
               >
-                <FolderOpen className="h-3.5 w-3.5" />
+                <FolderOpen className="h-4 w-4" />
               </Button>
               {/* 产品引导：第一次启动自动播放，看过之后从这里可以随时重看 */}
               <Button
@@ -1366,7 +1366,7 @@ export default function App(): React.JSX.Element {
                 title={t("tour.replay")}
                 onClick={startTour}
               >
-                <CircleHelp className="h-3.5 w-3.5" />
+                <CircleHelp className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
@@ -1374,7 +1374,7 @@ export default function App(): React.JSX.Element {
                 title={t("app.settings")}
                 onClick={() => setSettingsOpen(true)}
               >
-                <Settings className="h-3.5 w-3.5" />
+                <Settings className="h-4 w-4" />
               </Button>
             </div>
           </header>

@@ -46,7 +46,7 @@ export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
               key={`${item.label}-${index}`}
               className="flex items-start gap-2.5 px-3 py-2 font-mono text-[11px]"
             >
-              <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', meta.tone)} />
+              <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', meta.tone)} />
               <div className="min-w-0 flex-1">
                 <p className="break-all leading-5 text-foreground/90">{item.label}</p>
                 {item.error ? (
@@ -64,7 +64,7 @@ export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
       </ul>
       {running ? (
         <div className="flex items-center justify-center gap-2 border-t border-border/40 py-2 text-[11px] text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" />
           {t('log.running')}
         </div>
       ) : null}

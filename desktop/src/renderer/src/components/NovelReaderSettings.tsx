@@ -61,7 +61,7 @@ export function NovelReaderSettings({
           onClick={() => step(key, -1 * (key === 'lineHeight' ? 0.1 : 1))}
           className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Minus className="h-3 w-3" />
+          <Minus className="h-4 w-4" />
         </button>
         <span className="min-w-[2.2rem] text-center text-[11px] tabular-nums">{value}</span>
         <button
@@ -70,7 +70,7 @@ export function NovelReaderSettings({
           onClick={() => step(key, key === 'lineHeight' ? 0.1 : 1)}
           className="px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -89,7 +89,7 @@ export function NovelReaderSettings({
             : 'border-border/60 text-muted-foreground hover:text-foreground'
         }`}
       >
-        <Type className="h-3.5 w-3.5" />
+        <Type className="h-4 w-4" />
       </button>
 
       {open ? (

@@ -87,7 +87,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
           onClick={props.onOpenSettings}
           className="flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/40"
         >
-          <User className="h-3.5 w-3.5" />
+          <User className="h-4 w-4" />
           {t('header.loggedIn')}
         </button>
       )
@@ -126,7 +126,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
           />
         ) : (
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
-            <User className="h-3.5 w-3.5" />
+            <User className="h-4 w-4" />
           </span>
         )}
         <span className="max-w-[9rem] truncate text-xs font-medium leading-4">{user.name}</span>
@@ -165,41 +165,41 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
               onClick={() => go(props.onOpenFollowing)}
               className={itemClass}
             >
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <Users className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 text-left">
                 {t('account.following')}
                 <span className="ml-1 font-medium text-foreground">
                   {loading ? '…' : (following ?? 0)}
                 </span>
               </span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>
             <button
               type="button"
               onClick={() => go(props.onOpenFavorites)}
               className={itemClass}
             >
-              <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
+              <Bookmark className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 text-left">{t('account.favorites')}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>
             <button
               type="button"
               onClick={() => go(props.onOpenHistory)}
               className={itemClass}
             >
-              <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
+              <Clock3 className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 text-left">{t('account.history')}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>
             <button
               type="button"
               onClick={() => go(props.onOpenSettings)}
               className={itemClass}
             >
-              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <Settings2 className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 text-left">{t('account.settings')}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         </div>

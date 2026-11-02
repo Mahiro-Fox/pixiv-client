@@ -216,7 +216,7 @@ export function TourOverlay(props: TourOverlayProps): React.JSX.Element {
             aria-label={t('tour.close')}
             className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 

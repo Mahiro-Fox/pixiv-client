@@ -121,7 +121,7 @@ export function HistoryPage(): React.JSX.Element {
 
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={keyword}
               onChange={(event) => {
@@ -141,7 +141,7 @@ export function HistoryPage(): React.JSX.Element {
                 }}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             ) : null}
           </div>
@@ -190,7 +190,7 @@ export function HistoryPage(): React.JSX.Element {
 
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
-          <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('history.loading')}
           </div>
@@ -201,7 +201,7 @@ export function HistoryPage(): React.JSX.Element {
             <p className="text-[11px]">{t('history.emptyHint')}</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-42 items-center justify-center text-sm text-muted-foreground">
             {t('history.noMatch')}
           </div>
         ) : (

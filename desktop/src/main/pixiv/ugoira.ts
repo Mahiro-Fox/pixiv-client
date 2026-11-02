@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import AdmZip from 'adm-zip'
 import ffmpegStatic from 'ffmpeg-static'
-import type { UgoiraFormat, UgoiraFrame } from '../../shared/types'
+import type { UgoiraFormat, UgoiraFrame, UgoiraFrameData } from '../../shared/types'
 
 /** 动图可转码的目标格式 */
 export type UgoiraTarget = Exclude<UgoiraFormat, 'zip'>
@@ -190,6 +190,47 @@ function runFfmpeg(bin: string, args: string[], signal?: AbortSignal): Promise<v
       if (signal.aborted) child.kill()
       else signal.addEventListener('abort', onAbort, { once: true })
     }
+  })
+}
+
+/** 帧图片扩展名 → MIME，渲染层要按它还原 Blob 类型 */
+const MIME_BY_EXT: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp'
+}
+
+export function imageMimeOf(file: string): string {
+  return MIME_BY_EXT[path.extname(file).toLowerCase()] || 'image/jpeg'
+}
+
+/**
+ * 直接在内存里读出 zip 的每一帧（不落地解压）。
+ *
+ * 预览只是把帧交给渲染层播一遍，没必要像转码那样先解压到临时目录：
+ * 少两次磁盘往返，也不用管临时文件清理。帧顺序沿用 `orderFrames`，
+ * 与转码/下载走的是同一套规则，不会出现「预览和成品顺序不一致」。
+ */
+export async function readUgoiraFrames(
+  zipPath: string,
+  frames: UgoiraFrame[]
+): Promise<UgoiraFrameData[]> {
+  const zip = new AdmZip(zipPath)
+  const entries = zip
+    .getEntries()
+    .filter((entry) => !entry.isDirectory && IMAGE_EXTS.has(path.extname(entry.entryName).toLowerCase()))
+  if (entries.length === 0) throw new Error('压缩包里没有可用帧图片')
+
+  const byName = new Map(entries.map((entry) => [entry.entryName.toLowerCase(), entry]))
+  return orderFrames(
+    entries.map((entry) => entry.entryName),
+    frames
+  ).map(({ file, delay }) => {
+    const entry = byName.get(file.toLowerCase())
+    if (!entry) throw new Error(`帧文件缺失：${file}`)
+    return { data: new Uint8Array(entry.getData()), delay, mime: imageMimeOf(entry.entryName) }
   })
 }
 

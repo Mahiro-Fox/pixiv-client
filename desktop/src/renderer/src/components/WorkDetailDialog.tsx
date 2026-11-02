@@ -5,9 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import type * as React from 'react'
 import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage, WorkSeriesNav } from '@shared/types'
 import { readWorkPages, writeWorkPages } from '@renderer/lib/dialogCache'
+import { useUgoiraFrames } from '@renderer/lib/ugoira'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { useImagePreview } from './ImagePreview'
+import { UgoiraPlayer } from './UgoiraPlayer'
 
 interface WorkDetailDialogProps {
   work: PixivWork
@@ -193,10 +195,32 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   }
 
   const isUgoira = Number(work.illustType) === 2
+  /** 动图不走分页接口：它只有一段动画，帧由 ugoira:frames 现取现播 */
+  const ugoira = useUgoiraFrames(isUgoira ? { kind: 'remote', id: work.id } : null)
+
+  /** 全屏预览：动图把来源一并带过去，由预览层自己取帧播放 */
+  const openUgoiraPreview = (): void => {
+    if (ugoira.frames.length === 0) return
+    preview.open([
+      {
+        src: ugoira.frames[0].src,
+        alt: work.title,
+        ugoira: { kind: 'remote', id: work.id }
+      }
+    ])
+  }
 
   useEffect(() => {
     let alive = true
     setError('')
+
+    if (isUgoira) {
+      setPages([])
+      setLoading(false)
+      return () => {
+        alive = false
+      }
+    }
 
     // 同一个作品短时间内再次打开时直接用缓存，避免重复请求分页接口
     const cached = readWorkPages(work.id)
@@ -276,8 +300,8 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               <div className="ml-1 flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
                 {(
                   [
-                    { value: 'regular', labelKey: 'detail.qualityRegular', icon: <ImageIcon className="h-3 w-3" /> },
-                    { value: 'original', labelKey: 'detail.qualityOriginal', icon: <Gem className="h-3 w-3" /> }
+                    { value: 'regular', labelKey: 'detail.qualityRegular', icon: <ImageIcon className="h-4 w-4" /> },
+                    { value: 'original', labelKey: 'detail.qualityOriginal', icon: <Gem className="h-4 w-4" /> }
                   ] as {
                       value: ImageQuality
                       labelKey: 'detail.qualityRegular' | 'detail.qualityOriginal'
@@ -305,7 +329,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-4 w-4" />
                 {t('detail.openOnPixiv')}
               </a>
               {seriesNav ? (
@@ -318,7 +342,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   }}
                   className="inline-flex max-w-full items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
                 >
-                  <Layers className="h-3 w-3 shrink-0" />
+                  <Layers className="h-4 w-4 shrink-0" />
                   <span className="truncate">
                     {t('detail.series', { title: seriesNav.title, order: seriesNav.order })}
                   </span>
@@ -338,11 +362,32 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
 
         <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {isUgoira ? (
-            <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-600">
-              {t('detail.ugoiraNotice')}
+            <div className="flex flex-col items-center gap-3">
+              <p className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-600">
+                {t('detail.ugoiraNotice')}
+              </p>
+              {ugoira.error ? (
+                // 取帧失败（没配 Cookie、CDN 抽风）时退回缩略图，别让弹窗只剩一条报错
+                <div className="flex flex-col items-center gap-2">
+                  {work.url ? (
+                    <img
+                      src={work.url}
+                      alt={work.title}
+                      className="max-h-[50vh] rounded-lg object-contain"
+                    />
+                  ) : null}
+                  <p className="text-xs text-destructive">{ugoira.error}</p>
+                </div>
+              ) : ugoira.frames.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('preview.ugoiraLoading')}
+                </div>
+              ) : (
+                <UgoiraPlayer frames={ugoira.frames} onClick={openUgoiraPreview} />
+              )}
             </div>
-          ) : null}
-          {loading ? (
+          ) : loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('detail.resolving')}
@@ -400,7 +445,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               disabled={watchLaterBusy}
               onClick={() => void toggleWatchLater()}
             >
-              {watchLaterBusy ? <Loader2 className="animate-spin" /> : <Clock3 />}
+              {watchLaterBusy ? <Loader2 className="animate-spin h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
               {watchLater ? t('detail.watchLaterSaved') : t('detail.watchLater')}
             </Button>
             {oauthConnected ? (
@@ -417,11 +462,11 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   }
                 >
                   {bookmarkBusy ? (
-                    <Loader2 className="animate-spin" />
+                    <Loader2 className="animate-spin h-4 w-4" />
                   ) : bookmark?.bookmarked ? (
-                    <BookmarkCheck />
+                    <BookmarkCheck className="h-4 w-4" />
                   ) : (
-                    <Bookmark />
+                    <Bookmark className="h-4 w-4" />
                   )}
                   {bookmark?.bookmarked ? t('detail.bookmarked') : t('detail.bookmark')}
                 </Button>
@@ -453,7 +498,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 size="sm"
                 onClick={() => props.onToggle(work.id)}
               >
-                {props.selected ? <Check /> : <Plus />}
+                {props.selected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 {props.selected ? t('detail.selected') : t('detail.addToDownload')}
               </Button>
             )}

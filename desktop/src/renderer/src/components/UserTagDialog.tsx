@@ -131,7 +131,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
     >
       <div className="flex h-[56vh] min-h-0 flex-col gap-3">
         <div className="relative shrink-0">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             autoFocus
             value={keyword}
@@ -159,7 +159,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                 refreshing ? 'text-primary' : ''
               )}
             >
-              <RefreshCw className={cn('h-3 w-3', refreshing ? 'animate-spin' : '')} />
+              <RefreshCw className={cn('h-4 w-4', refreshing ? 'animate-spin' : '')} />
               {t('tags.refresh')}
             </button>
           </span>
@@ -179,7 +179,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
         <div className="scrollbar-thin -mr-1 min-h-0 flex-1 overflow-y-auto pr-1">
           {state.phase === 'loading' ? (
             <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               {t('tags.loading')}
             </div>
           ) : null}
@@ -193,7 +193,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                   size="sm"
                   onClick={() => setReloadTick((value) => value + 1)}
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <RefreshCw className="h-4 w-4" />
                   {t('tags.retry')}
                 </Button>
               ) : null}
@@ -237,7 +237,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                   <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                     {t('tags.count', { count: item.count })}
                   </span>
-                  {active ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                  {active ? <Check className="h-4 w-4 shrink-0" /> : null}
                 </button>
               )
             })}

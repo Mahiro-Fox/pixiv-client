@@ -24,6 +24,8 @@ import {
 import type * as React from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useI18n } from '@renderer/i18n'
+import { useUgoiraFrames, type UgoiraSource } from '@renderer/lib/ugoira'
+import { UgoiraPlayer } from './UgoiraPlayer'
 
 /* -------------------------------- 常量 / 类型 -------------------------------- */
 
@@ -71,6 +73,13 @@ export interface PreviewImage {
   alt: string
   width?: number
   height?: number
+  /**
+   * 动图：给来源比给地址更省事 —— 帧要现取现解，播放器自己管加载与节奏。
+   * 此时 src 只当占位（首帧封面），取不到帧时仍然显示它。
+   */
+  ugoira?: UgoiraSource
+  /** 本地视频（mp4 / webm）的 blob 地址，走 <video> 播放 */
+  video?: string
 }
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -174,6 +183,10 @@ function PreviewOverlay({
   useEffect(() => {
     latestRef.current = { images, index, onIndexChange, onClose }
   }, [images, index, onIndexChange, onClose])
+
+  const current = images[index]
+  // 动图要现取帧；非动图传 null，hook 内部不会发请求
+  const ugoira = useUgoiraFrames(current?.ugoira ?? null)
 
   /* ------------------------------ 视图更新工具 ------------------------------ */
 
@@ -282,6 +295,8 @@ function PreviewOverlay({
 
     const onPointerDown = (event: PointerEvent): void => {
       if (event.pointerType === 'mouse' && event.button !== 0) return
+      // 视频控件自己就要拖拽（拖进度条、拖音量），别被手势层抢走
+      if ((event.target as Element | null)?.closest('video')) return
 
       const pointers = pointersRef.current
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
@@ -452,7 +467,13 @@ function PreviewOverlay({
 
   /* --------------------------------- 渲染 --------------------------------- */
 
-  const current = images[index]
+  /** 缩放 / 旋转 / 翻转的手势外框：图片、动图、视频共用同一套变换 */
+  const transformStyle: React.CSSProperties = {
+    transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale}) rotate(${
+      view.rotate
+    }deg) scaleX(${view.flipX ? -1 : 1}) scaleY(${view.flipY ? -1 : 1})`,
+    transition: animate ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
+  }
 
   return (
     <motion.div
@@ -475,7 +496,32 @@ function PreviewOverlay({
         transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
         className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 pb-28 pt-16"
       >
-        {current ? (
+        {current?.ugoira ? (
+          // 动图：帧现取现播，缩放 / 旋转直接套在图上，和静态图的手感一致
+          ugoira.frames.length > 0 ? (
+            <UgoiraPlayer
+              frames={ugoira.frames}
+              variant="stage"
+              className="pointer-events-auto max-h-full max-w-full object-contain will-change-transform"
+              style={transformStyle}
+            />
+          ) : ugoira.error ? (
+            <p className="max-w-md text-center text-xs text-white/70">{ugoira.error}</p>
+          ) : null
+        ) : current?.video ? (
+          <video
+            key={current.video}
+            src={current.video}
+            autoPlay
+            loop
+            muted
+            playsInline
+            controls
+            data-preview-image
+            className="pointer-events-auto max-h-full max-w-full object-contain will-change-transform"
+            style={transformStyle}
+          />
+        ) : current ? (
           <img
             key={current.src}
             src={current.src}
@@ -485,20 +531,22 @@ function PreviewOverlay({
             onLoad={() => setLoaded(true)}
             onError={() => setLoaded(true)}
             className="pointer-events-auto max-h-full max-w-full object-contain will-change-transform"
-            style={{
-              transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale}) rotate(${
-                view.rotate
-              }deg) scaleX(${view.flipX ? -1 : 1}) scaleY(${view.flipY ? -1 : 1})`,
-              transition: animate ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-              opacity: loaded ? 1 : 0
-            }}
+            style={{ ...transformStyle, opacity: loaded ? 1 : 0 }}
           />
         ) : null}
       </motion.div>
 
-      {!loaded ? (
+      {/* 动图 / 视频自己会显示加载状态，只有静态图在这里等 onLoad */}
+      {!current?.ugoira && !current?.video && !loaded ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+        </div>
+      ) : null}
+
+      {current?.ugoira && ugoira.loading ? (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/60">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="text-xs">{t('preview.ugoiraLoading')}</span>
         </div>
       ) : null}
 

@@ -188,10 +188,10 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
           // 三种状态语义不同，按钮文案也必须不同，否则用户不知道该期待什么
           const endAction =
             job.status === 'cancelled'
-              ? { icon: <Play className="h-3 w-3" />, text: t('queue.restart') }
+              ? { icon: <Play className="h-4 w-4" />, text: t('queue.restart') }
               : job.status === 'error'
                 ? {
-                    icon: <RefreshCw className="h-3 w-3" />,
+                    icon: <RefreshCw className="h-4 w-4" />,
                     text:
                       failureCount > 0
                         ? t('queue.retryFailed', { count: failureCount })
@@ -199,7 +199,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   }
                 : job.status === 'paused'
                   ? {
-                      icon: <Play className="h-3 w-3" />,
+                      icon: <Play className="h-4 w-4" />,
                       text:
                         failureCount > 0
                           ? t('queue.retryFailed', { count: failureCount })
@@ -255,7 +255,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     className="h-7 shrink-0 px-2 text-[11px]"
                     onClick={() => props.onPause(job.id)}
                   >
-                    <Pause className="h-3 w-3" />
+                    <Pause className="h-4 w-4" />
                     {t('queue.pause')}
                   </Button>
                 ) : endAction ? (
@@ -277,9 +277,9 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                   className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {expanded ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-4 w-4" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-4 w-4" />
                   )}
                 </button>
               </div>
@@ -311,37 +311,37 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                 <div className="mt-2 space-y-2">
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                     <Stat
-                      icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                      icon={<CheckCircle2 className="h-4 w-4" />}
                       label={t('progress.ok')}
                       value={String(job.ok)}
                       tone="text-emerald-400"
                     />
                     <Stat
-                      icon={<FolderCheck className="h-3.5 w-3.5" />}
+                      icon={<FolderCheck className="h-4 w-4" />}
                       label={t('progress.exists')}
                       value={String(job.exists)}
                       tone="text-sky-400"
                     />
                     <Stat
-                      icon={<XCircle className="h-3.5 w-3.5" />}
+                      icon={<XCircle className="h-4 w-4" />}
                       label={t('progress.failed')}
                       value={String(job.failed)}
                       tone="text-destructive"
                     />
                     <Stat
-                      icon={<TriangleAlert className="h-3.5 w-3.5" />}
+                      icon={<TriangleAlert className="h-4 w-4" />}
                       label={t('progress.resolveFailed')}
                       value={String(job.resolveFailed)}
                       tone="text-amber-400"
                     />
                     <Stat
-                      icon={<HardDriveDownload className="h-3.5 w-3.5" />}
+                      icon={<HardDriveDownload className="h-4 w-4" />}
                       label={t('progress.downloaded')}
                       value={formatBytes(job.bytes)}
                       tone="text-primary"
                     />
                     <Stat
-                      icon={<CircleSlash className="h-3.5 w-3.5" />}
+                      icon={<CircleSlash className="h-4 w-4" />}
                       label={t('progress.elapsed')}
                       value={formatElapsed(job.updatedAt - job.createdAt)}
                     />
@@ -360,7 +360,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                     <div className="space-y-1 rounded-md border border-border/60 bg-secondary/20 p-2">
                       {loadingId === job.id ? (
                         <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           {t('queue.loadingFailures')}
                         </p>
                       ) : list.length === 0 ? (
@@ -406,9 +406,9 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                                   className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary transition-colors hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-40"
                                 >
                                   {retryingKey === failureKey(job.id, item) ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <RefreshCw className="h-3 w-3" />
+                                    <RefreshCw className="h-4 w-4" />
                                   )}
                                   {t('queue.retryOne')}
                                 </button>
@@ -428,7 +428,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                         className="h-7 px-2 text-[11px]"
                         onClick={() => props.onExportFailures(job.id)}
                       >
-                        <FileDown className="h-3 w-3" />
+                        <FileDown className="h-4 w-4" />
                         {t('queue.exportFailures')}
                       </Button>
                     ) : null}
@@ -441,7 +441,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                         className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
                         onClick={() => props.onCancel(job.id)}
                       >
-                        <CircleSlash className="h-3 w-3" />
+                        <CircleSlash className="h-4 w-4" />
                         {t('queue.cancel')}
                       </Button>
                     ) : null}
@@ -452,7 +452,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                       disabled={busy}
                       onClick={() => props.onRemove(job.id)}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                       {t('queue.remove')}
                     </Button>
                     <Button
@@ -461,7 +461,7 @@ export function QueuePanel(props: QueuePanelProps): React.JSX.Element | null {
                       className="h-7 px-2 text-[11px]"
                       onClick={() => props.onOpenDir(job.rootDir)}
                     >
-                      <FolderOpen className="h-3 w-3" />
+                      <FolderOpen className="h-4 w-4" />
                       {t('queue.openDir')}
                     </Button>
                   </div>

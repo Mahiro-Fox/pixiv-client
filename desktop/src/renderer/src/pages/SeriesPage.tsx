@@ -146,7 +146,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
       ) : null}
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
-        <div className="relative h-44 w-32 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+        <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.cover ? (
             <img src={detail.cover} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -169,7 +169,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
             disabled={!detail.userId}
             className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:hover:text-muted-foreground"
           >
-            <User className="h-3.5 w-3.5" />
+            <User className="h-4 w-4" />
             {detail.userName || t('series.unknownAuthor')}
           </button>
 
@@ -224,7 +224,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
 
       <section className="min-h-0 flex-1">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Layers className="h-3.5 w-3.5" />
+          <Layers className="h-4 w-4" />
           {t('series.episodes')}
         </p>
         {episodes.length === 0 ? (

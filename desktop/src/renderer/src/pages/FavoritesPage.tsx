@@ -110,7 +110,7 @@ export function FavoritesPage(): React.JSX.Element {
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5">
         <div className="flex items-center gap-1.5">
-          <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
+          <UserRound className="h-4 w-4 text-muted-foreground" />
           <Input
             value={input}
             placeholder={t('favorites.userIdPlaceholder')}
@@ -164,7 +164,7 @@ export function FavoritesPage(): React.JSX.Element {
             onKeyDown={(event) => {
               if (event.key === 'Enter') submitTag()
             }}
-            className="h-8 w-36 text-xs"
+            className="h-8 w-46 text-xs"
           />
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={submitTag}>
             {t('favorites.filterTag')}
@@ -189,7 +189,7 @@ export function FavoritesPage(): React.JSX.Element {
       ) : null}
 
       {!cookieReady ? null : !userId ? (
-        <div className="flex h-32 flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 text-center">
+        <div className="flex h-42 flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 text-center">
           <Bookmark className="h-6 w-6 text-muted-foreground/60" />
           <p className="text-xs text-muted-foreground">{t('favorites.needUser')}</p>
           <p className="text-[11px] text-muted-foreground/70">{t('favorites.needUserHint')}</p>
@@ -220,7 +220,7 @@ export function FavoritesPage(): React.JSX.Element {
           </div>
 
           {loading ? (
-            <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('works.loading')}
             </div>

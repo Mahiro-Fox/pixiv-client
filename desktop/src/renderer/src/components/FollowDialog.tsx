@@ -214,7 +214,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
       onClick={props.onClose}
     >
       <div
-        className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+        className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border/60 px-5 py-4">
@@ -241,7 +241,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
 
         <div className="shrink-0 border-b border-border/60 px-5 py-2.5">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               spellCheck={false}
@@ -256,7 +256,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                 onClick={() => setQuery('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             ) : null}
           </div>
@@ -372,7 +372,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                         className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
                       >
                         pixiv
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-4 w-4" />
                       </a>
                     </div>
                   </div>

@@ -82,7 +82,7 @@ export function WorkCard({
               : 'border-white/40 bg-black/35 text-transparent backdrop-blur hover:border-white/70'
           )}
         >
-          <Check className="h-3.5 w-3.5" />
+          <Check className="h-4 w-4" />
         </button>
 
         <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
@@ -204,8 +204,8 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           <div key={index} className="overflow-hidden rounded-xl border border-border/60">
             <div className="aspect-square animate-pulse bg-secondary/60" />
             <div className="space-y-2 p-2.5">
-              <div className="h-3 w-4/5 animate-pulse rounded bg-secondary/60" />
-              <div className="h-3 w-2/5 animate-pulse rounded bg-secondary/40" />
+              <div className="h-4 w-4/5 animate-pulse rounded bg-secondary/60" />
+              <div className="h-4 w-2/5 animate-pulse rounded bg-secondary/40" />
             </div>
           </div>
         ))}
@@ -294,7 +294,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                 )}
               >
-                <Tags className="h-3.5 w-3.5 shrink-0" />
+                <Tags className="h-4 w-4 shrink-0" />
                 <span className="max-w-[9rem] truncate">
                   {props.activeTag || t('works.tagFilter')}
                 </span>
@@ -306,7 +306,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                   title={t('works.tagClear')}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </button>
               ) : null}
             </>
@@ -329,7 +329,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
             onClick={props.onExport}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <FileDown className="h-3.5 w-3.5" />
+            <FileDown className="h-4 w-4" />
             {t('works.export')}
           </button>
           <button

@@ -338,7 +338,7 @@ export function RecommendPage({
             }
           }}
         >
-          {loading ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           {t("recommend.refresh")}
         </Button>
       </div>
@@ -358,7 +358,7 @@ export function RecommendPage({
       ) : null}
 
       {!oauthReady || (loading && count === 0) ? (
-        <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t("works.loading")}
         </div>
@@ -378,7 +378,7 @@ export function RecommendPage({
                 <>
                   {loading ? (
                     <div className="flex h-8 items-center justify-center">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
                   ) : null}
                   {worksNext ? (
@@ -414,7 +414,7 @@ export function RecommendPage({
             </ul>
             {loading ? (
               <div className="flex h-8 items-center justify-center">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             ) : null}
             {usersNext ? (

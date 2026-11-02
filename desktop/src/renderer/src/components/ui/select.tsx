@@ -133,7 +133,7 @@ export function Select(props: SelectProps): React.JSX.Element {
         </span>
         <ChevronDown
           className={cn(
-            'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150',
+            'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150',
             open && 'rotate-180'
           )}
         />
@@ -172,7 +172,7 @@ export function Select(props: SelectProps): React.JSX.Element {
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                  {selected ? <Check className="h-4 w-4 shrink-0" /> : null}
                 </button>
               )
             })

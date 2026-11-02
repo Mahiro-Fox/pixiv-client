@@ -9,6 +9,7 @@ import {
   ImageOff,
   Images,
   Loader2,
+  PlayCircle,
   RefreshCw,
   Search,
   Sparkles,
@@ -36,10 +37,27 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Select } from './ui/select'
 
-/** 能直接交给图片预览的扩展名；动图成品（zip / mp4 / gif）不参与预览 */
+/** 能直接交给图片预览的扩展名；动图成品另走 openUgoira */
 const PREVIEW_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp'])
 function isPreviewable(ext: string): boolean {
   return PREVIEW_EXTS.has(ext.toLowerCase())
+}
+
+/** 本地动图成品：mp4 / webm 走 <video>，其余交给 <img> 或播放器 */
+const UGOIRA_VIDEO_EXTS = new Set(['.mp4', '.webm'])
+/**
+ * 同一件作品残留多种成品时的取用顺序：
+ * zip 里是原始帧（时长最准、画质无损），其次视频，最后 gif。
+ */
+const UGOIRA_PRIORITY = ['.zip', '.mp4', '.webm', '.gif'] as const
+
+/** 找到一件动图作品里真正能播的那个文件 */
+function ugoiraFileOf(work: LibraryWork): { path: string; ext: string } | null {
+  for (const ext of UGOIRA_PRIORITY) {
+    const file = work.files.find((item) => item.ext.toLowerCase() === ext)
+    if (file) return { path: file.path, ext }
+  }
+  return null
 }
 
 /** 卡片之间与网格的间距，虚拟滚动按此推算行高 */
@@ -138,6 +156,37 @@ function groupAuthors(works: LibraryWork[], novels: NovelLibraryItem[]): AuthorG
   return [...map.values()].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+/**
+ * 动图作品的封面。
+ *
+ * 扫描时只有静态图才会被当成封面，动图成品（zip / mp4 / gif）没有封面可用，
+ * 卡片上就只剩一个播放图标。这里向主进程要首帧缩略图：主进程解出第一帧并缓存到
+ * userData，渲染层拿到的只是一个图片路径，图库滚动时不会有多个解码器在跑。
+ * 取不到（成品损坏、ffmpeg 缺失）时返回空串，卡片继续显示占位图标。
+ */
+function useUgoiraCover(work: LibraryWork | null): string {
+  const fallback = work?.cover || ''
+  const source = work && work.ugoira && !fallback ? ugoiraFileOf(work)?.path || '' : ''
+  const [generated, setGenerated] = useState<{ source: string; path: string } | null>(null)
+
+  useEffect(() => {
+    if (!source) return
+    let alive = true
+    void window.pixiv
+      .getUgoiraCover(source)
+      .then((path) => {
+        if (alive && path) setGenerated({ source, path })
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [source])
+
+  // 记住了来源路径：换作品（虚拟列表复用）时不会拿上一件的图顶上
+  return fallback || (generated && generated.source === source ? generated.path : '')
+}
+
 function sortWorks(works: LibraryWork[], sort: LibrarySort): LibraryWork[] {
   const list = [...works]
   if (sort === 'files') return list.sort((a, b) => b.files.length - a.files.length)
@@ -164,7 +213,8 @@ function LibraryCard({
   onOpenDir
 }: LibraryCardProps): React.JSX.Element {
   const { t } = useI18n()
-  const cover = work.cover
+  // 动图作品没有静态封面，退回它的首帧缩略图
+  const cover = useUgoiraCover(work)
 
   return (
     <div
@@ -176,9 +226,15 @@ function LibraryCard({
       <div className="relative aspect-square w-full overflow-hidden bg-secondary/40">
         <button
           type="button"
-          onClick={() => imageCount > 0 && onOpen(work, 0)}
+          onClick={() => (imageCount > 0 || work.ugoira) && onOpen(work, 0)}
           className="block h-full w-full"
-          title={imageCount > 0 ? t('library.previewInApp') : t('library.noPreviewUgoira')}
+          title={
+            work.ugoira
+              ? t('library.playUgoira')
+              : imageCount > 0
+                ? t('library.previewInApp')
+                : t('library.noPreviewUgoira')
+          }
         >
           {cover ? (
             <img
@@ -189,8 +245,14 @@ function LibraryCard({
             />
           ) : (
             <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
-              <HardDrive className="h-6 w-6" />
-              <span className="text-[10px]">{t('library.ugoiraFile')}</span>
+              {work.ugoira ? (
+                <PlayCircle className="h-7 w-7 transition-colors group-hover:text-primary" />
+              ) : (
+                <HardDrive className="h-6 w-6" />
+              )}
+              <span className="text-[10px]">
+                {work.ugoira ? t('library.playUgoira') : t('library.ugoiraFile')}
+              </span>
             </span>
           )}
         </button>
@@ -210,7 +272,7 @@ function LibraryCard({
               : 'border-white/60 bg-black/40 text-transparent hover:bg-black/60'
           )}
         >
-          <Check className="h-3 w-3" />
+          <Check className="h-4 w-4" />
         </button>
 
         <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] tabular-nums text-white backdrop-blur">
@@ -228,7 +290,7 @@ function LibraryCard({
           title={t('library.openFolder')}
           aria-label={t('library.openFolder')}
         >
-          <FolderOpen className="h-3.5 w-3.5" />
+          <FolderOpen className="h-4 w-4" />
         </button>
       </div>
 
@@ -260,6 +322,10 @@ interface AuthorCardProps {
 
 function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
   const { t } = useI18n()
+  // 这位作者只有动图作品时分组封面为空，用第一件作品的首帧顶上
+  const first = group.illustration[0] ?? group.manga[0] ?? null
+  const ugoiraCover = useUgoiraCover(group.cover ? null : first)
+  const cover = group.cover || ugoiraCover
   return (
     <button
       type="button"
@@ -267,9 +333,9 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
       className="group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40"
     >
       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary/40">
-        {group.cover ? (
+        {cover ? (
           <img
-            src={toLocalUrl(group.cover)}
+            src={toLocalUrl(cover)}
             alt={group.userName}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.04]"
@@ -394,7 +460,7 @@ function NovelHitCard(props: {
       className="cursor-pointer rounded-xl border border-border/60 bg-card/40 p-3 transition-colors hover:border-border hover:bg-card/70"
     >
       <div className="flex items-center gap-2">
-        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium">{props.hit.title}</span>
         <span className="shrink-0 text-[10px] text-muted-foreground">{props.hit.author}</span>
         <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
@@ -436,6 +502,18 @@ export function LibraryPanel(): React.JSX.Element {
   const anchorRef = useRef<number | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [gridWidth, setGridWidth] = useState(0)
+
+  /**
+   * 本地视频预览的 blob 地址。
+   * 换了下一个视频 / 关掉页面都要 revoke，否则整段 mp4 会一直留在内存里。
+   */
+  const videoUrlRef = useRef<string | null>(null)
+  const revokeVideoUrl = (): void => {
+    if (!videoUrlRef.current) return
+    URL.revokeObjectURL(videoUrlRef.current)
+    videoUrlRef.current = null
+  }
+  useEffect(() => revokeVideoUrl, [])
 
   const load = async (force = false, silent = false): Promise<void> => {
     if (!silent) setLoading(true)
@@ -657,7 +735,47 @@ export function LibraryPanel(): React.JSX.Element {
     anchorRef.current = null
   }
 
+  /**
+   * 打开一件动图作品。
+   *
+   * 三种成品分开走：zip 交给播放器现解帧（每帧时长按作品 ID 找线上元数据），
+   * mp4 / webm 读成 blob 交给 <video>（自定义协议对 Range 支持不稳），
+   * gif 直接丢给 <img>，浏览器自己就会循环播。
+   */
+  const openUgoira = async (work: LibraryWork): Promise<void> => {
+    const file = ugoiraFileOf(work)
+    if (!file) return
+    const alt = `${work.title} · ${t('library.ugoira')}`
+
+    if (file.ext === '.zip') {
+      preview.open([{ src: '', alt, ugoira: { kind: 'local', path: file.path, id: work.id } }])
+      return
+    }
+
+    if (UGOIRA_VIDEO_EXTS.has(file.ext)) {
+      try {
+        const media = await window.pixiv.readLocalMedia(file.path)
+        revokeVideoUrl()
+        videoUrlRef.current = URL.createObjectURL(
+          new Blob([media.bytes as unknown as BlobPart], { type: media.mime })
+        )
+        preview.open([{ src: '', alt, video: videoUrlRef.current }])
+      } catch (reason) {
+        setError(messageOf(reason))
+      }
+      return
+    }
+
+    preview.open([{ src: toLocalUrl(file.path), alt }])
+  }
+
   const openWork = (work: LibraryWork, start: number): void => {
+    // 动图作品没有可分页的静态图，交给专门的播放分支；
+    // 历史索引里标了动图但成品已被删掉时，退回按普通图片预览
+    if (work.ugoira && ugoiraFileOf(work)) {
+      void openUgoira(work)
+      return
+    }
     const images = work.files
       .filter((file) => isPreviewable(file.ext))
       .map((file) => ({ src: toLocalUrl(file.path), alt: `${work.title} p${file.page}` }))
@@ -898,7 +1016,7 @@ export function LibraryPanel(): React.JSX.Element {
         ) : null}
         {loading ? (
           <span className="flex items-center gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             {t('library.scanning')}
           </span>
         ) : null}
@@ -1009,7 +1127,7 @@ export function LibraryPanel(): React.JSX.Element {
                   <NovelHitCard key={hit.path} hit={hit} onOpen={openNovel} />
                 ))
               ) : !deepSearching && deepResult ? (
-                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                <div className="flex h-42 items-center justify-center text-sm text-muted-foreground">
                   {t('novelLib.noHit')}
                 </div>
               ) : null

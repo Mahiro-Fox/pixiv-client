@@ -96,7 +96,7 @@ function NovelRow(props: { novel: NovelWork; onOpen: (id: string) => void; onSer
         </div>
 
         <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-          <User className="h-3 w-3 shrink-0" />
+          <User className="h-4 w-4 shrink-0" />
           {novel.userName}
           {novel.seriesTitle ? (
             <span className="truncate">· {novel.seriesTitle}</span>
@@ -123,7 +123,7 @@ function NovelRow(props: { novel: NovelWork; onOpen: (id: string) => void; onSer
         <div className="mt-auto flex items-center gap-3 text-[11px] text-muted-foreground">
           <span>{t('novel.chars', { count: novel.textCount })}</span>
           <span className="flex items-center gap-1">
-            <Timer className="h-3 w-3" />
+            <Timer className="h-4 w-4" />
             {t('novel.readTime', { minutes: readingMinutes(novel.readingTime) })}
           </span>
           <span>{t('novel.bookmarks', { count: novel.bookmarkCount })}</span>
@@ -313,13 +313,13 @@ export function NovelSearchPage(): React.JSX.Element {
               className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
             >
               {loading ? (
-                <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('novel.loading')}
                 </div>
               ) : null}
               {!loading && result && result.novels.length === 0 ? (
-                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                <div className="flex h-42 items-center justify-center text-sm text-muted-foreground">
                   {t('novel.noResult')}
                 </div>
               ) : null}
@@ -365,7 +365,7 @@ export function NovelSearchPage(): React.JSX.Element {
 
           <aside className="scrollbar-thin min-h-0 overflow-y-auto rounded-xl border border-border/50 bg-card/30 p-3">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
-              <Hash className="h-3.5 w-3.5" />
+              <Hash className="h-4 w-4" />
               {t('novel.relatedTags')}
             </p>
             {relatedTags.length > 0 ? (
@@ -386,7 +386,7 @@ export function NovelSearchPage(): React.JSX.Element {
               </div>
             ) : (
               <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
-                <Sparkles className="h-3 w-3" />
+                <Sparkles className="h-4 w-4" />
                 {t('novel.relatedTagsEmpty')}
               </p>
             )}

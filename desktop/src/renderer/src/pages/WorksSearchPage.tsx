@@ -228,7 +228,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           {relatedTags.length > 0 ? (
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+              <Hash className="h-4 w-4 text-muted-foreground" />
               {relatedTags.map((tag) => {
                 const translation = result?.tagTranslation[tag] || ''
                 return (
@@ -254,13 +254,13 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
 
           <div ref={scroll.ref} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
             {loading ? (
-              <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('works.loading')}
               </div>
             ) : null}
             {!loading && result && result.works.length === 0 ? (
-              <div className="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="flex h-42 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ImageOff className="h-6 w-6" />
                 {t('works.noResult')}
               </div>

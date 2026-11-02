@@ -150,7 +150,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 onChange={(event) =>
                   props.onConfigChange({ filterExcludeAi: event.target.checked })
                 }
-                className="h-3.5 w-3.5 accent-primary"
+                className="h-4 w-4 accent-primary"
               />
               {t('filter.excludeAi')}
             </label>
@@ -198,7 +198,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
             className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
           >
             <span className="flex items-center gap-1.5">
-              <ShieldBan className="h-3.5 w-3.5" />
+              <ShieldBan className="h-4 w-4" />
               {t('filter.manageBlocks')}
             </span>
             <span className="shrink-0 tabular-nums">

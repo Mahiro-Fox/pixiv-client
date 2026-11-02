@@ -97,13 +97,13 @@ export function UsersPage(): React.JSX.Element {
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div ref={scroll.ref} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
             {loading ? (
-              <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('users.loading')}
               </div>
             ) : null}
             {!loading && result && result.users.length === 0 ? (
-              <div className="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="flex h-42 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Search className="h-6 w-6" />
                 {t('users.noResult')}
               </div>

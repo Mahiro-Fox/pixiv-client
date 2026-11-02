@@ -44,6 +44,7 @@ import type {
   RecommendWorksParams,
   RecommendWorksResult,
   SearchWork,
+  UgoiraFrames,
   SelfUser,
   TagSuggestion,
   ThrottleState,
@@ -105,6 +106,13 @@ const api: PixivApi = {
     ipcRenderer.invoke('work:pages', illustId) as Promise<WorkPage[]>,
   getWorkDetail: (illustId: string) =>
     ipcRenderer.invoke('work:detail', illustId) as Promise<SearchWork | null>,
+  getUgoiraFrames: (illustId: string) =>
+    ipcRenderer.invoke('ugoira:frames', illustId) as Promise<UgoiraFrames>,
+  readLocalUgoiraFrames: (filePath: string, illustId?: string) =>
+    ipcRenderer.invoke('ugoira:local', filePath, illustId) as Promise<UgoiraFrames>,
+  readLocalMedia: (filePath: string) =>
+    ipcRenderer.invoke('media:local', filePath) as Promise<{ bytes: Uint8Array; mime: string }>,
+  getUgoiraCover: (filePath: string) => ipcRenderer.invoke('ugoira:cover', filePath) as Promise<string>,
   getTrendingTags: () =>
     ipcRenderer.invoke('search:trendingTags') as Promise<TagSuggestion[]>,
   listRanking: (params: RankingParams) =>

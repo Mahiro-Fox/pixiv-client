@@ -52,7 +52,7 @@ function CookieExpiredBanner(props: {
   const { t } = useI18n();
   return (
     <div className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      <AlertTriangle className="h-4 w-4 shrink-0" />
       <p className="flex-1 leading-5">{t("cookie.expired")}</p>
       <Button
         variant="outline"
@@ -72,7 +72,7 @@ function CookieExpiredBanner(props: {
         aria-label={t("cookie.dismiss")}
         className="rounded p-0.5 text-amber-500/70 transition-colors hover:bg-amber-500/15 hover:text-amber-500"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );
@@ -288,7 +288,7 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
               className="rounded p-0.5 text-emerald-500/70 transition-colors hover:bg-emerald-500/15 hover:text-emerald-500"
               aria-label={t("app.dismissNotice")}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         ) : null}
@@ -303,7 +303,7 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
               className="rounded p-0.5 text-destructive/70 transition-colors hover:bg-destructive/15 hover:text-destructive"
               aria-label={t("app.dismissNotice")}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         ) : null}
@@ -319,17 +319,17 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
           >
             <TabsList>
               <TabsTrigger value="works">
-                <Images className="h-3.5 w-3.5" />
+                <Images className="h-4 w-4" />
                 {t("app.tabWorks")}
                 {worksCount > 0 ? `（${worksCount}）` : ""}
               </TabsTrigger>
               <TabsTrigger value="tasks">
-                <ListRestart className="h-3.5 w-3.5" />
+                <ListRestart className="h-4 w-4" />
                 {t("app.tabTasks")}
                 {queue.length > 0 ? `（${queue.length}）` : ""}
               </TabsTrigger>
               <TabsTrigger value="log">
-                <ScrollText className="h-3.5 w-3.5" />
+                <ScrollText className="h-4 w-4" />
                 {t("app.tabLog")}
                 {items.length > 0 ? `（${items.length}）` : ""}
               </TabsTrigger>
@@ -338,13 +338,13 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               {collecting ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   {collectText ?? t("app.collectingWorks")}
                 </>
               ) : null}
               {running ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   {t("app.downloadRunning")}
                 </>
               ) : null}

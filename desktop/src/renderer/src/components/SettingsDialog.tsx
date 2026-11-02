@@ -175,7 +175,7 @@ function NumberStepper(props: {
           className={buttonClass}
           onClick={() => props.onChange(clamp(props.value - props.step))}
         >
-          <Minus className="h-3 w-3" />
+          <Minus className="h-4 w-4" />
         </button>
         <span className="w-14 text-center text-xs tabular-nums">
           {props.value}
@@ -188,7 +188,7 @@ function NumberStepper(props: {
           className={buttonClass}
           onClick={() => props.onChange(clamp(props.value + props.step))}
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -414,9 +414,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   }
 
   const themeOptions: { value: ThemeMode; label: string; icon: React.JSX.Element }[] = [
-    { value: 'light', label: t('theme.light'), icon: <Sun className="h-3.5 w-3.5" /> },
-    { value: 'dark', label: t('theme.dark'), icon: <Moon className="h-3.5 w-3.5" /> },
-    { value: 'system', label: t('theme.system'), icon: <Monitor className="h-3.5 w-3.5" /> }
+    { value: 'light', label: t('theme.light'), icon: <Sun className="h-4 w-4" /> },
+    { value: 'dark', label: t('theme.dark'), icon: <Moon className="h-4 w-4" /> },
+    { value: 'system', label: t('theme.system'), icon: <Monitor className="h-4 w-4" /> }
   ]
   const localeOptions: { value: Locale; label: string }[] = [
     { value: 'zh-CN', label: '简体中文' },
@@ -434,13 +434,13 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
       value: 'regular',
       label: t('settings.quality.regular'),
       hint: t('settings.quality.regularHint'),
-      icon: <ImageIcon className="h-3.5 w-3.5" />
+      icon: <ImageIcon className="h-4 w-4" />
     },
     {
       value: 'original',
       label: t('settings.quality.original'),
       hint: t('settings.quality.originalHint'),
-      icon: <Gem className="h-3.5 w-3.5" />
+      icon: <Gem className="h-4 w-4" />
     }
   ]
 
@@ -454,19 +454,19 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
       value: 'mp4',
       label: t('settings.ugoira.mp4'),
       hint: t('settings.ugoira.mp4Hint'),
-      icon: <Film className="h-3.5 w-3.5" />
+      icon: <Film className="h-4 w-4" />
     },
     {
       value: 'gif',
       label: t('settings.ugoira.gif'),
       hint: t('settings.ugoira.gifHint'),
-      icon: <ImageIcon className="h-3.5 w-3.5" />
+      icon: <ImageIcon className="h-4 w-4" />
     },
     {
       value: 'zip',
       label: t('settings.ugoira.zip'),
       hint: t('settings.ugoira.zipHint'),
-      icon: <FileArchive className="h-3.5 w-3.5" />
+      icon: <FileArchive className="h-4 w-4" />
     }
   ]
 
@@ -1242,7 +1242,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               disabled={updateBusy}
               onClick={() => void checkUpdate()}
             >
-              {updateBusy ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {updateBusy ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
               {t('settings.update.check')}
             </Button>
             {updateStatus.state === 'downloaded' ? (

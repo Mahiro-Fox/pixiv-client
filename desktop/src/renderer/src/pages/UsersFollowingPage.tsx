@@ -53,12 +53,12 @@ export function UsersFollowingPage(): React.JSX.Element {
 
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
-          <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('users.loading')}
           </div>
         ) : users.length === 0 ? (
-          <div className="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex h-42 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
             <Users className="h-6 w-6" />
             {t('users.followingEmpty')}
           </div>

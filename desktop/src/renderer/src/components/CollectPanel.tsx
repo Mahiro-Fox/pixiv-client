@@ -165,7 +165,7 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
       {open && items.length > 0 ? (
         <div className="scrollbar-thin absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-xl">
           <p className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
+            <Sparkles className="h-4 w-4" />
             {t('collect.tagSuggest')}
           </p>
           {items.map((item, index) => (
@@ -326,7 +326,7 @@ function TagListInput({
               onClick={() => remove(chip)}
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4" />
             </button>
           </span>
         ))}
@@ -362,14 +362,14 @@ function TagListInput({
           className="min-w-20 flex-1 bg-transparent py-0.5 text-sm outline-none placeholder:text-muted-foreground/60"
         />
         {loading ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
         ) : null}
       </div>
 
       {open && items.length > 0 ? (
         <div className="scrollbar-thin absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-xl">
           <p className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
+            <Sparkles className="h-4 w-4" />
             {t('collect.tagSuggest')}
           </p>
           {items.map((item, index) => (
@@ -434,8 +434,8 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
     labelKey: MessageKey
     icon: React.JSX.Element
   }[] = [
-    { value: 'regular', labelKey: 'collect.qualityRegular', icon: <ImageIcon className="h-3.5 w-3.5" /> },
-    { value: 'original', labelKey: 'collect.qualityOriginal', icon: <Gem className="h-3.5 w-3.5" /> }
+    { value: 'regular', labelKey: 'collect.qualityRegular', icon: <ImageIcon className="h-4 w-4" /> },
+    { value: 'original', labelKey: 'collect.qualityOriginal', icon: <Gem className="h-4 w-4" /> }
   ]
   const qualityLabelKey: MessageKey =
     config.imageQuality === 'original' ? 'collect.qualityOriginal' : 'collect.qualityRegular'
@@ -506,7 +506,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/10 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium">
-                  <Tags className="h-3.5 w-3.5 text-primary" />
+                  <Tags className="h-4 w-4 text-primary" />
                   {t('collect.tagCombine')}
                 </span>
                 <div className="flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
@@ -631,7 +631,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           }
           onClick={props.onCollect}
         >
-          {props.collecting ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {props.collecting ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           {props.collecting ? t('collect.collectingWorks') : t('collect.collectWorks')}
         </Button>
         {isBookmarks && !hasCookie && !config.userId.trim() ? (

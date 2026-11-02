@@ -1,7 +1,9 @@
 import { BrowserWindow, app, dialog, ipcMain, shell, type WebContents } from 'electron'
 import { watch, type FSWatcher } from 'node:fs'
-import { rm, rmdir, writeFile } from 'node:fs/promises'
+import { readFile, rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import os from 'node:os'
+import { randomUUID } from 'node:crypto'
 import type {
   AppConfig,
   AuthorContent,
@@ -31,6 +33,8 @@ import type {
   RecommendUsersParams,
   RecommendWorksParams,
   UgoiraFormat,
+  UgoiraFrame,
+  UgoiraFrames,
   UserContentParams,
   UserSearchParams,
   ViewRecordInput,
@@ -47,6 +51,7 @@ import {
   fetchFollowing,
   fetchSelfUser,
   fetchUserTags,
+  fetchUgoiraMeta,
   fetchWorkPages,
   probeCookieHealth,
   suggestTags
@@ -62,7 +67,7 @@ import {
   readNovelText,
   searchNovelLibraryText
 } from './pixiv/novelLibrary'
-import { setAuthFailureHandler } from './pixiv/http'
+import { downloadFile, setAuthFailureHandler } from './pixiv/http'
 import { setPixivLang } from './pixiv/lang'
 import { fetchTrendingTags, fetchWorkDetail, searchWorks } from './pixiv/search'
 import { fetchRanking } from './pixiv/ranking'
@@ -86,6 +91,8 @@ import { clearPixivLoginSession, openPixivLogin } from './pixiv/login'
 import { clearOAuth, getOAuthStatus, saveOAuthCredentials } from './pixiv/oauth'
 import { loginOAuthWithPKCE, autoLoginOAuth } from './pixiv/oauthLogin'
 import { createQueuedJob, runDownloadJob } from './pixiv/jobs'
+import { readUgoiraFrames } from './pixiv/ugoira'
+import { ensureUgoiraCover } from './pixiv/ugoiraCover'
 import { applyThrottleLimits, onThrottleChange, throttleStates } from './pixiv/throttle'
 import { throttleLimitsFromConfig } from '../shared/throttle'
 import { blockRulesOf, filterBlocked, isBlocked } from '../shared/block'
@@ -228,6 +235,52 @@ function filterBlockedUsers<T extends { id: string; name: string }>(
 /** 动图格式只接受三个合法值，其它输入回退到 mp4 */
 function toUgoiraFormat(value: unknown): UgoiraFormat {
   return value === 'zip' || value === 'gif' ? value : 'mp4'
+}
+
+/** 媒体文件 MIME：渲染层据此决定用 <img> 还是 <video> 解 */
+const MEDIA_MIME: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png'
+}
+
+/**
+ * 动图帧内存缓存。
+ *
+ * 一帧就是一张完整插画，几十帧能到几十 MB，所以只留最近两份：
+ * 够覆盖「来回点几个动图」的用法，也不会把内存顶起来。
+ */
+const ugoiraFrameCache = new Map<string, UgoiraFrames>()
+
+function rememberUgoiraFrames(id: string, value: UgoiraFrames): UgoiraFrames {
+  // 重新插入一次，让它变成「最近使用」
+  ugoiraFrameCache.delete(id)
+  ugoiraFrameCache.set(id, value)
+  while (ugoiraFrameCache.size > 2) {
+    const oldest = ugoiraFrameCache.keys().next().value
+    if (!oldest) break
+    ugoiraFrameCache.delete(oldest)
+  }
+  return value
+}
+
+/**
+ * 渲染层传来的本地路径一律按「保存目录内」校验，与 pixivfile:// 协议同一套规则。
+ * 预览接口能读文件字节，不设这个边界就等于把任意读盘能力开给了页面。
+ */
+async function resolveInsideOutDir(raw: string): Promise<string> {
+  const config = await loadConfig()
+  const root = path.resolve(config.outDir)
+  const target = path.resolve(String(raw || ''))
+  const inside = path.relative(root, target)
+  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) {
+    throw new Error('只能预览保存目录内的文件')
+  }
+  return target
 }
 
 /** 作品栏目白名单：旧配置没有这个字段、或被手改成别的值时按「全部」处理 */
@@ -954,6 +1007,75 @@ export function registerIpcHandlers(): void {
     if (!/^\d+$/.test(id)) return null
     const { cookie } = await resolveCookie()
     return fetchWorkDetail(id, cookie)
+  })
+
+  /**
+   * 动图预览：把 zip 解成帧交给渲染层按 delay 自己播。
+   *
+   * 预览不做转码 —— 不落临时产物、不依赖 ffmpeg、画质是原始帧；
+   * 代价是每帧都要过一次 IPC，所以按 id 缓存最近两份。
+   */
+  ipcMain.handle('ugoira:frames', async (_event, illustId: string) => {
+    const id = String(illustId || '').trim()
+    if (!/^\d+$/.test(id)) throw new Error('作品 ID 无效')
+    const cached = ugoiraFrameCache.get(id)
+    if (cached) return cached
+
+    const { cookie } = await resolveCookie()
+    const meta = await fetchUgoiraMeta(id, cookie)
+    const zipPath = path.join(os.tmpdir(), `pixiv-ugoira-${id}-${randomUUID().slice(0, 8)}.zip`)
+    try {
+      await downloadFile(meta.zipUrl, zipPath, cookie)
+      return rememberUgoiraFrames(id, { frames: await readUgoiraFrames(zipPath, meta.frames) })
+    } finally {
+      await rm(zipPath, { force: true }).catch(() => undefined)
+      await rm(`${zipPath}.part`, { force: true }).catch(() => undefined)
+    }
+  })
+
+  /**
+   * 本地已下载的动图 zip。
+   * 每帧时长只存在线上的 ugoira_meta 里，拿不到就按默认 100ms 播——
+   * 顺序仍然按文件名排，和下载时的转码结果一致。
+   */
+  ipcMain.handle('ugoira:local', async (_event, filePath: string, illustId?: string) => {
+    const target = await resolveInsideOutDir(filePath)
+    const id = String(illustId || '').trim()
+    const valid = /^\d+$/.test(id)
+    const cached = valid ? ugoiraFrameCache.get(id) : undefined
+    if (cached) return cached
+
+    let frames: UgoiraFrame[] = []
+    if (valid) {
+      try {
+        const { cookie } = await resolveCookie()
+        frames = (await fetchUgoiraMeta(id, cookie)).frames
+      } catch {
+        frames = []
+      }
+    }
+    const value: UgoiraFrames = { frames: await readUgoiraFrames(target, frames) }
+    return valid ? rememberUgoiraFrames(id, value) : value
+  })
+
+  /**
+   * 动图作品的首帧缩略图。
+   * 卡片只显示静态图，所以主进程把首帧落成缓存文件返回路径，渲染层直接用 pixivfile:// 取。
+   */
+  ipcMain.handle('ugoira:cover', async (_event, filePath: string) => {
+    const target = await resolveInsideOutDir(filePath)
+    return ensureUgoiraCover(target)
+  })
+
+  /**
+   * 媒体文件字节：mp4 / webm 交给渲染层做 Blob URL 再喂给 <video>。
+   * 走自定义协议时对 Range 请求支持不稳，转码产物又只有几 MB，直接整份传更省心。
+   */
+  ipcMain.handle('media:local', async (_event, filePath: string) => {
+    const target = await resolveInsideOutDir(filePath)
+    const mime = MEDIA_MIME[path.extname(target).toLowerCase()] || 'application/octet-stream'
+    const bytes = await readFile(target)
+    return { bytes: new Uint8Array(bytes), mime }
   })
 
   // 搜索框下拉里的热门标签（首页推荐作品聚合）

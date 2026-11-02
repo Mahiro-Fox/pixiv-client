@@ -70,7 +70,7 @@ function BatchBar(props: {
   const { t } = useI18n()
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11px]">
-      <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+      <Users className="h-4 w-4 shrink-0 text-primary" />
       <span className="font-medium text-primary">
         {t('batch.current', { index: props.batch.index, total: props.batch.total })}
       </span>
@@ -87,7 +87,7 @@ function BatchBar(props: {
         className="ml-auto h-6 px-1.5 text-[11px]"
         onClick={props.onCancel}
       >
-        <X className="h-3 w-3" />
+        <X className="h-4 w-4" />
         {t('batch.cancel')}
       </Button>
     </div>
@@ -176,7 +176,7 @@ export function ProgressPanel({
           onClick={onOpenSettings}
           className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
         >
-          <Settings2 className="h-3 w-3 shrink-0" />
+          <Settings2 className="h-4 w-4 shrink-0" />
           {t('progress.parallelHint', { count: parallelJobs })}
         </button>
       </CardContent>

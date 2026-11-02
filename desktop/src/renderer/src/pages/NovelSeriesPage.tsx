@@ -184,7 +184,7 @@ export function NovelSeriesPage(): React.JSX.Element {
       ) : null}
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
-        <div className="relative h-44 w-32 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+        <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.series.cover ? (
             <img src={detail.series.cover} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -208,7 +208,7 @@ export function NovelSeriesPage(): React.JSX.Element {
           </div>
 
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
+            <User className="h-4 w-4" />
             {detail.series.userName}
           </p>
 
@@ -216,7 +216,7 @@ export function NovelSeriesPage(): React.JSX.Element {
             <span>{t('novel.episodes', { count: detail.series.publishedContentCount })}</span>
             <span>{t('novel.chars', { count: detail.series.publishedTotalCharacterCount })}</span>
             <span className="flex items-center gap-1">
-              <Timer className="h-3 w-3" />
+              <Timer className="h-4 w-4" />
               {t('novel.readTime', { minutes: readingMinutes(detail.series.publishedReadingTime) })}
             </span>
           </div>
@@ -291,7 +291,7 @@ export function NovelSeriesPage(): React.JSX.Element {
 
       <section className="min-h-0 flex-1">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <BookOpen className="h-3.5 w-3.5" />
+          <BookOpen className="h-4 w-4" />
           {t('novel.toc')}
         </p>
         <div className="space-y-1">
@@ -312,7 +312,7 @@ export function NovelSeriesPage(): React.JSX.Element {
                 </span>
                 {isRead ? (
                   <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-emerald-500">
-                    <Check className="h-3 w-3" />
+                    <Check className="h-4 w-4" />
                     {t('novel.readMark')}
                   </span>
                 ) : null}

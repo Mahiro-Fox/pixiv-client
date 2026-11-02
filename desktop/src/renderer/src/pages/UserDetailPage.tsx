@@ -223,7 +223,7 @@ export function UserDetailPage({
     <main className=" flex min-h-0 flex-1 flex-col gap-3  px-6 py-4">
       <div className="flex items-center gap-2 justify-between">
         <Button variant="ghost" size="sm" onClick={goBack}>
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="h-4 w-4" />
           {t("user.back")}
         </Button>
         <a
@@ -233,7 +233,7 @@ export function UserDetailPage({
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
         >
           pixiv
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink className="h-4 w-4" />
         </a>
       </div>
 
@@ -289,7 +289,7 @@ export function UserDetailPage({
               navigate("/workbench");
             }}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4" />
             {t("user.toDownload")}
           </Button>
           {followReady && oauthConnected && selfId !== profile.id ? (
@@ -303,9 +303,9 @@ export function UserDetailPage({
               {followBusy ? (
                 <Loader2 className="animate-spin" />
               ) : followed ? (
-                <UserCheck className="h-3.5 w-3.5" />
+                <UserCheck className="h-4 w-4" />
               ) : (
-                <UserPlus className="h-3.5 w-3.5" />
+                <UserPlus className="h-4 w-4" />
               )}
               {followed ? t("user.followed") : t("user.follow")}
             </Button>
@@ -356,7 +356,7 @@ export function UserDetailPage({
           ) : null}
 
           {loading ? (
-            <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t("works.loading")}
             </div>

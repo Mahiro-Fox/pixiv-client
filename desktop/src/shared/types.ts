@@ -69,6 +69,26 @@ export interface UgoiraFrame {
   delay: number
 }
 
+/**
+ * 预览用的一帧：原始图片字节 + 停留时长。
+ *
+ * 预览刻意不做转码：zip 里的帧本来就是完整图片，渲染层按 delay 逐帧切换即可，
+ * 既没有 256 色的色带（gif）也没有转码等待，还能精确还原 pixiv 的变帧节奏。
+ */
+export interface UgoiraFrameData {
+  /** 帧图片原始字节（jpg / png），渲染层自行包成 Blob */
+  data: Uint8Array
+  /** 该帧停留时长（毫秒） */
+  delay: number
+  /** 帧图片的 MIME，用于还原 Blob 类型 */
+  mime: string
+}
+
+/** 一个动图作品的完整帧序列（已按播放顺序排好） */
+export interface UgoiraFrames {
+  frames: UgoiraFrameData[]
+}
+
 export interface AppConfig {
   userId: string
   tag: string
@@ -1154,6 +1174,20 @@ export interface PixivApi {
   getFollowing: (params: FollowingParams) => Promise<FollowingResult>
   exportWorks: (params: WorkExportParams) => Promise<string | null>
   getWorkPages: (illustId: string) => Promise<WorkPage[]>
+  /**
+   * 动图帧：按 id 取回解压后的帧序列，供应用内播放。
+   * 首次会下载 zip 并解压，之后同一次会话内走内存缓存。
+   */
+  getUgoiraFrames: (illustId: string) => Promise<UgoiraFrames>
+  /** 本地已下载的动图 zip：给 id 时用线上元数据校正每帧时长，取不到就按默认时长播放 */
+  readLocalUgoiraFrames: (filePath: string, illustId?: string) => Promise<UgoiraFrames>
+  /** 读取保存目录内的媒体文件字节（mp4 / webm 这类要靠 <video> 播的东西） */
+  readLocalMedia: (filePath: string) => Promise<{ bytes: Uint8Array; mime: string }>
+  /**
+   * 动图作品的首帧缩略图：返回缓存文件绝对路径（可直接用 pixivfile:// 取），失败返回空串。
+   * 用于给没有静态封面的动图卡片补一张图。
+   */
+  getUgoiraCover: (filePath: string) => Promise<string>
   /** 只有作品 id 时按 id 补全详情（标题/作者/标签等），失败返回 null */
   getWorkDetail: (illustId: string) => Promise<SearchWork | null>
   /** 搜索框下拉用的热门标签 */
