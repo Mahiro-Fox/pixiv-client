@@ -48,11 +48,14 @@ function messageOf(error: unknown): string {
 export interface UserDetailPageProps {
   /** App 层的 OAuth 状态；设置里保存 / 清除凭据后关注按钮要立刻跟着变 */
   oauth: OAuthStatus | null;
+  /** 把作者带进下载工作台：参数与抓取由 App 负责，这里只管导航过去 */
+  onDownloadAuthor: (userId: string) => void;
 }
 
 /** 用户主页：插画 / 漫画 / 小说 / 收藏 四个栏目 */
 export function UserDetailPage({
   oauth,
+  onDownloadAuthor,
 }: UserDetailPageProps): React.JSX.Element {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -218,22 +221,10 @@ export function UserDetailPage({
 
   return (
     <main className=" flex min-h-0 flex-1 flex-col gap-3  px-6 py-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-between">
         <Button variant="ghost" size="sm" onClick={goBack}>
-          <ArrowLeft />
+          <ArrowLeft className="h-3.5 w-3.5" />
           {t("user.back")}
-        </Button>
-        {/* 把作者带进工作台：填好 ID 并直接抓一轮，省掉回下载页手抄 ID */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto"
-          onClick={() =>
-            navigate("/workbench", { state: { downloadUserId: userId } })
-          }
-        >
-          <Download className="h-3.5 w-3.5" />
-          {t("user.toDownload")}
         </Button>
         <a
           href={`https://www.pixiv.net/users/${userId}`}
@@ -242,7 +233,7 @@ export function UserDetailPage({
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
         >
           pixiv
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>
 
@@ -288,6 +279,19 @@ export function UserDetailPage({
               </p>
             ) : null}
           </div>
+          {/* 把作者带进工作台：填好 ID 并直接抓一轮，省掉回下载页手抄 ID */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => {
+              onDownloadAuthor(userId);
+              navigate("/workbench");
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            {t("user.toDownload")}
+          </Button>
           {followReady && oauthConnected && selfId !== profile.id ? (
             <Button
               variant={followed ? "outline" : "default"}
@@ -299,9 +303,9 @@ export function UserDetailPage({
               {followBusy ? (
                 <Loader2 className="animate-spin" />
               ) : followed ? (
-                <UserCheck />
+                <UserCheck className="h-3.5 w-3.5" />
               ) : (
-                <UserPlus />
+                <UserPlus className="h-3.5 w-3.5" />
               )}
               {followed ? t("user.followed") : t("user.follow")}
             </Button>

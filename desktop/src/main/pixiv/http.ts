@@ -197,7 +197,6 @@ async function requestJson<T>(
     // 全局 API 闸门：冷却 / 并发 / 最小间隔都在这里排队
     const release = await acquireSlot('api', signal)
     try {
-      console.log('requestJson', target, cookie, signal, TIMEOUT, options)
       const response = await open(target, cookie, signal, TIMEOUT, options)
       const status = response.statusCode
 

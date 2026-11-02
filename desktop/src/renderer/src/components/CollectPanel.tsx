@@ -631,7 +631,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           }
           onClick={props.onCollect}
         >
-          {props.collecting ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {props.collecting ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {props.collecting ? t('collect.collectingWorks') : t('collect.collectWorks')}
         </Button>
         {isBookmarks && !hasCookie && !config.userId.trim() ? (

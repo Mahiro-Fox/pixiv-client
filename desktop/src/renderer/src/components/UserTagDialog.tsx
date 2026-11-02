@@ -193,7 +193,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                   size="sm"
                   onClick={() => setReloadTick((value) => value + 1)}
                 >
-                  <RefreshCw />
+                  <RefreshCw className="h-3.5 w-3.5" />
                   {t('tags.retry')}
                 </Button>
               ) : null}

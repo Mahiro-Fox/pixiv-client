@@ -124,12 +124,12 @@ export function RankingPage(): React.JSX.Element {
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
-            <Input
+            {/* <Input
               type="date"
               value={date}
               onChange={(event) => apply({ date: event.target.value, page: '' })}
               className="h-8 w-36 text-xs"
-            />
+            /> */}
             {date ? (
               <Button
                 variant="ghost"
@@ -147,7 +147,7 @@ export function RankingPage(): React.JSX.Element {
               disabled={loading}
               onClick={reload}
             >
-              {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {loading ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
               {t('ranking.refresh')}
             </Button>
           </div>

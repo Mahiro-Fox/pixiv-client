@@ -1242,7 +1242,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               disabled={updateBusy}
               onClick={() => void checkUpdate()}
             >
-              {updateBusy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {updateBusy ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
               {t('settings.update.check')}
             </Button>
             {updateStatus.state === 'downloaded' ? (

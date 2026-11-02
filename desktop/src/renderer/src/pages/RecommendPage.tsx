@@ -338,7 +338,7 @@ export function RecommendPage({
             }
           }}
         >
-          {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {loading ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {t("recommend.refresh")}
         </Button>
       </div>
