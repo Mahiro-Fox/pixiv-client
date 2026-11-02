@@ -1,12 +1,15 @@
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type { HistoryEntry, LibraryFile, LibraryResult, LibraryWork } from '../shared/types'
+import { CONTENT_DIR, IMAGE_CONTENTS, type ImageContent } from '../shared/layout'
 import {
   DEFAULT_FILE_TEMPLATE,
   compileDownloadMatcher,
   type DownloadMatcher
 } from '../shared/template'
 import { listHistoryEntries } from './history'
+import { parseAuthorFolder } from './pixiv/files'
+import { scanNovelLibrary } from './pixiv/novelLibrary'
 
 function normalizeKey(filePath: string): string {
   const resolved = path.resolve(filePath)
@@ -17,13 +20,6 @@ function normalizeKey(filePath: string): string {
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp'])
 /** 动图成品可能出现的扩展名：保留压缩包、转码后的视频与 gif */
 const UGOIRA_EXTS = new Set(['.zip', '.mp4', '.gif', '.webm'])
-
-/** 作者目录形如「114638697_画师名」，ID 与作者名都从中还原 */
-function authorOf(dirName: string): { userId: string; userName: string } {
-  const match = /^(\d+)_(.+)$/.exec(dirName)
-  if (!match) return { userId: '', userName: dirName }
-  return { userId: match[1], userName: match[2] }
-}
 
 function matchersFor(template: string): DownloadMatcher[] {
   const list = [compileDownloadMatcher(template), compileDownloadMatcher(DEFAULT_FILE_TEMPLATE)]
@@ -36,25 +32,43 @@ function matchersFor(template: string): DownloadMatcher[] {
 
 interface Accumulator {
   id: string
-  tag: string
-  authorDir: string
+  content: ImageContent
+  userId: string
+  userName: string
+  authorPath: string
   /** 同一页可能同时有常规图与原图（模板含 {quality}），因此按文件而不是按页收集 */
   files: LibraryFile[]
   history: HistoryEntry | null
   updatedAt: number
 }
 
+function emptyResult(outDir: string, scannedAt: number): LibraryResult {
+  return {
+    outDir,
+    scannedAt,
+    works: [],
+    novels: [],
+    totalFiles: 0,
+    totalBytes: 0
+  }
+}
+
 /**
- * 扫描保存目录，生成按「标签目录 + 作品 ID」聚合的本地图库。
+ * 扫描保存目录，生成本地图库。
+ *
+ * 目录结构固定为 `{作者ID}_{作者名}/{illustration|manga|novel}`：
+ * 先按作者分，再按内容类型分，与下载时的落盘规则完全一致。
  * 文件名通过当前模板与默认模板解析出作品 ID 与页码；标题等元数据优先取下载历史索引。
  */
-export async function scanLibrary(outDir: string, template: string): Promise<LibraryResult> {
+export async function scanLibrary(
+  outDir: string,
+  template: string,
+  force = false
+): Promise<LibraryResult> {
   const rootDir = path.resolve(outDir)
   const scannedAt = Date.now()
   const matchers = matchersFor(template || DEFAULT_FILE_TEMPLATE)
-  if (matchers.length === 0) {
-    return { outDir: rootDir, scannedAt, works: [], totalFiles: 0, totalBytes: 0, tags: [] }
-  }
+  if (matchers.length === 0) return emptyResult(rootDir, scannedAt)
 
   const history = new Map<string, HistoryEntry>()
   ;(await listHistoryEntries()).forEach((entry) => {
@@ -65,29 +79,25 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
   let totalFiles = 0
   let totalBytes = 0
 
-  let tagDirs
+  let authorDirs
   try {
-    tagDirs = await readdir(rootDir, { withFileTypes: true })
+    authorDirs = await readdir(rootDir, { withFileTypes: true })
   } catch {
-    return { outDir: rootDir, scannedAt, works: [], totalFiles: 0, totalBytes: 0, tags: [] }
+    return emptyResult(rootDir, scannedAt)
   }
 
-  for (const tagDir of tagDirs) {
-    if (!tagDir.isDirectory()) continue
-    const tagPath = path.join(rootDir, tagDir.name)
-    let authorDirs
-    try {
-      authorDirs = await readdir(tagPath, { withFileTypes: true })
-    } catch {
-      continue
-    }
+  for (const authorDir of authorDirs) {
+    if (!authorDir.isDirectory()) continue
+    // 只认 {用户ID}_{作者名}：其它目录（比如用户自己放的文件）不参与图库
+    const author = parseAuthorFolder(authorDir.name)
+    if (!author) continue
+    const authorPath = path.join(rootDir, authorDir.name)
 
-    for (const authorDir of authorDirs) {
-      if (!authorDir.isDirectory()) continue
-      const authorPath = path.join(tagPath, authorDir.name)
+    for (const content of IMAGE_CONTENTS) {
+      const contentPath = path.join(authorPath, CONTENT_DIR[content])
       let files
       try {
-        files = await readdir(authorPath, { withFileTypes: true })
+        files = await readdir(contentPath, { withFileTypes: true })
       } catch {
         continue
       }
@@ -109,7 +119,7 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
           .find(Boolean)
         if (!matched) continue
 
-        const filePath = path.join(authorPath, name)
+        const filePath = path.join(contentPath, name)
         let info
         try {
           info = await stat(filePath)
@@ -117,13 +127,15 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
           continue
         }
 
-        const key = `${tagDir.name}\u0000${matched.id}`
+        const key = `${authorDir.name}\u0000${content}\u0000${matched.id}`
         const acc =
           works.get(key) ??
           ({
             id: matched.id,
-            tag: tagDir.name,
-            authorDir: authorDir.name,
+            content,
+            userId: author.userId,
+            userName: author.userName,
+            authorPath,
             files: [],
             history: null,
             updatedAt: 0
@@ -160,7 +172,6 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
     const coverFile = files
       .filter((file) => IMAGE_EXTS.has(file.ext))
       .sort((a, b) => a.page - b.page || b.bytes - a.bytes)[0]
-    const author = authorOf(acc.authorDir)
     const historyMeta = acc.history
     const ugoira = files.some((file) => UGOIRA_EXTS.has(file.ext)) || Boolean(historyMeta?.ugoira)
     const pageCount = new Set(files.map((file) => file.page)).size
@@ -168,9 +179,10 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
     list.push({
       id: acc.id,
       title: historyMeta?.title || `作品 ${acc.id}`,
-      userId: historyMeta?.userId || author.userId,
-      userName: historyMeta?.userName || author.userName,
-      tag: acc.tag,
+      userId: historyMeta?.userId || acc.userId,
+      userName: historyMeta?.userName || acc.userName,
+      content: acc.content,
+      authorPath: acc.authorPath,
       pageCount,
       files,
       totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
@@ -182,7 +194,20 @@ export async function scanLibrary(outDir: string, template: string): Promise<Lib
   })
 
   list.sort((a, b) => b.updatedAt - a.updatedAt)
-  const tags = [...new Set(list.map((work) => work.tag))].sort((a, b) => a.localeCompare(b, 'zh'))
 
-  return { outDir: rootDir, scannedAt, works: list, totalFiles, totalBytes, tags }
+  // 小说与插画共用作者目录，一起返回，图库才能在同一个作者下切三个栏目
+  const readable = await scanNovelLibrary(rootDir, force)
+  readable.items.forEach((item) => {
+    totalFiles += 1
+    totalBytes += item.size
+  })
+
+  return {
+    outDir: rootDir,
+    scannedAt,
+    works: list,
+    novels: readable.items,
+    totalFiles,
+    totalBytes
+  }
 }

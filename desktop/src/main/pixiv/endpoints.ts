@@ -62,9 +62,21 @@ type IllustKind = 'illust' | 'manga'
 
 export const webEndpoints = {
   // ---- 作品列表 / 关注 / 收藏 -------------------------------------------------
-  /** 某位作者按标签筛选的作品列表（工作台抓取用） */
-  userTagWorks(userId: string, params: { tag: string; offset: number; limit: number }): string {
-    return web(`/ajax/user/${seg(userId)}/illustmanga/tag`, {
+  /**
+   * 某位作者按标签筛选的作品列表（工作台抓取用）。
+   *
+   * 默认走 `illustmanga`：抓的是「该作者的全部作品」，少一个 `illustmanga` 就会把漫画整体漏掉
+   * （实测某作者 illusts 365 + manga 1 = illustmanga 366，按 R-18 查也是 121 + 1 = 122，
+   * 两边严格相加，没有多出别的作品）。
+   * 工作台切到「插画 / 漫画」栏目时改用 `illusts` / `manga`，与作者主页对应标签页一致。
+   */
+  userTagWorks(
+    userId: string,
+    params: { tag: string; offset: number; limit: number; kind?: 'all' | 'illust' | 'manga' }
+  ): string {
+    const category =
+      params.kind === 'illust' ? 'illusts' : params.kind === 'manga' ? 'manga' : 'illustmanga'
+    return web(`/ajax/user/${seg(userId)}/${category}/tag`, {
       tag: params.tag,
       offset: params.offset,
       limit: params.limit,
@@ -72,12 +84,21 @@ export const webEndpoints = {
     })
   },
 
-  /** 某位作者的收藏夹；rest=show 公开、hide 私密 */
+  /**
+   * 某位作者的收藏夹；rest=show 公开、hide 私密。
+   *
+   * `order=desc&mode=all` 与 pixiv 作者页「收藏」一致：按收藏时间倒序、插画与漫画都要。
+   * 不带这两个参数时接口虽然也回数据，但口径可能只剩插画，收藏总数会对不上。
+   */
   userBookmarks(
     userId: string,
     params: { tag: string; offset: number; limit: number; rest: string }
   ): string {
-    return web(`/ajax/user/${seg(userId)}/illusts/bookmarks`, params)
+    return web(`/ajax/user/${seg(userId)}/illusts/bookmarks`, {
+      ...params,
+      order: 'desc',
+      mode: 'all'
+    })
   },
 
   /** 关注列表：返回画师与其最近作品缩略图 */
@@ -170,6 +191,18 @@ export const webEndpoints = {
   /** 该用户全部作品 id（插画 / 漫画 / 小说三组），用于分页取子集 */
   userProfileAll(userId: string): string {
     return web(`/ajax/user/${seg(userId)}/profile/all`)
+  },
+
+  /**
+   * 作者主页「高级搜索」里的标签云，`all=1` 取全部（不传只给前若干个）。
+   * pixiv 把插画与漫画分成两套标签，抓「全部作品」时两边都要读。
+   */
+  userIllustTags(userId: string): string {
+    return web(`/ajax/user/${seg(userId)}/illusts/tags`, { all: 1 })
+  },
+
+  userMangaTags(userId: string): string {
+    return web(`/ajax/user/${seg(userId)}/manga/tags`, { all: 1 })
   },
 
   userProfileIllusts(userId: string, ids: string[]): string {

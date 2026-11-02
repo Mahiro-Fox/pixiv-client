@@ -6,12 +6,10 @@ import type {
   NovelTextHit,
   NovelTextSearchResult
 } from '../../shared/types'
-
-/** 小说统一放在保存目录下的这个子目录，和插画分开管理 */
-export const NOVEL_DIR_NAME = '小说'
+import { CONTENT_DIR } from '../../shared/layout'
+import { parseAuthorFolder } from './files'
 
 const META_SUFFIX = '.meta.json'
-const MAX_SCAN_DEPTH = 3
 const MAX_READ_BYTES = 40 * 1024 * 1024
 const MAX_HITS = 80
 const SNIPPETS_PER_FILE = 3
@@ -20,6 +18,7 @@ const SNIPPET_RADIUS = 40
 interface NovelMeta {
   title?: string
   author?: string
+  userId?: string
   kind?: 'novel' | 'series'
   novelId?: string
   seriesId?: string
@@ -38,8 +37,9 @@ interface CacheEntry {
 /** 已读取的正文缓存：按 mtime + size 失效，避免重复检索时反复读盘 */
 const textCache = new Map<string, CacheEntry>()
 
+/** 小说散落在各作者的 `novel` 目录里，书库根就是保存目录本身 */
 export function novelLibraryRoot(outDir: string): string {
-  return path.join(outDir, NOVEL_DIR_NAME)
+  return path.resolve(outDir)
 }
 
 function isInside(root: string, target: string): boolean {
@@ -55,17 +55,36 @@ export function assertNovelFile(root: string, filePath: string): string {
   return resolved
 }
 
-async function walk(dir: string, depth: number, out: string[]): Promise<void> {
-  if (depth > MAX_SCAN_DEPTH) return
-  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      await walk(full, depth + 1, out)
-    } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt')) {
-      out.push(full)
+/**
+ * 列出保存目录下所有「{作者ID}_{作者名}/novel」里的小说文件。
+ * 与图片同一套作者目录，图片和小说才能在图库里按作者聚合到一起。
+ */
+async function listNovelFiles(outDir: string): Promise<{ file: string; authorPath: string }[]> {
+  let authors
+  try {
+    authors = await readdir(outDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const found: { file: string; authorPath: string }[] = []
+  for (const author of authors) {
+    if (!author.isDirectory() || !parseAuthorFolder(author.name)) continue
+    const authorPath = path.join(outDir, author.name)
+    const dir = path.join(authorPath, CONTENT_DIR.novel)
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt')) {
+        found.push({ file: path.join(dir, entry.name), authorPath })
+      }
     }
   }
+  return found
 }
 
 async function readMeta(txtPath: string): Promise<NovelMeta | null> {
@@ -90,23 +109,24 @@ export async function scanNovelLibrary(
   force = false
 ): Promise<NovelLibraryResult> {
   const root = novelLibraryRoot(outDir)
-  const files: string[] = []
-  await walk(root, 1, files)
+  const files = await listNovelFiles(outDir)
 
   const items = await Promise.all(
-    files.map(async (file): Promise<NovelLibraryItem | null> => {
+    files.map(async ({ file, authorPath }): Promise<NovelLibraryItem | null> => {
       try {
         const info = await stat(file)
         if (info.size > MAX_READ_BYTES) return null
         const meta = await readMeta(file)
         const fileName = path.basename(file)
-        const authorFolder = path.basename(path.dirname(file))
+        const folder = parseAuthorFolder(path.basename(authorPath))
         if (force) textCache.delete(file)
         return {
           path: file,
           fileName,
           title: meta?.title || titleFromFileName(fileName),
-          author: meta?.author || authorFolder || '未知作者',
+          author: meta?.author || folder?.userName || '未知作者',
+          authorPath,
+          userId: meta?.userId || folder?.userId || '',
           size: info.size,
           updatedAt: info.mtime.toISOString(),
           characters: Number(meta?.characters || 0),

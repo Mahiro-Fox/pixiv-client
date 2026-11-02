@@ -1,3 +1,5 @@
+import type { ImageContent } from './layout'
+
 export interface PixivWork {
   id: string
   title: string
@@ -21,7 +23,17 @@ export interface PixivWork {
   series?: WorkSeriesNav | null
 }
 
-export type WorkSource = 'tag' | 'bookmarks'
+/**
+ * 作者主页口径的栏目：`all` 是插画 + 漫画合并（与作者主页「作品」总数一致），
+ * `illust` / `manga` 各自取单类。
+ */
+export type AuthorContent = 'all' | 'illust' | 'manga'
+/**
+ * 工作台作品栏目。
+ * 前三个是作者的作品类型；`bookmarks` 是该作者的收藏夹——它走的是另一条接口，
+ * 但抓取、分页、组合标签、筛选、下载与前三者完全同一条流程。
+ */
+export type WorkContent = AuthorContent | 'bookmarks'
 export type BookmarkRest = 'show' | 'hide'
 /** 写操作的可见性：公开 / 私密（pixiv App API 的 restrict） */
 export type BookmarkPrivacy = 'public' | 'private'
@@ -75,18 +87,12 @@ export interface AppConfig {
   imageQuality: ImageQuality
   /** 动图保存格式：zip / mp4 / gif */
   ugoiraFormat: UgoiraFormat
-  /** 作品来源：作者标签 / 收藏夹 */
-  source: WorkSource
+  /** 作品栏目：全部（插画+漫画）/ 插画 / 漫画 / 收藏 */
+  contentKind: WorkContent
   /** 文件名模板，变量见 shared/template.ts */
   fileNameTemplate: string
-  /** 收藏夹所属用户 ID，留空表示当前登录账号 */
-  bookmarkUserId: string
-  /** 收藏夹接口级标签过滤，留空表示全部收藏 */
-  bookmarkTag: string
-  /** 公开收藏 / 私密收藏 */
+  /** 收藏栏目的公开 / 私密（私密只有本人可选） */
   bookmarkRest: BookmarkRest
-  /** 收藏夹同步时只保留未下载作品 */
-  bookmarkOnlyNew: boolean
   /** 过滤规则：页数区间，0 表示不限 */
   filterMinPages: number
   filterMaxPages: number
@@ -221,10 +227,10 @@ export interface CollectParams {
   offset: number
   limit: number
   workers: number
-  source: WorkSource
-  bookmarkUserId: string
-  bookmarkTag: string
-  bookmarkRest: BookmarkRest
+  /** 栏目：全部 / 插画 / 漫画 / 收藏；不传按 all 处理 */
+  contentKind?: WorkContent
+  /** 收藏栏目：公开 / 私密（他人私密在主进程侧不会生效） */
+  bookmarkRest?: BookmarkRest
 }
 
 export interface SelfUser {
@@ -296,9 +302,19 @@ export interface TagSuggestion {
   translation?: string
 }
 
+/** 某位作者用过的标签（作者主页「高级搜索」的那份清单） */
+export interface UserTag {
+  tag: string
+  /** 译文；pixiv 按请求的界面语言返回，可能为空 */
+  translation?: string
+  /** 读音（日文标签常用）；译文缺失时作为副标题 */
+  reading?: string
+  /** 该作者带此标签的作品数 */
+  count: number
+}
+
 export interface DownloadedParams {
   works: PixivWork[]
-  tag: string
   outDir: string
 }
 
@@ -613,13 +629,16 @@ export interface LibraryFile {
   ext: string
 }
 
-/** 本地图库中的一个作品（按「标签目录 + 作品 ID」聚合） */
+/** 本地图库中的一个图片作品（按「作者目录 + 内容类型 + 作品 ID」聚合） */
 export interface LibraryWork {
   id: string
   title: string
   userId: string
   userName: string
-  tag: string
+  /** 作品落在哪个内容目录：illustration / manga */
+  content: ImageContent
+  /** 作者目录绝对路径，图库按它把插画 / 漫画 / 小说归到同一位作者下 */
+  authorPath: string
   /** 实际存在的页数（按文件名页码去重后统计） */
   pageCount: number
   files: LibraryFile[]
@@ -636,9 +655,10 @@ export interface LibraryResult {
   outDir: string
   scannedAt: number
   works: LibraryWork[]
+  /** 同一套作者目录下的小说，图库的「小说」栏目用它 */
+  novels: NovelLibraryItem[]
   totalFiles: number
   totalBytes: number
-  tags: string[]
 }
 
 /** 小说搜索排序：最新 / 最早 / 综合人气 / 男性人气 / 女性人气 */
@@ -831,6 +851,9 @@ export interface NovelLibraryItem {
   fileName: string
   title: string
   author: string
+  /** 作者目录绝对路径（{保存目录}/{作者ID}_{作者名}） */
+  authorPath: string
+  userId: string
   size: number
   updatedAt: string
   characters: number
@@ -1142,6 +1165,8 @@ export interface PixivApi {
   /** 推荐画师：走 App API，需要 OAuth 凭据 */
   listRecommendedUsers: (params: RecommendUsersParams) => Promise<RecommendUsersResult>
   suggestTags: (word: string) => Promise<TagSuggestion[]>
+  /** 某位作者用过的标签；content 决定取插画 / 漫画 / 两者合并，供标签筛选弹窗使用 */
+  userTags: (userId: string, content?: WorkContent) => Promise<UserTag[]>
   /** 扫描本地图库（下载目录），返回按作品聚合的结果；force 为 true 时忽略缓存 */
   listLibrary: (force?: boolean) => Promise<LibraryResult>
   /** 打开本地图库中某作品所在的文件夹 */
@@ -1244,7 +1269,6 @@ export interface PixivApi {
   /** 订阅整部系列保存进度，返回取消订阅函数 */
   onNovelDownloadProgress: (callback: (progress: NovelDownloadProgress) => void) => () => void
   /** 扫描保存目录下的小说书库；force 为 true 时忽略缓存 */
-  listNovelLibrary: (force?: boolean) => Promise<NovelLibraryResult>
   /** 在已下载小说的正文里检索关键词 */
   searchNovelLibrary: (keyword: string) => Promise<NovelTextSearchResult>
   /** 读取本地小说 TXT 内容，用于应用内阅读 */

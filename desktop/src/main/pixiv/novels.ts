@@ -18,7 +18,8 @@ import type {
 // BASE 只用于拼下载文档里的「原文链接」，接口地址统一走 endpoints.ts
 import { BASE, fetchJson } from './http'
 import { webEndpoints } from './endpoints'
-import { safeName } from './files'
+import { authorFolderName, safeName } from './files'
+import { CONTENT_DIR } from '../../shared/layout'
 
 /** 小说搜索最多翻到第 10 页 */
 const MAX_SEARCH_PAGE = 10
@@ -432,6 +433,7 @@ export async function downloadNovel(options: NovelDownloadOptions): Promise<Nove
 
   let title = ''
   let author = ''
+  let authorId = ''
   let seriesTitle = ''
   let body = ''
   let episodes = 0
@@ -445,6 +447,7 @@ export async function downloadNovel(options: NovelDownloadOptions): Promise<Nove
     if (detail.episodes.length === 0) throw new Error('该系列没有可保存的章节')
     title = detail.series.title
     author = detail.series.userName
+    authorId = detail.series.userId
     seriesTitle = detail.series.title
     cover = detail.series.cover
     tags = detail.series.tags
@@ -496,6 +499,7 @@ export async function downloadNovel(options: NovelDownloadOptions): Promise<Nove
     const novel = await fetchNovelDetail(options.novelId as string, cookie, signal)
     title = novel.title
     author = novel.userName
+    authorId = novel.userId
     seriesTitle = novel.series?.title || ''
     cover = novel.cover
     tags = novel.tags
@@ -507,7 +511,8 @@ export async function downloadNovel(options: NovelDownloadOptions): Promise<Nove
     onProgress?.({ done: 1, total: 1, title })
   }
 
-  const dir = path.join(outDir, '小说', safeName(author, 'novel'))
+  // 与图片同一套目录：{保存目录}/{作者ID}_{作者名}/novel/，图库里按作者聚合时能直接归位
+  const dir = path.join(outDir, authorFolderName(authorId, author), CONTENT_DIR.novel)
   await mkdir(dir, { recursive: true })
   const fileName = `${safeName(title, 'novel')}_${safeName(
     isSeries ? options.seriesId : options.novelId,
@@ -523,6 +528,7 @@ export async function downloadNovel(options: NovelDownloadOptions): Promise<Nove
       {
         title,
         author,
+        userId: authorId,
         kind: isSeries ? 'series' : 'novel',
         novelId: isSeries ? undefined : (options.novelId as string),
         seriesId,

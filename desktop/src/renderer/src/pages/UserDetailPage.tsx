@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Bookmark,
+  Download,
   ExternalLink,
   Loader2,
   User as UserIcon,
@@ -9,7 +10,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type * as React from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import type {
   NovelWork,
   OAuthStatus,
@@ -50,6 +56,7 @@ export function UserDetailPage({
 }: UserDetailPageProps): React.JSX.Element {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const { userId = "" } = useParams();
   const [params, setParams] = useSearchParams();
   /** 用户主页作品缩略图同样用应用内预览 */
@@ -174,7 +181,18 @@ export function UserDetailPage({
       if (value) next.set(key, value);
       else next.delete(key);
     });
-    setParams(next);
+    // 栏目与页码都只是本页的视图状态，用 replace 不新增历史记录。
+    // 否则切几次栏目再点「返回」，会先一步步退回上一个栏目，而不是离开本页。
+    setParams(next, { replace: true });
+  };
+
+  /**
+   * 直接打开 / 刷新本页时历史里只有这一条（初始记录的 key 固定为 "default"），
+   * 此时 navigate(-1) 是空操作，点「返回」会毫无反应，退到用户搜索页兜底。
+   */
+  const goBack = (): void => {
+    if (location.key === "default") navigate("/users", { replace: true });
+    else navigate(-1);
   };
 
   const total = content?.total || 0;
@@ -201,15 +219,27 @@ export function UserDetailPage({
   return (
     <main className=" flex min-h-0 flex-1 flex-col gap-3  px-6 py-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft />
           {t("user.back")}
+        </Button>
+        {/* 把作者带进工作台：填好 ID 并直接抓一轮，省掉回下载页手抄 ID */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={() =>
+            navigate("/workbench", { state: { downloadUserId: userId } })
+          }
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t("user.toDownload")}
         </Button>
         <a
           href={`https://www.pixiv.net/users/${userId}`}
           target="_blank"
           rel="noreferrer"
-          className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
         >
           pixiv
           <ExternalLink className="h-3 w-3" />

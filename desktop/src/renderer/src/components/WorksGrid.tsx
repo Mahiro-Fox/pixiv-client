@@ -1,4 +1,14 @@
-import { Check, ChevronLeft, ChevronRight, FileDown, Filter, ImageOff, Images } from 'lucide-react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
+  Filter,
+  ImageOff,
+  Images,
+  Tags,
+  X
+} from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type * as React from 'react'
 import type { PixivWork, WorkSort } from '@shared/types'
@@ -137,6 +147,12 @@ interface WorksGridProps {
   activeFilterCount: number
   onSortChange: (sort: WorkSort) => void
   onOpenFilter: () => void
+  /** 当前按标签筛选的标签；空串表示「全部作品」 */
+  activeTag?: string
+  /** 打开标签筛选弹窗；不传则不显示入口（收藏栏目列的是收藏夹标签，没有作者标签云可列） */
+  onOpenTags?: () => void
+  /** 清除标签筛选，回到该作者的全部作品 */
+  onClearTag?: () => void
   onExport: () => void
   page: number
   pageCount: number
@@ -216,6 +232,13 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* 换了标签却没有结果时，唯一的出路是再选一个：这里也放一个入口 */}
+          {props.onOpenTags ? (
+            <Button variant="outline" size="sm" onClick={props.onOpenTags}>
+              <Tags />
+              {t('works.tagFilter')}
+            </Button>
+          ) : null}
           {props.filteredOut > 0 ? (
             <Button variant="outline" size="sm" onClick={props.onOpenFilter}>
               <Filter />
@@ -257,25 +280,38 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           {props.selected.size > 0 ? t('works.selectedCount', { count: props.selected.size }) : ''}
         </p>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={props.onOpenFilter}
-            title={t('works.filterRules')}
-            className={cn(
-              'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
-              props.activeFilterCount > 0
-                ? 'bg-primary/15 text-primary'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-            )}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            {t('works.filter')}
-            {props.activeFilterCount > 0 ? (
-              <span className="rounded-full bg-primary/20 px-1.5 text-[10px] tabular-nums text-primary">
-                {props.activeFilterCount}
-              </span>
-            ) : null}
-          </button>
+          {/* 按标签筛选：换的是接口查询条件，与右边「过滤」的本地规则不是一回事 */}
+          {props.onOpenTags ? (
+            <>
+              <button
+                type="button"
+                onClick={props.onOpenTags}
+                title={t('works.tagFilterHint')}
+                className={cn(
+                  'flex min-w-0 items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  props.activeTag
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                )}
+              >
+                <Tags className="h-3.5 w-3.5 shrink-0" />
+                <span className="max-w-[9rem] truncate">
+                  {props.activeTag || t('works.tagFilter')}
+                </span>
+              </button>
+              {props.activeTag ? (
+                <button
+                  type="button"
+                  onClick={props.onClearTag}
+                  title={t('works.tagClear')}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
           <select
             value={props.sort}
             onChange={(event) => props.onSortChange(event.target.value as WorkSort)}

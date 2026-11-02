@@ -25,7 +25,6 @@ import type {
   NovelDownloadParams,
   NovelDownloadProgress,
   NovelDownloadResult,
-  NovelLibraryResult,
   NovelSearchParams,
   NovelSearchResult,
   NovelSeriesDetail,
@@ -54,10 +53,12 @@ import type {
   UserProfile,
   UserSearchParams,
   UserSearchResult,
+  UserTag,
   ViewHistoryEntry,
   ViewRecordInput,
   WatchLaterEntry,
   WorkExportParams,
+  WorkContent,
   WorkPage,
   WorkSearchParams,
   WorkSearchResult,
@@ -114,6 +115,8 @@ const api: PixivApi = {
     ipcRenderer.invoke('recommend:users', params) as Promise<RecommendUsersResult>,
   suggestTags: (word: string) =>
     ipcRenderer.invoke('tags:suggest', word) as Promise<TagSuggestion[]>,
+  userTags: (userId: string, content?: WorkContent) =>
+    ipcRenderer.invoke('user:tags', userId, content) as Promise<UserTag[]>,
   searchWorks: (params: WorkSearchParams) =>
     ipcRenderer.invoke('search:works', params) as Promise<WorkSearchResult>,
   searchUsers: (params: UserSearchParams) =>
@@ -132,8 +135,6 @@ const api: PixivApi = {
     ipcRenderer.invoke('novel:download', params) as Promise<NovelDownloadResult>,
   onNovelDownloadProgress: (callback: (progress: NovelDownloadProgress) => void) =>
     subscribe('novel:download-progress', callback),
-  listNovelLibrary: (force?: boolean) =>
-    ipcRenderer.invoke('novel:library', Boolean(force)) as Promise<NovelLibraryResult>,
   searchNovelLibrary: (keyword: string) =>
     ipcRenderer.invoke('novel:library-search', keyword) as Promise<NovelTextSearchResult>,
   readNovelLibraryFile: (filePath: string) =>

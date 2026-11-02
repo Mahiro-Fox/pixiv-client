@@ -17,12 +17,12 @@ import type {
 import { flushQueue, dropJobIfDone } from '../queue'
 import { flushHistory, recordHistory } from '../history'
 import { DEFAULT_FILE_TEMPLATE, validateTemplate } from '../../shared/template'
+import { imageContentOfIllustType } from '../../shared/layout'
 import { fetchPages, fetchUgoiraMeta } from './api'
 import {
-  buildAuthorDir,
+  buildContentDir,
   buildDest,
   isComplete,
-  safeName,
   satisfiesQuality
 } from './files'
 import { convertUgoira, isFfmpegAvailable, type UgoiraTarget } from './ugoira'
@@ -253,7 +253,8 @@ export function createQueuedJob(options: QueuedJobOptions): QueueJob {
     id,
     tag: options.tag,
     outDir: options.outDir,
-    rootDir: path.join(options.outDir, safeName(options.tag, 'tag')),
+    // 保存目录就是根：作者目录与内容目录在解析作品时按作品自身推出来
+    rootDir: options.outDir,
     imageQuality: options.imageQuality,
     ugoiraFormat: options.ugoiraFormat,
     status: 'queued',
@@ -278,7 +279,8 @@ function createJob(options: DownloadJobOptions, works: PixivWork[], startedAt: n
     id,
     tag: options.tag,
     outDir: options.outDir,
-    rootDir: path.join(options.outDir, safeName(options.tag, 'tag')),
+    // 保存目录就是根：作者目录与内容目录在解析作品时按作品自身推出来
+    rootDir: options.outDir,
     imageQuality: options.imageQuality || 'regular',
     ugoiraFormat: options.ugoiraFormat || 'mp4',
     status: 'resolving',
@@ -303,7 +305,10 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
 
   const resumed = Boolean(options.job)
   const job = options.job ? { ...options.job, works } : createJob(options, works, startedAt)
-  const rootDir = job.rootDir
+  // 根目录就是保存目录（作者 / 内容目录按作品推出来）。
+  // 旧快照里的 rootDir 可能还指向过去的标签目录，这里统一按当前保存目录重算。
+  const rootDir = path.resolve(options.outDir || job.outDir)
+  job.rootDir = rootDir
   const quality: ImageQuality = job.imageQuality || options.imageQuality || 'regular'
   const requestedUgoira: UgoiraFormat = job.ugoiraFormat || options.ugoiraFormat || 'mp4'
   // 缺少 ffmpeg 时退回保留压缩包，避免动图作品整体下载失败
@@ -374,7 +379,13 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
         const illustId = String(work.id || '').trim()
         try {
           if (!illustId) throw new Error('缺少 id')
-          const authorDir = buildAuthorDir(rootDir, work.userId, work.userName)
+          // 作者目录 / 内容目录都由作品自身决定：动图与插画同放 illustration，漫画放 manga
+          const authorDir = buildContentDir(
+            rootDir,
+            work.userId,
+            work.userName,
+            imageContentOfIllustType(work.illustType)
+          )
           let added = 0
 
           // 动图（ugoira）：pixiv 只提供帧压缩包。

@@ -4,11 +4,13 @@ import { rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type {
   AppConfig,
+  AuthorContent,
   BatchArtistResult,
   BatchSyncParams,
   BatchSyncProgress,
   BatchSyncSummary,
   BookmarkInput,
+  BookmarkRest,
   CollectParams,
   CollectProgress,
   DownloadParams,
@@ -32,6 +34,7 @@ import type {
   UserContentParams,
   UserSearchParams,
   ViewRecordInput,
+  WorkContent,
   WorkExportParams,
   WorkSearchParams,
   WorkSeriesParams
@@ -39,10 +42,11 @@ import type {
 import { clearCookie, getCookieStatus, loadConfig, resolveCookie, saveConfig, saveCookie } from './config'
 import { applyProxy, getProxyState, saveProxyPassword, testProxy } from './proxy'
 import {
-  collectBookmarks,
   collectWorks,
+  contentKindOf,
   fetchFollowing,
   fetchSelfUser,
+  fetchUserTags,
   fetchWorkPages,
   probeCookieHealth,
   suggestTags
@@ -56,7 +60,6 @@ import {
 } from './pixiv/novels'
 import {
   readNovelText,
-  scanNovelLibrary,
   searchNovelLibraryText
 } from './pixiv/novelLibrary'
 import { setAuthFailureHandler } from './pixiv/http'
@@ -225,6 +228,20 @@ function filterBlockedUsers<T extends { id: string; name: string }>(
 /** 动图格式只接受三个合法值，其它输入回退到 mp4 */
 function toUgoiraFormat(value: unknown): UgoiraFormat {
   return value === 'zip' || value === 'gif' ? value : 'mp4'
+}
+
+/** 作品栏目白名单：旧配置没有这个字段、或被手改成别的值时按「全部」处理 */
+function toContentKind(value: unknown): WorkContent {
+  return contentKindOf(value)
+}
+
+/**
+ * 关注画师批量同步抓的是「作者的作品」，收藏栏目对它没有意义：
+ * 停在这一栏时按「全部」处理，避免把每位画师的收藏夹当成作品同步下来。
+ */
+function toAuthorContent(value: unknown): AuthorContent {
+  const content = toContentKind(value)
+  return content === 'bookmarks' ? 'all' : content
 }
 
 function broadcast(channel: string, payload: unknown, sender?: WebContents): void {
@@ -452,6 +469,7 @@ async function executeBatch(
         const collected = await collectWorks({
           userId: artist.id,
           tag,
+          contentKind: toAuthorContent(config.contentKind),
           tagExtra: config.tagExtra,
           tagExclude: config.tagExclude,
           tagMode: config.tagMode,
@@ -658,9 +676,13 @@ export function registerIpcHandlers(): void {
     const config = await loadConfig()
     const { cookie } = await resolveCookie()
     const sender = event.sender
-    const source = params.source === 'bookmarks' ? 'bookmarks' : 'tag'
+    const contentKind = toContentKind(params.contentKind ?? config.contentKind)
+    const bookmarkRest: BookmarkRest = params.bookmarkRest === 'hide' ? 'hide' : 'show'
     const common = {
       tag: (params.tag ?? config.tag).trim(),
+      contentKind,
+      // 收藏栏目：公开 / 私密；其它栏目忽略这个字段
+      bookmarkRest,
       tagExtra: params.extraTag ?? config.tagExtra,
       tagExclude: params.excludeTag ?? config.tagExclude,
       tagMode: params.tagMode ?? config.tagMode,
@@ -673,28 +695,27 @@ export function registerIpcHandlers(): void {
       }
     }
 
-    if (source === 'bookmarks') {
-      // 收藏夹必须知道「谁的收藏」：优先用用户填写的 ID，留空则读取当前登录账号
-      let userId = (params.bookmarkUserId || config.bookmarkUserId || '').trim()
-      if (!userId) {
-        const self = await fetchSelfUser(cookie)
-        if (!self) {
-          throw new Error('无法识别当前登录账号：请配置 Cookie，或手动填写收藏用户 ID')
-        }
-        userId = self.id
-      }
-      const collected = await collectBookmarks({
-        ...common,
-        userId,
-        tag: (params.bookmarkTag ?? config.bookmarkTag).trim(),
-        rest: params.bookmarkRest === 'hide' ? 'hide' : 'show'
-      })
-      return { ...collected, works: withoutBlocked(collected.works, config) }
+    /**
+     * 收藏栏目要知道「谁的收藏」：用户 ID 留空就用当前登录账号。
+     * 私密收藏只有本人可见——界面在「他人」时已经把选项锁成公开，这里再兜一层：
+     * 手改配置、或从旧版本带过来的 hide 值，不应该把 pixiv 的「没有权限。」原样抛给用户。
+     * 两种判断都依赖「自己是谁」，所以一次取到、共用。
+     */
+    let userId = (params.userId || config.userId).trim()
+    const needsSelf = contentKind === 'bookmarks' && (!userId || bookmarkRest === 'hide')
+    const self = needsSelf ? await fetchSelfUser(cookie) : null
+
+    if (contentKind === 'bookmarks' && !userId) {
+      if (!self) throw new Error('无法识别当前登录账号：请配置 Cookie，或填写用户 ID')
+      userId = self.id
+    }
+    if (contentKind === 'bookmarks' && bookmarkRest === 'hide' && self?.id !== userId) {
+      throw new Error('私密收藏只有本人可见：请把收藏类型改为公开，或换成自己的用户 ID')
     }
 
     const collected = await collectWorks({
       ...common,
-      userId: params.userId || config.userId,
+      userId,
       tag: common.tag || config.tag
     })
     return { ...collected, works: withoutBlocked(collected.works, config) }
@@ -714,7 +735,7 @@ export function registerIpcHandlers(): void {
     const config = await loadConfig()
     const { cookie } = await resolveCookie()
     const result = await fetchFollowing(
-      (params?.userId ?? config.bookmarkUserId ?? '').trim(),
+      (params?.userId ?? '').trim(),
       toInt(params?.offset, 0, 0, 100_000),
       toInt(params?.limit, 48, 1, 100),
       cookie
@@ -1007,14 +1028,7 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  // 本地小说书库：扫描保存目录，支持正文检索与应用内阅读
-  ipcMain.handle('novel:library', async (_event, force?: boolean) => {
-    const config = await loadConfig()
-    const outDir = (config.outDir || '').trim()
-    if (!outDir || !path.isAbsolute(outDir)) throw new Error('保存目录无效')
-    return scanNovelLibrary(outDir, Boolean(force))
-  })
-
+  // 小说全文检索与应用内阅读：列表已并入 library:list（图库的小说栏目），这里只留检索与读取
   ipcMain.handle('novel:library-search', async (_event, keyword: string) => {
     const config = await loadConfig()
     const outDir = (config.outDir || '').trim()
@@ -1038,13 +1052,23 @@ export function registerIpcHandlers(): void {
     return suggestTags(keyword, cookie)
   })
 
+  // 作者主页「高级搜索」的标签云：工作台的标签筛选弹窗用它列候选。
+  // content 决定只列插画 / 只列漫画 / 两者合并，与作品列表当前栏目保持一致
+  ipcMain.handle('user:tags', async (_event, userId: string, content?: string) => {
+    const id = String(userId || '').trim()
+    // 只接受纯数字 ID：拼进路径前先挡住奇怪输入，避免打到别的接口
+    if (!/^\d+$/.test(id)) return []
+    const { cookie } = await resolveCookie()
+    // 标签云只服务作者的作品，收藏栏目按「全部」列（界面本来也不给收藏栏开标签弹窗）
+    return fetchUserTags(id, toAuthorContent(content), cookie)
+  })
+
   ipcMain.handle('works:downloaded', async (_event, params: DownloadedParams) => {
     const config = await loadConfig()
     const outDir = (params?.outDir || config.outDir).trim()
     if (!outDir || !path.isAbsolute(outDir)) return []
-    const tag = (params?.tag || config.tag).trim() || config.tag
     return findDownloadedIds(
-      path.join(outDir, safeName(tag, 'tag')),
+      outDir,
       params?.works || [],
       config.fileNameTemplate,
       config.imageQuality
@@ -1234,7 +1258,7 @@ export function registerIpcHandlers(): void {
     ) {
       return libraryCache.result
     }
-    const result = await scanLibrary(resolved, config.fileNameTemplate)
+    const result = await scanLibrary(resolved, config.fileNameTemplate, Boolean(force))
     libraryCache = { at: Date.now(), result }
     return result
   })
@@ -1276,7 +1300,7 @@ export function registerIpcHandlers(): void {
     if (removed.length === 0) throw new Error('没有可删除的文件')
 
     forgetHistory(removed)
-    // 顺带清理变空的作者目录与标签目录
+    // 顺带清理变空的内容目录（illustration / manga）与作者目录
     for (const dir of dirs) {
       try {
         await rmdir(dir)

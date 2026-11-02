@@ -58,12 +58,9 @@ export function defaultConfig(): AppConfig {
     outDir: defaultOutDir(),
     imageQuality: 'regular',
     ugoiraFormat: 'mp4',
-    source: 'tag',
+    contentKind: 'all',
     fileNameTemplate: DEFAULT_FILE_TEMPLATE,
-    bookmarkUserId: '',
-    bookmarkTag: '',
     bookmarkRest: 'show',
-    bookmarkOnlyNew: true,
     filterMinPages: 0,
     filterMaxPages: 0,
     filterMinWidth: 0,
@@ -91,9 +88,24 @@ export async function loadConfig(): Promise<AppConfig> {
   const defaults = defaultConfig()
   try {
     const raw = await readFile(configFile(), 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<AppConfig>
+    /** 旧版本的字段：来源开关与收藏夹的三个独立参数，已并入 contentKind / tag */
+    const parsed = JSON.parse(raw) as Partial<AppConfig> & {
+      source?: string
+      bookmarkUserId?: string
+      bookmarkTag?: string
+      bookmarkOnlyNew?: boolean
+    }
+    // 老版本用 source 区分作者 / 收藏夹：停在收藏夹的用户升级后仍停在这一栏
+    const wasBookmarks = parsed.source === 'bookmarks'
+    // 已废弃的字段不再往配置文件里写回
+    delete parsed.source
+    delete parsed.bookmarkUserId
+    delete parsed.bookmarkTag
+    delete parsed.bookmarkOnlyNew
     // 浅合并对嵌套字段无效：老配置没有 proxy，必须补默认值并逐项校正
-    return { ...defaults, ...parsed, proxy: normalizeProxy(parsed.proxy) }
+    const config: AppConfig = { ...defaults, ...parsed, proxy: normalizeProxy(parsed.proxy) }
+    if (wasBookmarks) config.contentKind = 'bookmarks'
+    return config
   } catch {
     return defaults
   }

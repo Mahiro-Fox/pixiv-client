@@ -1,8 +1,12 @@
 import type { AppConfig } from '@shared/types'
 
-/** 收藏夹来源统一存到「收藏夹」目录，避免标签过滤条件改变目录结构 */
-export function worksTag(config: Pick<AppConfig, 'source' | 'tag'>): string {
-  return config.source === 'bookmarks' ? '收藏夹' : config.tag
+/**
+ * 下载任务携带的标签：只用于文件名模板里的 {tag} 与任务/历史里的分类，
+ * 不再决定目录结构（目录固定为 `{作者ID}_{作者名}/{illustration|manga|novel}`）。
+ * 收藏栏统一记为「收藏夹」，免得文件名里出现收藏夹标签。
+ */
+export function worksTag(config: Pick<AppConfig, 'contentKind' | 'tag'>): string {
+  return config.contentKind === 'bookmarks' ? '收藏夹' : config.tag
 }
 
 /** 把本地绝对路径转成主进程注册的 pixivfile 协议地址，供渲染层直接加载图片 */

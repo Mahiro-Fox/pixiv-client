@@ -17,7 +17,7 @@ import {
   X,
   Settings,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 import { KeepAlive } from "keepalive-for-react";
 import { motion, useReducedMotion } from "motion/react";
@@ -52,6 +52,7 @@ import type {
   SelfUser,
   ThrottleState,
   UpdateStatus,
+  WorkContent,
   WorkSort,
 } from "@shared/types";
 import { applyWorkFilters, countActiveFilters } from "./lib/filters";
@@ -66,6 +67,7 @@ import { ProgressPanel } from "./components/ProgressPanel";
 import { QueuePanel } from "./components/QueuePanel";
 import { CollectPanel } from "./components/CollectPanel";
 import { FilterDialog } from "./components/FilterDialog";
+import { UserTagDialog } from "./components/UserTagDialog";
 import { FilterProvider } from "./lib/filterContext";
 import { TourProvider, startTour } from "./lib/tour/TourProvider";
 import { TOUR_DEMO_AUTHOR, type TourAction } from "./lib/tour/steps";
@@ -81,7 +83,6 @@ import { NovelSearchPage } from "./pages/NovelSearchPage";
 import { NovelSeriesPage } from "./pages/NovelSeriesPage";
 import { SeriesPage } from "./pages/SeriesPage";
 import { NovelReaderPage } from "./pages/NovelReaderPage";
-import { NovelLibraryPage } from "./pages/NovelLibraryPage";
 import { NovelLocalReaderPage } from "./pages/NovelLocalReaderPage";
 import { WorksSearchPage } from "./pages/WorksSearchPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -191,6 +192,15 @@ const SEARCH_SECTION_PATHS = new Set(["/illust", "/manga", "/novel", "/users"]);
 const OFF_CACHE_KEY = "/(off)";
 
 /**
+ * 工作台作品列表的栏目：全部 / 插画 / 漫画 / 收藏。
+ * 收藏只是换一条接口取数，其余（分页、标签、筛选、下载）与前三栏完全一致。
+ */
+type ContentTab = WorkContent;
+
+/** 工作台作品栏目的固定顺序；「全部」放第一位，保持与旧行为一致 */
+const CONTENT_TABS: ContentTab[] = ["all", "illust", "manga", "bookmarks"];
+
+/**
  * 路由缓存宿主。
  * KeepAlive 必须挂在不随路由变化的位置，所以用一个不带 path 的布局路由包住全部页面。
  *
@@ -283,6 +293,7 @@ export default function App(): React.JSX.Element {
   const [page, setPage] = useState(1);
   const [preview, setPreview] = useState<PixivWork | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** 自动更新状态与弹窗开关；取消后保持关闭，直到下一次状态变化 */
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -500,7 +511,6 @@ export default function App(): React.JSX.Element {
     try {
       const ids = await window.pixiv.checkDownloaded({
         works: list,
-        tag: worksTag(cfg),
         outDir: cfg.outDir,
       });
       const next = new Set(ids);
@@ -661,8 +671,11 @@ export default function App(): React.JSX.Element {
       .catch((reason: unknown) => setError(messageOf(reason)));
   };
 
-  /** patch 用于关注列表等入口「回填参数并立即抓取」 */
-  const collect = async (patch?: Partial<AppConfig>): Promise<void> => {
+  /** patch 用于关注列表等入口「回填参数并立即抓取」；quietEmpty 用于切栏目时安静地展示空列表 */
+  const collect = async (
+    patch?: Partial<AppConfig>,
+    options?: { quietEmpty?: boolean },
+  ): Promise<void> => {
     // 抓取与下载互不阻塞：下载进行中也能重新抓取作品列表
     if (!config || collecting) return;
     const cfg: AppConfig = { ...config, ...patch };
@@ -687,34 +700,29 @@ export default function App(): React.JSX.Element {
         offset: cfg.offset,
         limit: cfg.limit,
         workers: cfg.workers,
-        source: cfg.source,
-        bookmarkUserId: cfg.bookmarkUserId,
-        bookmarkTag: cfg.bookmarkTag,
+        contentKind: cfg.contentKind,
         bookmarkRest: cfg.bookmarkRest,
       });
       setWorks(result.works);
       setTotal(result.total);
       setPreview(null);
       setPage(1);
-      // 收藏夹同步默认只看未下载，实现增量同步
-      const syncOnlyNew = cfg.source === "bookmarks" && cfg.bookmarkOnlyNew;
-      setOnlyNew(syncOnlyNew);
 
       // 默认全选「当前筛选结果」的第一页
-      const ids = await refreshDownloaded(result.works, cfg);
-      const base = applyWorkFilters(result.works, cfg).works;
-      const visible = syncOnlyNew
-        ? base.filter((work) => !ids.has(work.id))
-        : base;
+      await refreshDownloaded(result.works, cfg);
+      const visible = applyWorkFilters(result.works, cfg).works;
       setSelected(new Set(visible.slice(0, cfg.limit).map((work) => work.id)));
 
       setTab("works");
       if (result.works.length === 0) {
-        setError(
-          cfg.source === "bookmarks"
-            ? t("app.noWorksBookmarks")
-            : t("app.noWorks"),
-        );
+        // 切到「漫画」这类栏目时，作者本来就没有该类作品，空列表比报错更贴切
+        if (!options?.quietEmpty) {
+          setError(
+            cfg.contentKind === "bookmarks"
+              ? t("app.noWorksBookmarks")
+              : t("app.noWorks"),
+          );
+        }
       } else if (result.failedPages > 0) {
         setError(t("app.partialFail", { count: result.failedPages }));
       }
@@ -724,6 +732,76 @@ export default function App(): React.JSX.Element {
       setCollecting(false);
     }
   };
+
+  /**
+   * 作品列表的栏目：全部（插画+漫画，与作者主页「作品」口径一致）/ 插画 / 漫画 / 收藏。
+   * 四栏共用同一个「用户 ID」：收藏栏取的就是这位用户的收藏夹，留空则用当前登录账号。
+   */
+  const contentTab: ContentTab = config?.contentKind ?? "all";
+
+  /**
+   * 「标签」在两类栏目里含义不同：前三个是作品标签，收藏栏是收藏夹标签。
+   * 各记一份，切换栏目时换回来——否则从「插画 + R-18」切到收藏，会带着 R-18 去查收藏夹标签，
+   * 结果为空还看不出是筛选造成的。
+   */
+  const tagByGroup = useRef<{ author: string; bookmarks: string }>({
+    author: "",
+    bookmarks: "",
+  });
+
+  /**
+   * 切换栏目：只是换查询条件，条件齐了就顺手重抓一次
+   * （与标签弹窗「选完即抓」保持一致）；缺用户 ID 时只切界面，等用户点「抓取」。
+   */
+  const switchContent = (next: ContentTab): void => {
+    if (!config || next === contentTab) return;
+
+    const fromBookmarks = contentTab === "bookmarks";
+    const toBookmarks = next === "bookmarks";
+    let nextTag = config.tag;
+    if (fromBookmarks !== toBookmarks) {
+      if (fromBookmarks) tagByGroup.current.bookmarks = config.tag;
+      else tagByGroup.current.author = config.tag;
+      nextTag = toBookmarks
+        ? tagByGroup.current.bookmarks
+        : tagByGroup.current.author;
+    }
+
+    updateConfig({ contentKind: next, tag: nextTag });
+    // 收藏栏留空会用当前登录账号，所以登录状态已知时也算条件齐全
+    const ready =
+      config.userId.trim() !== "" ||
+      (next === "bookmarks" && Boolean(selfUser?.id));
+    if (ready) {
+      void collect(
+        { contentKind: next, tag: nextTag, offset: 0 },
+        { quietEmpty: true },
+      );
+    }
+  };
+
+  const contentLabel = (value: ContentTab): string => {
+    if (value === "bookmarks") return t("workbench.contentBookmarks");
+    if (value === "illust") return t("workbench.contentIllust");
+    if (value === "manga") return t("workbench.contentManga");
+    return t("workbench.contentAll");
+  };
+
+  /**
+   * 作者主页「转到下载页面」：带 state 跳到 /workbench，填好作者 ID 并直接抓一轮。
+   * 用 state 而不是查询串，页面刷新后不会重复触发；处理完立刻 replace 清掉。
+   */
+  useEffect(() => {
+    const state = location.state as { downloadUserId?: string } | null;
+    const target = String(state?.downloadUserId || "").trim();
+    if (!target || !/^\d+$/.test(target)) return;
+    if (!config) return;
+    navigate("/workbench", { replace: true, state: null });
+    setTab("works");
+    // 先落盘参数：即使用户此刻正在抓别的东西（collect 会直接返回），ID 也已经填好了
+    updateConfig({ userId: target, tag: "", offset: 0 });
+    void collect({ userId: target, tag: "", offset: 0 });
+  }, [location.state, config]);
 
   /**
    * 引导第 5 步（采集来源）需要一个「有内容」的工作台。
@@ -746,7 +824,6 @@ export default function App(): React.JSX.Element {
     }
 
     void collect({
-      source: "tag",
       userId: TOUR_DEMO_AUTHOR,
       tag: "",
       tagExtra: "",
@@ -1195,7 +1272,7 @@ export default function App(): React.JSX.Element {
               </NavLink>
             </nav>
 
-            {/* 下载工作台 / 图库 / 书库：图标入口，文案放 title 里节省顶栏宽度 */}
+            {/* 下载工作台 / 图库：图标入口，文案放 title 里节省顶栏宽度 */}
             <nav className="flex shrink-0 items-center gap-0.5">
               <NavLink
                 to="/workbench"
@@ -1210,13 +1287,6 @@ export default function App(): React.JSX.Element {
                 className={({ isActive }) => navClass(isActive)}
               >
                 <Library className="h-3.5 w-3.5" />
-              </NavLink>
-              <NavLink
-                to="/library"
-                title={t("nav.library")}
-                className={({ isActive }) => navClass(isActive)}
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
               </NavLink>
               <NavLink
                 to="/watch-later"
@@ -1404,9 +1474,34 @@ export default function App(): React.JSX.Element {
 
                           <TabsContent
                             value="works"
-                            className="min-h-0"
+                            className="min-h-0 gap-2"
                             data-tour="works-panel"
                           >
+                            {/* 栏目与作者主页一致：全部 = 插画+漫画；收藏换的是数据来源 */}
+                            <div
+                              className="flex shrink-0 items-center gap-1 self-start rounded-lg bg-secondary/40 p-1"
+                              data-tour="works-content-tabs"
+                            >
+                              {CONTENT_TABS.map((value) => {
+                                const active = contentTab === value;
+                                return (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => switchContent(value)}
+                                    disabled={collecting}
+                                    className={
+                                      active
+                                        ? "rounded-md bg-background px-2.5 py-1 text-[11px] text-foreground shadow-sm transition-colors disabled:opacity-60"
+                                        : "rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                                    }
+                                  >
+                                    {contentLabel(value)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
                             <WorksGrid
                               works={pagedWorks}
                               selected={selected}
@@ -1422,6 +1517,22 @@ export default function App(): React.JSX.Element {
                               activeFilterCount={activeFilterCount}
                               onSortChange={changeSort}
                               onOpenFilter={() => setFilterOpen(true)}
+                              activeTag={
+                                config.contentKind === "bookmarks"
+                                  ? ""
+                                  : config.tag
+                              }
+                              onOpenTags={
+                                // 标签弹窗列的是作者作品的标签；收藏栏的标签是收藏夹标签，只能手填
+                                config.contentKind === "bookmarks"
+                                  ? undefined
+                                  : () => setTagsOpen(true)
+                              }
+                              onClearTag={
+                                config.contentKind === "bookmarks"
+                                  ? undefined
+                                  : () => void collect({ tag: "", offset: 0 })
+                              }
                               onExport={() => void exportWorks()}
                               page={currentPage}
                               pageCount={pageCount}
@@ -1504,7 +1615,8 @@ export default function App(): React.JSX.Element {
                   </main>
                 }
               />
-              <Route path="/library" element={<NovelLibraryPage />} />
+              {/* 旧书库页并入图库：小说现在是作者页下的第三个栏目，老链接直接转过去 */}
+              <Route path="/library" element={<Navigate to="/gallery" replace />} />
               <Route path="/novel/:novelId" element={<NovelReaderPage />} />
               {/* 未匹配的路由，重定向到推荐页 */}
               <Route path="*" element={<Navigate to="/recommend" replace />} />
@@ -1519,6 +1631,24 @@ export default function App(): React.JSX.Element {
               selected={selected.has(preview.id)}
               onToggle={toggleWork}
               onClose={() => setPreview(null)}
+            />
+          ) : null}
+
+          {tagsOpen ? (
+            <UserTagDialog
+              userId={config.userId}
+              content={config.contentKind ?? "all"}
+              activeTag={config.tag}
+              busy={collecting}
+              onClose={() => setTagsOpen(false)}
+              onSelect={(tag) => {
+                setTagsOpen(false);
+                const next = tag ?? "";
+                // 选的是同一个标签且本来就在第一页：没必要再打一轮全量请求
+                if (next === config.tag && config.offset === 0) return;
+                // 换标签等于换一次查询：回到第一页重新抓取
+                void collect({ tag: next, offset: 0 });
+              }}
             />
           ) : null}
 
@@ -1568,7 +1698,11 @@ export default function App(): React.JSX.Element {
         </div>
         <TourProvider
           blocked={
-            settingsOpen || filterOpen || updateOpen || Boolean(preview)
+            settingsOpen ||
+            filterOpen ||
+            tagsOpen ||
+            updateOpen ||
+            Boolean(preview)
           }
           onAction={prepareTourWorks}
         />

@@ -2,6 +2,11 @@ import path from 'node:path'
 import { open, readdir, stat } from 'node:fs/promises'
 import type { ImageQuality } from '../../shared/types'
 import {
+  CONTENT_DIR,
+  IMAGE_CONTENTS,
+  type ImageContent
+} from '../../shared/layout'
+import {
   DEFAULT_FILE_TEMPLATE,
   compileDownloadMatcher,
   renderFileName,
@@ -29,9 +34,26 @@ export function extOf(url: string): string {
   }
 }
 
-export function buildAuthorDir(baseDir: string, userId: string, userName: string): string {
-  const folder = `${(userId || '').trim() || 'unknown'}_${safeName(userName, 'artist')}`
-  return path.join(baseDir, folder)
+/** 作者目录名：`{用户ID}_{作者名}`，落盘与扫描都靠这个格式定位作者 */
+export function authorFolderName(userId: string, userName: string): string {
+  return `${(userId || '').trim() || 'unknown'}_${safeName(userName, 'artist')}`
+}
+
+/** 从目录名还原作者；不符合 `{id}_{name}` 的目录不认（库里只会有这一种作者目录） */
+export function parseAuthorFolder(name: string): { userId: string; userName: string } | null {
+  const match = /^(\d+)_(.+)$/.exec(name)
+  if (!match) return null
+  return { userId: match[1], userName: match[2] }
+}
+
+/** 作品落盘目录：`{保存目录}/{作者ID}_{作者名}/{illustration|manga}` */
+export function buildContentDir(
+  outDir: string,
+  userId: string,
+  userName: string,
+  content: ImageContent
+): string {
+  return path.join(outDir, authorFolderName(userId, userName), CONTENT_DIR[content])
 }
 
 export interface DestContext {
@@ -189,14 +211,24 @@ export async function satisfiesQuality(
  * 按当前模板（外加默认模板，兼容历史文件）解析文件名里的作品 ID 与页码，
  * 只有覆盖了 pageCount 的每一页（0 ~ pageCount-1）才算已下载。
  * 选择高清原图时还会校验首张图片的像素尺寸，避免把常规图误判为原图。
+ *
+ * 目录结构：`{保存目录}/{作者ID}_{作者名}/{illustration|manga}/`。
+ * 传入了 userId 时只看对应作者的目录，避免为几十个作品遍历整库。
  */
 export async function findDownloadedIds(
-  rootDir: string,
-  works: { id: string; pageCount?: number; width?: number; height?: number }[],
+  outDir: string,
+  works: {
+    id: string
+    pageCount?: number
+    width?: number
+    height?: number
+    userId?: string
+  }[],
   template = DEFAULT_FILE_TEMPLATE,
   quality: ImageQuality = 'regular'
 ): Promise<string[]> {
   const wanted = new Map<string, { pageCount: number; width: number; height: number }>()
+  const authorIds = new Set<string>()
   works.forEach((work) => {
     const id = String(work.id || '').trim()
     if (!id) return
@@ -205,6 +237,8 @@ export async function findDownloadedIds(
       width: Number(work.width || 0),
       height: Number(work.height || 0)
     })
+    const userId = String(work.userId || '').trim()
+    if (userId) authorIds.add(userId)
   })
   if (wanted.size === 0) return []
 
@@ -214,7 +248,7 @@ export async function findDownloadedIds(
 
   let authors
   try {
-    authors = await readdir(rootDir, { withFileTypes: true })
+    authors = await readdir(outDir, { withFileTypes: true })
   } catch {
     return []
   }
@@ -223,14 +257,8 @@ export async function findDownloadedIds(
   const pagesById = new Map<string, Set<number>>()
   // 首页文件路径（模板带 {quality} 时会有多份：常规图与原图各自一份）
   const coversById = new Map<string, string[]>()
-  for (const author of authors) {
-    if (!author.isDirectory()) continue
-    let files: string[]
-    try {
-      files = await readdir(path.join(rootDir, author.name))
-    } catch {
-      continue
-    }
+
+  const collect = (files: string[], dir: string): void => {
     for (const file of files) {
       // .part 是尚未完成的临时文件，不算已下载
       if (file.endsWith('.part')) continue
@@ -247,11 +275,29 @@ export async function findDownloadedIds(
         pagesById.set(id, pages)
         if (page === 0) {
           const covers = coversById.get(id) ?? []
-          covers.push(path.join(rootDir, author.name, file))
+          covers.push(path.join(dir, file))
           coversById.set(id, covers)
         }
         break
       }
+    }
+  }
+
+  for (const author of authors) {
+    if (!author.isDirectory()) continue
+    const parsed = parseAuthorFolder(author.name)
+    if (!parsed) continue
+    // 有明确作者时只查这些作者，扫描量从「整库」降到「本次要下载的人」
+    if (authorIds.size > 0 && !authorIds.has(parsed.userId)) continue
+    for (const content of IMAGE_CONTENTS) {
+      const dir = path.join(outDir, author.name, CONTENT_DIR[content])
+      let files: string[]
+      try {
+        files = await readdir(dir)
+      } catch {
+        continue
+      }
+      collect(files, dir)
     }
   }
 

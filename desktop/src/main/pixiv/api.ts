@@ -1,4 +1,5 @@
 import type {
+  AuthorContent,
   BookmarkRest,
   CollectProgress,
   CollectResult,
@@ -9,7 +10,9 @@ import type {
   TagMode,
   TagSuggestion,
   UgoiraFrame,
+  UserTag,
   UserWorkThumb,
+  WorkContent,
   WorkPage
 } from '../../shared/types'
 import { buildTagQuery, hasTagFilter, matchesTagQuery } from '../../shared/tags'
@@ -173,9 +176,11 @@ export async function fetchWorks(
   offset: number,
   limit: number,
   cookie = '',
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** all：插画+漫画（作者主页「作品」口径）；illust / manga：只取单类 */
+  content: AuthorContent = 'all'
 ): Promise<{ works: PixivWork[]; total: number }> {
-  const url = webEndpoints.userTagWorks(userId, { tag, offset, limit })
+  const url = webEndpoints.userTagWorks(userId, { tag, offset, limit, kind: content })
 
   const data = await fetchJson<ListResponse>(url, cookie, signal)
   if (data.error) throw new Error(`作品列表接口报错：${data.message || '未知错误'}`)
@@ -185,6 +190,139 @@ export async function fetchWorks(
     works: (body.works || []).map(toWork),
     total: Number(body.total || 0)
   }
+}
+
+/** 作者主页的作品 id 清单：illusts / manga 各自是「id → null」对象 */
+interface ProfileAllResponse {
+  error?: boolean
+  message?: string
+  body?: {
+    illusts?: Record<string, unknown> | string[]
+    manga?: Record<string, unknown> | string[]
+  }
+}
+
+interface ProfileWorksResponse {
+  error?: boolean
+  message?: string
+  body?: { works?: Record<string, unknown> | unknown[] }
+}
+
+/**
+ * 作品 id 清单。
+ * 接口给的是「id → null」对象，JS 会把整数形式的键按数值升序枚举，
+ * 而作品 id 随时间递增——原样 Object.keys 就成了「旧作品在前」，所以显式按 id 降序。
+ */
+function profileIds(raw: Record<string, unknown> | string[] | undefined): string[] {
+  if (!raw) return []
+  const ids = Array.isArray(raw) ? raw.map((id) => String(id)) : Object.keys(raw)
+  return ids.filter(Boolean).sort((left, right) => Number(right) - Number(left))
+}
+
+/**
+ * 一次抓取里 profile/all 会被每一页复用（400 件作品就是 9 页），缓存同一用户的 id 清单，
+ * 并发翻页共享同一个请求。collectWorks 每次开始前会清掉，跨轮次不会吃到旧清单。
+ *
+ * 插画与漫画分开存：工作台的「全部 / 插画 / 漫画」栏目过滤只在这一层切，不再多打一次接口。
+ */
+interface ProfileIds {
+  illusts: string[]
+  manga: string[]
+}
+
+const profileIdsCache = new Map<string, Promise<ProfileIds>>()
+
+async function allWorksIds(
+  userId: string,
+  cookie: string,
+  signal?: AbortSignal
+): Promise<ProfileIds> {
+  const cached = profileIdsCache.get(userId)
+  if (cached) return cached
+
+  const task = (async () => {
+    const data = await fetchJson<ProfileAllResponse>(
+      webEndpoints.userProfileAll(userId),
+      cookie,
+      signal
+    )
+    if (data.error) throw new Error(`作品清单接口报错：${data.message || '未知错误'}`)
+    return {
+      illusts: profileIds(data.body?.illusts),
+      manga: profileIds(data.body?.manga)
+    }
+  })()
+  profileIdsCache.set(userId, task)
+  try {
+    return await task
+  } catch (error) {
+    // 失败的 promise 不能留在缓存里，否则这一轮后续翻页会全部跟着失败
+    profileIdsCache.delete(userId)
+    throw error
+  }
+}
+
+/** profile/illusts 单次请求的 id 上限：与作者主页首屏一致 */
+const PROFILE_IDS_PER_REQUEST = 48
+
+/**
+ * 「不限标签」时的全量作品分页。
+ *
+ * 不能再用 `illustmanga/tag?tag=`：那个列表会漏作品（实测某作者 401 件只回 366，
+ * 漏掉的 35 件在 profile/all 与详情接口里都还在，与分级、AI 标记、发布时间都无关）。
+ * 作者主页用的是 `profile/all` → `profile/illusts`，覆盖完整，这里走同一条路径：
+ * 先取 id 清单，按 offset/limit 切出本页需要的 id，再分批换详情。
+ * 请求数并不增加：limit=48 时一页一次，400 件作品共 9 次，和翻 9 页一样。
+ */
+async function fetchProfileWorksPage(
+  userId: string,
+  offset: number,
+  limit: number,
+  cookie = '',
+  signal?: AbortSignal,
+  content: AuthorContent = 'all'
+): Promise<{ works: PixivWork[]; total: number }> {
+  const lists = await allWorksIds(userId, cookie, signal)
+  // 三个栏目共用同一份 profile/all：插画 / 漫画各取一组，全部则合并后按 id 降序
+  const ids =
+    content === 'illust'
+      ? lists.illusts
+      : content === 'manga'
+        ? lists.manga
+        : [...lists.illusts, ...lists.manga].sort((left, right) => Number(right) - Number(left))
+  const pageIds = ids.slice(offset, offset + limit)
+  if (pageIds.length === 0) return { works: [], total: ids.length }
+
+  const batches: string[][] = []
+  for (let index = 0; index < pageIds.length; index += PROFILE_IDS_PER_REQUEST) {
+    batches.push(pageIds.slice(index, index + PROFILE_IDS_PER_REQUEST))
+  }
+  const pages = await mapPool(
+    batches,
+    2,
+    async (batch) => {
+      const data = await fetchJson<ProfileWorksResponse>(
+        webEndpoints.userProfileIllusts(userId, batch),
+        cookie,
+        signal
+      )
+      if (data.error) throw new Error(`作品详情接口报错：${data.message || '未知错误'}`)
+      const raw = data.body?.works
+      const list = Array.isArray(raw) ? raw : Object.values(raw || {})
+      return list.map((item) => toWork(item as RawWork))
+    },
+    signal
+  )
+
+  // 响应是按 id 索引的对象，顺序不可靠：按 id 清单还原，保证「新作品在前」
+  const map = new Map<string, PixivWork>()
+  pages.flat().forEach((work) => {
+    if (work.id) map.set(work.id, work)
+  })
+  const works = pageIds
+    .map((id) => map.get(id))
+    .filter((work): work is PixivWork => Boolean(work))
+  return { works, total: ids.length }
 }
 
 /** 收藏夹作品列表；rest 为 show 表示公开收藏，hide 表示私密收藏 */
@@ -433,9 +571,93 @@ export async function suggestTags(
   return result.slice(0, 8)
 }
 
+interface RawUserTag {
+  tag?: string
+  tag_translation?: string
+  tag_yomigana?: string
+  cnt?: number
+}
+
+interface UserTagsResponse {
+  error?: boolean
+  message?: string
+  body?: RawUserTag[] | { tagCloud?: RawUserTag[] }
+}
+
+/** 标签云接口的 body 正常是数组，个别版本包一层 tagCloud，这里两种都认 */
+function tagItems(raw: UserTagsResponse['body']): RawUserTag[] {
+  if (!raw) return []
+  return Array.isArray(raw) ? raw : raw.tagCloud || []
+}
+
+/**
+ * 作者用过的全部标签（作者主页「高级搜索」里的那份清单）。
+ *
+ * pixiv 把插画与漫画的标签分成两套：`all` 两边合并（同名标签累加计数，译文/读音取第一个非空值），
+ * `illust` / `manga` 只读对应那一套，保证工作台切换栏目后弹窗里的件数与实际列表口径一致。
+ * 漫画那份失败不影响整体——很多作者根本没有漫画。
+ */
+export async function fetchUserTags(
+  userId: string,
+  content: AuthorContent = 'all',
+  cookie = '',
+  signal?: AbortSignal
+): Promise<UserTag[]> {
+  const wantIllust = content !== 'manga'
+  const wantManga = content !== 'illust'
+  const [illusts, manga] = await Promise.all([
+    wantIllust
+      ? fetchJson<UserTagsResponse>(webEndpoints.userIllustTags(userId), cookie, signal)
+      : Promise.resolve(null),
+    wantManga
+      ? fetchJson<UserTagsResponse>(webEndpoints.userMangaTags(userId), cookie, signal).catch(
+          () => null
+        )
+      : Promise.resolve(null)
+  ])
+  if (illusts?.error) throw new Error(`标签接口报错：${illusts.message || '未知错误'}`)
+  if (!illusts && !manga) return []
+
+  const merged = new Map<string, UserTag>()
+  const absorb = (items: RawUserTag[]): void => {
+    for (const item of items) {
+      const tag = String(item.tag || '').trim()
+      if (!tag) continue
+      const key = tag.toLowerCase()
+      const translation = String(item.tag_translation || '').trim()
+      const reading = String(item.tag_yomigana || '').trim()
+      const count = Number(item.cnt || 0)
+      const current = merged.get(key)
+      if (current) {
+        current.count += count
+        if (!current.translation && translation) current.translation = translation
+        if (!current.reading && reading) current.reading = reading
+        continue
+      }
+      merged.set(key, {
+        tag,
+        translation: translation || undefined,
+        reading: reading || undefined,
+        count
+      })
+    }
+  }
+  if (illusts) absorb(tagItems(illusts.body))
+  if (manga && !manga.error) absorb(tagItems(manga.body))
+
+  // 常用标签在前；次数相同时按名称排，保证每次打开顺序一致
+  return [...merged.values()].sort(
+    (left, right) => right.count - left.count || left.tag.localeCompare(right.tag)
+  )
+}
+
 export interface CollectOptions {
   userId: string
   tag: string
+  /** 栏目：全部 / 插画 / 漫画 / 收藏；收藏栏目换的是接口，其余流程完全一致 */
+  contentKind?: WorkContent
+  /** 收藏栏目的公开 / 私密；其它栏目忽略 */
+  bookmarkRest?: BookmarkRest
   /** 附加包含标签（组合搜索），逗号/空格分隔 */
   tagExtra?: string
   /** 排除标签（组合搜索），逗号/空格分隔 */
@@ -450,10 +672,6 @@ export interface CollectOptions {
   cookie: string
   signal?: AbortSignal
   onProgress?: (progress: CollectProgress) => void
-}
-
-export interface BookmarkCollectOptions extends CollectOptions {
-  rest: BookmarkRest
 }
 
 type PageFetcher = (
@@ -600,19 +818,40 @@ async function collectCombined(
   return applyFilter({ works: dedupeWorks(chunks.flat()), total: doneTotal, failedPages })
 }
 
-export function collectWorks(options: CollectOptions): Promise<CollectResult> {
-  const { userId, cookie } = options
-  return collectCombined(
-    (tag, offset, limit, signal) => fetchWorks(userId, tag, offset, limit, cookie, signal),
-    options
-  )
+/** 栏目白名单：手改配置或旧版本传进来的奇怪值一律按「全部」处理 */
+const CONTENT_KINDS: WorkContent[] = ['all', 'illust', 'manga', 'bookmarks']
+
+export function contentKindOf(value: unknown): WorkContent {
+  return CONTENT_KINDS.includes(value as WorkContent) ? (value as WorkContent) : 'all'
 }
 
-export function collectBookmarks(options: BookmarkCollectOptions): Promise<CollectResult> {
-  const { userId, rest, cookie } = options
+/**
+ * 抓取某一栏目：
+ * - 收藏走 `illusts/bookmarks`（公开 / 私密由 rest 决定），标签直接交给接口；
+ * - 插画 / 漫画 / 全部走作者主页那套（profile/all + profile/illusts，空标签时）；
+ * 除此之外分页、组合标签、进度、失败计数全部是同一份 collectCombined。
+ */
+export function collectWorks(options: CollectOptions): Promise<CollectResult> {
+  const { userId, cookie } = options
+  const content = contentKindOf(options.contentKind)
+
+  if (content === 'bookmarks') {
+    const rest: BookmarkRest = options.bookmarkRest === 'hide' ? 'hide' : 'show'
+    return collectCombined(
+      (tag, offset, limit, signal) =>
+        fetchBookmarks(userId, tag, offset, limit, rest, cookie, signal),
+      options
+    )
+  }
+
+  // 每次抓取都重新取 id 清单：同一轮翻页共享缓存，跨轮次（刚投稿完再抓）不吃旧数据
+  profileIdsCache.delete(userId)
   return collectCombined(
     (tag, offset, limit, signal) =>
-      fetchBookmarks(userId, tag, offset, limit, rest, cookie, signal),
+      // 不限标签走作者主页那条完整路径；带标签仍用 pixiv 的标签检索
+      tag
+        ? fetchWorks(userId, tag, offset, limit, cookie, signal, content)
+        : fetchProfileWorksPage(userId, offset, limit, cookie, signal, content),
     options
   )
 }

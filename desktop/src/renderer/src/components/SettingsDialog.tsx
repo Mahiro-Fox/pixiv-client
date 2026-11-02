@@ -86,9 +86,9 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
-/** 与主进程落盘时的标签目录保持一致：收藏夹统一用「收藏夹」 */
+/** 模板预览里的 {tag}：与下载任务携带的标签一致，收藏栏固定为「收藏夹」 */
 function worksTagOf(config: AppConfig): string {
-  return config.source === 'bookmarks' ? '收藏夹' : config.tag
+  return config.contentKind === 'bookmarks' ? '收藏夹' : config.tag
 }
 
 function cookieSourceLabel(t: Translate, source: CookieStatus['source']): string {

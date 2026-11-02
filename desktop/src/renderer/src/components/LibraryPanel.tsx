@@ -1,9 +1,12 @@
 import {
   ArrowLeft,
+  BookOpen,
   Check,
   ChevronRight,
+  FileText,
   FolderOpen,
   HardDrive,
+  ImageOff,
   Images,
   Loader2,
   RefreshCw,
@@ -16,7 +19,14 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { LibraryResult, LibraryWork } from '@shared/types'
+import { useNavigate } from 'react-router-dom'
+import type {
+  LibraryResult,
+  LibraryWork,
+  NovelLibraryItem,
+  NovelTextSearchResult
+} from '@shared/types'
+import type { LocalContent } from '@shared/layout'
 import { dirOf, formatBytes, toLocalUrl } from '@renderer/lib/files'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
@@ -41,9 +51,9 @@ const TEXT_HEIGHT = 86
 
 type LibrarySort = 'updated' | 'files' | 'size' | 'id'
 
-/** 选择键：同一作品 ID 可能出现在不同标签目录，必须带标签 */
+/** 选择键：同一作品在插画 / 漫画目录下是两条记录，必须带内容类型 */
 function keyOf(work: LibraryWork): string {
-  return `${work.tag}\u0000${work.id}`
+  return `${work.content}\u0000${work.id}`
 }
 
 function messageOf(error: unknown): string {
@@ -63,51 +73,68 @@ function formatTime(value: number): string {
   })
 }
 
-/** 作品所在目录即作者文件夹 */
-function authorPathOf(work: LibraryWork): string {
+/** 作品所在目录：{作者目录}/{illustration|manga} */
+function workDirOf(work: LibraryWork): string {
   return dirOf(work.cover || work.files[0]?.path || '')
 }
 
-/** 取路径最后一段作为作者名 */
-function dirNameOf(dir: string): string {
-  const parts = dir.split(/[\\/]/).filter(Boolean)
-  return parts[parts.length - 1] || dir
-}
-
 interface AuthorGroup {
+  /** 作者目录绝对路径，同时作为分组键 */
   key: string
-  name: string
-  works: LibraryWork[]
+  userId: string
+  userName: string
+  illustration: LibraryWork[]
+  manga: LibraryWork[]
+  novels: NovelLibraryItem[]
   files: number
   bytes: number
   updatedAt: number
   cover: string
-  tags: string[]
 }
 
-/** 按作者目录分组；作者页的排序与统计都在这里一次算好 */
-function groupAuthors(works: LibraryWork[]): AuthorGroup[] {
+/**
+ * 按作者目录把插画 / 漫画 / 小说归到一起。
+ * 三类内容共用 `{作者ID}_{作者名}` 这一层目录，图库才能先选作者再选栏目。
+ */
+function groupAuthors(works: LibraryWork[], novels: NovelLibraryItem[]): AuthorGroup[] {
   const map = new Map<string, AuthorGroup>()
-  works.forEach((work) => {
-    const key = authorPathOf(work)
+  const ensure = (key: string, userId: string, userName: string): AuthorGroup => {
     const group = map.get(key) ?? {
       key,
-      name: dirNameOf(key),
-      works: [],
+      userId,
+      userName,
+      illustration: [],
+      manga: [],
+      novels: [],
       files: 0,
       bytes: 0,
       updatedAt: 0,
-      cover: '',
-      tags: []
+      cover: ''
     }
-    group.works.push(work)
+    if (!group.userId) group.userId = userId
+    if (!group.userName) group.userName = userName
+    map.set(key, group)
+    return group
+  }
+
+  works.forEach((work) => {
+    const group = ensure(work.authorPath, work.userId, work.userName)
+    if (work.content === 'manga') group.manga.push(work)
+    else group.illustration.push(work)
     group.files += work.files.length
     group.bytes += work.totalBytes
     group.updatedAt = Math.max(group.updatedAt, work.updatedAt)
     if (!group.cover && work.cover) group.cover = work.cover
-    if (!group.tags.includes(work.tag)) group.tags.push(work.tag)
-    map.set(key, group)
   })
+
+  novels.forEach((novel) => {
+    const group = ensure(novel.authorPath, novel.userId, novel.author)
+    group.novels.push(novel)
+    group.files += 1
+    group.bytes += novel.size
+    group.updatedAt = Math.max(group.updatedAt, Date.parse(novel.updatedAt) || 0)
+  })
+
   return [...map.values()].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
@@ -196,7 +223,7 @@ function LibraryCard({
         ) : null}
         <button
           type="button"
-          onClick={() => onOpenDir(authorPathOf(work))}
+          onClick={() => onOpenDir(workDirOf(work))}
           className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-1 text-white/90 opacity-0 backdrop-blur transition-all hover:bg-black/80 group-hover:opacity-100"
           title={t('library.openFolder')}
           aria-label={t('library.openFolder')}
@@ -213,7 +240,9 @@ function LibraryCard({
           #{work.id}
         </p>
         <div className="flex items-center justify-between pt-0.5 text-[10px] text-muted-foreground/70">
-          <span className="truncate">{work.tag}</span>
+          <span className="truncate">
+            {work.content === 'manga' ? t('library.tabManga') : t('library.tabIllustration')}
+          </span>
           <span className="shrink-0 tabular-nums">{formatBytes(work.totalBytes)}</span>
         </div>
         <p className="text-[10px] text-muted-foreground/60 tabular-nums">
@@ -241,7 +270,7 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
         {group.cover ? (
           <img
             src={toLocalUrl(group.cover)}
-            alt={group.name}
+            alt={group.userName}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.04]"
           />
@@ -252,19 +281,22 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="truncate text-sm font-medium" title={group.name}>
-          {group.name}
+        <p className="truncate text-sm font-medium" title={`${group.userId}_${group.userName}`}>
+          {group.userId ? `${group.userName} (${group.userId})` : group.userName}
         </p>
         <p className="truncate text-[11px] text-muted-foreground">
-          {t('library.authorStat', {
-            works: group.works.length,
-            files: group.files,
-            bytes: formatBytes(group.bytes)
+          {t('library.authorTypes', {
+            illustration: group.illustration.length,
+            manga: group.manga.length,
+            novel: group.novels.length
           })}
         </p>
         <p className="truncate text-[10px] text-muted-foreground/60">
-          {group.tags.slice(0, 2).join(' / ')}
-          {group.tags.length > 2 ? ' …' : ''}
+          {t('library.authorStat', {
+            works: group.illustration.length + group.manga.length,
+            files: group.files,
+            bytes: formatBytes(group.bytes)
+          })}
         </p>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
@@ -272,20 +304,134 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
   )
 }
 
+/** 小说卡片：封面 + 标题 + 字数 + 话数，点击进本地阅读器 */
+function NovelCard(props: {
+  item: NovelLibraryItem
+  onOpen: (item: NovelLibraryItem) => void
+  onOpenDir: (dir: string) => void
+}): React.JSX.Element {
+  const { t } = useI18n()
+  const { item } = props
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => props.onOpen(item)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          props.onOpen(item)
+        }
+      }}
+      className="group flex cursor-pointer gap-3 rounded-xl border border-border/60 bg-card/40 p-3 transition-colors hover:border-border hover:bg-card/70"
+    >
+      <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary/60">
+        {item.cover ? (
+          <img
+            src={item.cover}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              event.currentTarget.style.visibility = 'hidden'
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+            <ImageOff className="h-4 w-4" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-start gap-2">
+          <h3 className="line-clamp-2 flex-1 text-xs font-medium leading-5">{item.title}</h3>
+          <span className="shrink-0 rounded bg-secondary/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {item.kind === 'series' ? t('novel.series') : t('novelLib.oneshot')}
+          </span>
+        </div>
+        <p className="truncate text-[11px] text-muted-foreground">{item.author}</p>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          {item.characters > 0 ? <span>{t('novel.chars', { count: item.characters })}</span> : null}
+          {item.episodes > 1 ? <span>{t('novel.episodes', { count: item.episodes })}</span> : null}
+          <span>{item.updatedAt.slice(0, 10)}</span>
+        </div>
+        <div className="mt-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation()
+              props.onOpenDir(dirOf(item.path))
+            }}
+          >
+            <FolderOpen />
+            {t('novel.openDir')}
+          </Button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+/** 全文检索结果：标题 + 作者 + 命中片段 */
+function NovelHitCard(props: {
+  hit: NovelTextSearchResult['hits'][number]
+  onOpen: (hit: NovelTextSearchResult['hits'][number]) => void
+}): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => props.onOpen(props.hit)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          props.onOpen(props.hit)
+        }
+      }}
+      className="cursor-pointer rounded-xl border border-border/60 bg-card/40 p-3 transition-colors hover:border-border hover:bg-card/70"
+    >
+      <div className="flex items-center gap-2">
+        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">{props.hit.title}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{props.hit.author}</span>
+        <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+          {t('novelLib.matches', { count: props.hit.matches })}
+        </span>
+      </div>
+      <div className="mt-2 space-y-1">
+        {props.hit.snippets.map((snippet, index) => (
+          <p key={index} className="line-clamp-2 text-[11px] leading-5 text-muted-foreground">
+            {snippet}
+          </p>
+        ))}
+      </div>
+    </article>
+  )
+}
+
 export function LibraryPanel(): React.JSX.Element {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const preview = useImagePreview()
   const [data, setData] = useState<LibraryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  const [tag, setTag] = useState('all')
   const [sort, setSort] = useState<LibrarySort>('updated')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   /** 当前查看的作者目录；null 表示停留在作者列表 */
   const [authorKey, setAuthorKey] = useState<string | null>(null)
+  /** 作者页的栏目：插画 / 漫画 / 小说 */
+  const [tab, setTab] = useState<LocalContent>('illustration')
+  /** 小说栏目：是否在全库正文里做全文检索 */
+  const [deep, setDeep] = useState(false)
+  const [deepResult, setDeepResult] = useState<NovelTextSearchResult | null>(null)
+  const [deepSearching, setDeepSearching] = useState(false)
 
   const anchorRef = useRef<number | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -328,7 +474,10 @@ export function LibraryPanel(): React.JSX.Element {
     }
   }, [])
 
-  const authors = useMemo(() => groupAuthors(data?.works ?? []), [data])
+  const authors = useMemo(
+    () => groupAuthors(data?.works ?? [], data?.novels ?? []),
+    [data]
+  )
   const currentAuthor = useMemo(
     () => (authorKey ? authors.find((group) => group.key === authorKey) ?? null : null),
     [authors, authorKey]
@@ -339,27 +488,83 @@ export function LibraryPanel(): React.JSX.Element {
     if (authorKey && data && !currentAuthor) setAuthorKey(null)
   }, [authorKey, data, currentAuthor])
 
-  const authorTags = useMemo(
-    () => (currentAuthor ? currentAuthor.tags : []),
-    [currentAuthor]
-  )
+  /**
+   * 进入作者：清掉上一位作者的筛选与选择，并落在第一个有内容的栏目。
+   * 只由「点击作者」触发——用作者对象做依赖的话，外部文件变动导致重新扫描时
+   * 也会把当前栏目和搜索词重置掉。
+   */
+  const openAuthor = (key: string): void => {
+    const group = authors.find((item) => item.key === key)
+    setSelected(new Set())
+    setConfirmingDelete(false)
+    setDeep(false)
+    setDeepResult(null)
+    setQuery('')
+    anchorRef.current = null
+    if (group) {
+      if (group.illustration.length > 0) setTab('illustration')
+      else if (group.manga.length > 0) setTab('manga')
+      else setTab('novel')
+    }
+    setAuthorKey(key)
+  }
 
-  // 标签筛选只针对当前作者，切作者时重置为全部
-  useEffect(() => {
-    if (tag !== 'all' && !authorTags.includes(tag)) setTag('all')
-  }, [tag, authorTags])
+  const currentWorks = useMemo(() => {
+    if (!currentAuthor) return []
+    return tab === 'manga' ? currentAuthor.manga : currentAuthor.illustration
+  }, [currentAuthor, tab])
 
   const filtered = useMemo(() => {
-    if (!currentAuthor) return []
+    if (tab === 'novel') return []
     const keyword = query.trim().toLowerCase()
-    const list = currentAuthor.works.filter((work) => {
-      if (tag !== 'all' && work.tag !== tag) return false
+    const list = currentWorks.filter((work) => {
       if (!keyword) return true
       // 作者名不参与搜索：作者已在列表页按文件夹区分
       return work.title.toLowerCase().includes(keyword) || work.id.includes(keyword)
     })
     return sortWorks(list, sort)
-  }, [currentAuthor, query, tag, sort])
+  }, [currentWorks, query, sort, tab])
+
+  const filteredNovels = useMemo(() => {
+    if (!currentAuthor) return []
+    const keyword = query.trim().toLowerCase()
+    const list = keyword
+      ? currentAuthor.novels.filter((item) => item.title.toLowerCase().includes(keyword))
+      : currentAuthor.novels
+    return [...list].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  }, [currentAuthor, query])
+
+  // 全文检索：输入停顿 350ms 后再发起，避免逐字打盘
+  useEffect(() => {
+    const word = query.trim()
+    if (tab !== 'novel' || !deep || !word) {
+      setDeepResult(null)
+      setDeepSearching(false)
+      return
+    }
+    let alive = true
+    setDeepSearching(true)
+    const timer = window.setTimeout(() => {
+      void window.pixiv
+        .searchNovelLibrary(word)
+        .then((result) => {
+          if (alive) setDeepResult(result)
+        })
+        .catch((reason: unknown) => {
+          if (alive) {
+            setDeepResult(null)
+            setError(messageOf(reason))
+          }
+        })
+        .finally(() => {
+          if (alive) setDeepSearching(false)
+        })
+    }, 350)
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+  }, [tab, deep, query])
 
   const filteredBytes = useMemo(
     () => filtered.reduce((sum, work) => sum + work.totalBytes, 0),
@@ -380,7 +585,7 @@ export function LibraryPanel(): React.JSX.Element {
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [authorKey])
+  }, [authorKey, tab])
 
   const columns = Math.max(1, Math.floor((gridWidth + GAP) / (CARD_MIN + GAP)))
   const cardWidth = Math.max(1, (gridWidth - GAP * (columns - 1)) / columns)
@@ -402,7 +607,7 @@ export function LibraryPanel(): React.JSX.Element {
   // 条件变化后回到列表顶部，避免停在旧滚动位置看到空白
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [query, tag, sort, authorKey])
+  }, [query, sort, authorKey, tab])
 
   // 选择只针对当前可见结果，筛选变化后丢弃已隐藏的选中项，删除范围与界面一致
   useEffect(() => {
@@ -413,14 +618,6 @@ export function LibraryPanel(): React.JSX.Element {
       return next.size === previous.size ? previous : next
     })
   }, [filtered])
-
-  // 进入另一个作者时清空选择与标签筛选，避免把上一个作者的作品带进批量操作
-  useEffect(() => {
-    setSelected(new Set())
-    setTag('all')
-    setConfirmingDelete(false)
-    anchorRef.current = null
-  }, [authorKey])
 
   const toggleSelect = (index: number, shiftKey: boolean): void => {
     const target = filtered[index]
@@ -472,11 +669,20 @@ export function LibraryPanel(): React.JSX.Element {
     void window.pixiv.openLibraryDir(dir).catch((reason: unknown) => setError(messageOf(reason)))
   }
 
+  const openNovel = (item: { path: string; title: string; author: string }): void => {
+    const params = new URLSearchParams({
+      path: item.path,
+      title: item.title,
+      author: item.author
+    })
+    navigate(`/novel/local?${params.toString()}`)
+  }
+
   /** 批量打开目录：同一作者目录只打开一次 */
   const openSelectedDirs = (): void => {
     const dirs = new Set<string>()
     selectedWorks.forEach((work) => {
-      const dir = authorPathOf(work)
+      const dir = workDirOf(work)
       if (dir) dirs.add(dir)
     })
     void Promise.all(
@@ -502,6 +708,20 @@ export function LibraryPanel(): React.JSX.Element {
     }
   }
 
+  const tabs: { value: LocalContent; label: string; count: number }[] = currentAuthor
+    ? [
+        {
+          value: 'illustration',
+          label: t('library.tabIllustration'),
+          count: currentAuthor.illustration.length
+        },
+        { value: 'manga', label: t('library.tabManga'), count: currentAuthor.manga.length },
+        { value: 'novel', label: t('library.tabNovel'), count: currentAuthor.novels.length }
+      ]
+    : []
+
+  const searchingText = tab === 'novel' && deep && query.trim().length > 0
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2">
@@ -516,7 +736,13 @@ export function LibraryPanel(): React.JSX.Element {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={t('library.searchPlaceholder')}
+                placeholder={
+                  tab === 'novel'
+                    ? deep
+                      ? t('novelLib.searchPlaceholder')
+                      : t('library.novelSearchPlaceholder')
+                    : t('library.searchPlaceholder')
+                }
                 className="pl-8"
                 spellCheck={false}
               />
@@ -532,29 +758,35 @@ export function LibraryPanel(): React.JSX.Element {
               ) : null}
             </div>
 
-            <div className="w-[130px] shrink-0">
-              <Select
-                value={tag}
-                onChange={(value) => setTag(value)}
-                options={[
-                  { value: 'all', label: t('library.allTags') },
-                  ...authorTags.map((item) => ({ value: item, label: item }))
-                ]}
-              />
-            </div>
+            {tab === 'novel' ? (
+              <Button
+                variant={deep ? 'default' : 'outline'}
+                size="sm"
+                title={t('library.deepSearchHint')}
+                onClick={() => setDeep((value) => !value)}
+              >
+                <FileText />
+                {t('library.deepSearch')}
+              </Button>
+            ) : (
+              <div className="w-[130px] shrink-0">
+                <Select
+                  value={sort}
+                  onChange={(value) => setSort(value as LibrarySort)}
+                  options={[
+                    { value: 'updated', label: t('library.sortUpdated') },
+                    { value: 'files', label: t('library.sortFiles') },
+                    { value: 'size', label: t('library.sortSize') },
+                    { value: 'id', label: t('library.sortId') }
+                  ]}
+                />
+              </div>
+            )}
 
-            <div className="w-[130px] shrink-0">
-              <Select
-                value={sort}
-                onChange={(value) => setSort(value as LibrarySort)}
-                options={[
-                  { value: 'updated', label: t('library.sortUpdated') },
-                  { value: 'files', label: t('library.sortFiles') },
-                  { value: 'size', label: t('library.sortSize') },
-                  { value: 'id', label: t('library.sortId') }
-                ]}
-              />
-            </div>
+            <Button variant="ghost" size="sm" onClick={() => openDir(currentAuthor.key)}>
+              <FolderOpen />
+              {t('library.openAuthorDir')}
+            </Button>
           </>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -578,23 +810,73 @@ export function LibraryPanel(): React.JSX.Element {
         ) : null}
       </div>
 
+      {/* 栏目：插画 / 漫画 / 小说；空栏目也可点，只是列表为空 */}
+      {currentAuthor ? (
+        <div className="mb-2 flex shrink-0 items-center gap-1 self-start rounded-lg bg-secondary/50 p-1">
+          {tabs.map((item) => {
+            const active = tab === item.value
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => {
+                  setTab(item.value)
+                  setQuery('')
+                  setSelected(new Set())
+                  setConfirmingDelete(false)
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors',
+                  active
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {item.label}
+                <span className="tabular-nums opacity-70">{item.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-[11px] text-muted-foreground">
         {data ? (
           <>
             {currentAuthor ? (
               <>
-                <span className="truncate font-medium text-foreground/80">{currentAuthor.name}</span>
-                <span>
-                  {filtered.length === currentAuthor.works.length
-                    ? t('library.workCount', { count: currentAuthor.works.length })
-                    : t('library.workCountFiltered', {
-                        shown: filtered.length,
-                        total: currentAuthor.works.length
-                      })}
+                <span className="truncate font-medium text-foreground/80">
+                  {currentAuthor.userId
+                    ? `${currentAuthor.userName} (${currentAuthor.userId})`
+                    : currentAuthor.userName}
                 </span>
+                {tab === 'novel' ? (
+                  <span>{t('library.novelCount', { count: filteredNovels.length })}</span>
+                ) : (
+                  <span>
+                    {filtered.length === currentWorks.length
+                      ? t('library.workCount', { count: currentWorks.length })
+                      : t('library.workCountFiltered', {
+                          shown: filtered.length,
+                          total: currentWorks.length
+                        })}
+                  </span>
+                )}
                 <span className="tabular-nums">
                   {t('library.fileCount', {
-                    count: filtered.reduce((sum, work) => sum + work.files.length, 0)
+                    count:
+                      tab === 'novel'
+                        ? filteredNovels.length
+                        : filtered.reduce((sum, work) => sum + work.files.length, 0)
+                  })}
+                </span>
+                <span className="tabular-nums">
+                  {t('library.totalSize', {
+                    size: formatBytes(
+                      tab === 'novel'
+                        ? filteredNovels.reduce((sum, item) => sum + item.size, 0)
+                        : filteredBytes
+                    )
                   })}
                 </span>
               </>
@@ -602,16 +884,15 @@ export function LibraryPanel(): React.JSX.Element {
               <>
                 <span>{t('library.authorCount', { count: authors.length })}</span>
                 <span>{t('library.workCount', { count: data.works.length })}</span>
+                <span>{t('library.novelCount', { count: data.novels.length })}</span>
                 <span className="tabular-nums">
                   {t('library.fileCount', { count: data.totalFiles })}
                 </span>
+                <span className="tabular-nums">
+                  {t('library.totalSize', { size: formatBytes(data.totalBytes) })}
+                </span>
               </>
             )}
-            <span className="tabular-nums">
-              {t('library.totalSize', {
-                size: formatBytes(currentAuthor ? filteredBytes : data.totalBytes)
-              })}
-            </span>
             <span className="truncate opacity-70">{data.outDir}</span>
           </>
         ) : null}
@@ -624,7 +905,7 @@ export function LibraryPanel(): React.JSX.Element {
       </div>
 
       {/* 批量操作栏：有选中项时常驻，避免选中后还要滚动找按钮 */}
-      {currentAuthor && selected.size > 0 ? (
+      {currentAuthor && tab !== 'novel' && selected.size > 0 ? (
         <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-[11px]">
           <span className="font-medium text-primary">
             {t('library.selectedWorks', { count: selectedWorks.length })}
@@ -685,14 +966,14 @@ export function LibraryPanel(): React.JSX.Element {
           </div>
         ) : null}
 
-        {!loading && !error && data && data.works.length === 0 ? (
+        {!loading && !error && data && data.works.length === 0 && data.novels.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 py-20 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
               <Images className="h-6 w-6" />
             </div>
             <p className="text-sm font-medium">{t('library.empty')}</p>
             <p className="max-w-md text-xs leading-5 text-muted-foreground">
-              {t('library.emptyHint', { template: '{id}_p{page}_{title}{ext}' })}
+              {t('library.emptyHint')}
             </p>
           </div>
         ) : null}
@@ -701,19 +982,70 @@ export function LibraryPanel(): React.JSX.Element {
         {!currentAuthor && !loading && !error && authors.length > 0 ? (
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {authors.map((group) => (
-              <AuthorCard key={group.key} group={group} onOpen={setAuthorKey} />
+              <AuthorCard key={group.key} group={group} onOpen={openAuthor} />
             ))}
           </div>
         ) : null}
 
-        {currentAuthor && !loading && !error && filtered.length === 0 ? (
+        {/* 小说栏目：默认列该作者的小说，开启全文检索后列全库命中 */}
+        {currentAuthor && tab === 'novel' ? (
+          <div className="space-y-2">
+            {searchingText ? (
+              <p className="text-[11px] text-muted-foreground">
+                {deepSearching
+                  ? t('novelLib.searching')
+                  : deepResult
+                    ? t('novelLib.hitCount', {
+                        count: deepResult.hits.length,
+                        scanned: deepResult.scanned
+                      })
+                    : ''}
+              </p>
+            ) : null}
+
+            {searchingText ? (
+              deepResult && deepResult.hits.length > 0 ? (
+                deepResult.hits.map((hit) => (
+                  <NovelHitCard key={hit.path} hit={hit} onOpen={openNovel} />
+                ))
+              ) : !deepSearching && deepResult ? (
+                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                  {t('novelLib.noHit')}
+                </div>
+              ) : null
+            ) : filteredNovels.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                {filteredNovels.map((item) => (
+                  <NovelCard
+                    key={item.path}
+                    item={item}
+                    onOpen={openNovel}
+                    onOpenDir={openDir}
+                  />
+                ))}
+              </div>
+            ) : currentAuthor.novels.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
+                <BookOpen className="h-5 w-5" />
+                {t('library.novelEmpty')}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
+                <Sparkles className="h-5 w-5" />
+                {t('library.noMatch')}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {currentAuthor && tab !== 'novel' && !loading && !error && filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
             <Sparkles className="h-5 w-5" />
             {t('library.noMatch')}
           </div>
         ) : null}
 
-        {currentAuthor && filtered.length > 0 ? (
+        {currentAuthor && tab !== 'novel' && filtered.length > 0 ? (
           <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const start = virtualRow.index * columns

@@ -98,9 +98,9 @@ export function NovelLocalReaderPage(): React.JSX.Element {
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 px-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/library')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/gallery')}>
           <ArrowLeft />
-          {t('novelLib.title')}
+          {t('nav.gallery')}
         </Button>
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {title}

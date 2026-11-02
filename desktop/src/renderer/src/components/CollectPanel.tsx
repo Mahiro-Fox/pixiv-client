@@ -1,5 +1,4 @@
 import {
-  Bookmark,
   Download,
   Gem,
   Image as ImageIcon,
@@ -7,7 +6,6 @@ import {
   RefreshCw,
   Sparkles,
   Tags,
-  UserRound,
   X
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -408,22 +406,25 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
   // 模板非法时禁用下载，避免生成无法解析的文件名
   const templateError = validateTemplate(config.fileNameTemplate)
 
+  /** 收藏栏目：与前三栏共用同一个「用户 ID」，只是取的是这位用户的收藏夹 */
+  const isBookmarks = config.contentKind === 'bookmarks'
+
   /**
-   * 填了别人的收藏用户 ID 时，私密收藏必然拿不到（pixiv 返回 403 没权限），
+   * 填了别人的用户 ID 时，私密收藏必然拿不到（pixiv 返回 403 没权限），
    * 所以直接把类型收敛成公开收藏并锁住私密选项，避免用户白跑一次。
    * 只在自己 ID 已知且确实不同时才判定为「他人」，
-   * 否则收藏夹资料还没取到时，用户填自己的 ID 会被误锁。
+   * 否则登录资料还没取到时，用户填自己的 ID 会被误锁。
    */
   const otherUserId =
-    config.bookmarkUserId.trim() !== '' &&
+    config.userId.trim() !== '' &&
     Boolean(selfUser?.id) &&
-    config.bookmarkUserId.trim() !== selfUser?.id
+    config.userId.trim() !== selfUser?.id
 
   useEffect(() => {
-    if (otherUserId && config.bookmarkRest !== 'show') {
+    if (isBookmarks && otherUserId && config.bookmarkRest !== 'show') {
       props.onConfigChange({ bookmarkRest: 'show' })
     }
-  }, [otherUserId, config.bookmarkRest, props])
+  }, [isBookmarks, otherUserId, config.bookmarkRest, props])
 
   const setTagMode = (mode: TagMode): void => props.onConfigChange({ tagMode: mode })
 
@@ -447,70 +448,25 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             <CardTitle>{t('collect.settings')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-secondary/50 p-1">
-              <button
-                type="button"
-                onClick={() => props.onConfigChange({ source: 'tag' })}
-                className={cn(
-                  'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors',
-                  config.source === 'tag'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <UserRound className="h-3.5 w-3.5" />
-                {t('collect.sourceTag')}
-              </button>
-              <button
-                type="button"
-                onClick={() => props.onConfigChange({ source: 'bookmarks' })}
-                className={cn(
-                  'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors',
-                  config.source === 'bookmarks'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Bookmark className="h-3.5 w-3.5" />
-                {t('collect.sourceBookmarks')}
-              </button>
-            </div>
-
-            {config.source === 'tag' ? (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={t('collect.userId')} required>
-                  <Input
-                    value={config.userId}
-                    onChange={(event) => props.onConfigChange({ userId: event.target.value })}
-                    placeholder="114638697"
-                  />
-                </Field>
-                <Field label={t('collect.tag')}>
-                  <TagInput
-                    value={config.tag}
-                    onChange={(value) => props.onConfigChange({ tag: value })}
-                    onSuggest={props.onSuggestTags}
-                  />
-                </Field>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <Field
-                  label={t('collect.bookmarkUserId')}
-                  hint={
-                    selfUser
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label={t('collect.userId')}
+                required={!isBookmarks}
+                hint={
+                  isBookmarks
+                    ? selfUser
                       ? t('collect.currentUser', { name: selfUser.name, id: selfUser.id })
-                      : t('collect.bookmarkUserIdFallback')
-                  }
-                >
-                  <Input
-                    value={config.bookmarkUserId}
-                    onChange={(event) =>
-                      props.onConfigChange({ bookmarkUserId: event.target.value })
-                    }
-                    placeholder={selfUser?.id ?? t('collect.bookmarkUserIdPlaceholder')}
-                  />
-                </Field>
+                      : t('collect.bookmarkLoginHint')
+                    : undefined
+                }
+              >
+                <Input
+                  value={config.userId}
+                  onChange={(event) => props.onConfigChange({ userId: event.target.value })}
+                  placeholder={isBookmarks ? (selfUser?.id ?? '114638697') : '114638697'}
+                />
+              </Field>
+              {isBookmarks ? (
                 <Field
                   label={t('collect.bookmarkType')}
                   hint={otherUserId ? t('collect.bookmarkOtherUserHint') : undefined}
@@ -526,30 +482,25 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     ]}
                   />
                 </Field>
-              </div>
-            )}
-
-            {config.source === 'bookmarks' ? (
-              <>
-                <Field label={t('collect.tagOptional')} hint={t('collect.bookmarkTagHint')}>
+              ) : (
+                <Field label={t('collect.tag')}>
                   <TagInput
-                    value={config.bookmarkTag}
-                    onChange={(value) => props.onConfigChange({ bookmarkTag: value })}
+                    value={config.tag}
+                    onChange={(value) => props.onConfigChange({ tag: value })}
                     onSuggest={props.onSuggestTags}
                   />
                 </Field>
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={config.bookmarkOnlyNew}
-                    onChange={(event) =>
-                      props.onConfigChange({ bookmarkOnlyNew: event.target.checked })
-                    }
-                    className="h-3.5 w-3.5 accent-primary"
-                  />
-                  {t('collect.onlyNew')}
-                </label>
-              </>
+              )}
+            </div>
+
+            {isBookmarks ? (
+              <Field label={t('collect.bookmarkTag')} hint={t('collect.bookmarkTagHint')}>
+                <TagInput
+                  value={config.tag}
+                  onChange={(value) => props.onConfigChange({ tag: value })}
+                  onSuggest={props.onSuggestTags}
+                />
+              </Field>
             ) : null}
 
             <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/10 p-3">
@@ -584,7 +535,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
               <Field
                 label={t('collect.tagExtra')}
                 hint={
-                  config.source === 'bookmarks' && !config.bookmarkTag.trim()
+                  isBookmarks && !config.tag.trim()
                     ? t('collect.tagExtraHintBookmark')
                     : config.tagMode === 'and'
                       ? t('collect.tagExtraHintAnd')
@@ -675,28 +626,20 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           variant="secondary"
           disabled={
             props.collecting ||
-            (config.source === 'tag' && !config.userId.trim()) ||
-            (config.source === 'bookmarks' &&
-              !hasCookie &&
-              !config.bookmarkUserId.trim())
+            // 收藏栏留空会用当前登录账号，所以只有连登录状态都没有时才拦
+            (isBookmarks ? !hasCookie && !config.userId.trim() : !config.userId.trim())
           }
           onClick={props.onCollect}
         >
           {props.collecting ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-          {props.collecting
-            ? config.source === 'bookmarks'
-              ? t('collect.syncingBookmarks')
-              : t('collect.collectingWorks')
-            : config.source === 'bookmarks'
-              ? t('collect.syncBookmarks')
-              : t('collect.collectWorks')}
+          {props.collecting ? t('collect.collectingWorks') : t('collect.collectWorks')}
         </Button>
-        {config.source === 'bookmarks' && !hasCookie && !config.bookmarkUserId.trim() ? (
+        {isBookmarks && !hasCookie && !config.userId.trim() ? (
           <p className="text-[11px] leading-4 text-muted-foreground/70">
             {t('collect.bookmarkLoginHint')}
           </p>
         ) : null}
-        {config.source === 'tag' && !hasCookie ? (
+        {!isBookmarks && !hasCookie ? (
           <p className="text-[11px] leading-4 text-muted-foreground/70">
             {t('collect.followingLoginHint')}
           </p>
