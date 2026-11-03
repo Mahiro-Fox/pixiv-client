@@ -81,7 +81,8 @@ const KEEP_ALIVE_ROUTES = [
   /^\/manga$/,
   /^\/novel$/,
   /^\/ranking$/,
-  /^\/users$/
+  /^\/users$/,
+  /^\/users\/following$/
 ]
 
 /** 非缓存路由共用一个占位缓存键，避免每个详情页都在缓存表里留一条 */

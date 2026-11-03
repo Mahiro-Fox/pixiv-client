@@ -26,7 +26,7 @@ interface AppUser {
   name?: string
   account?: string
   comment?: string
-  profile_image_urls?: { px_50x50?: string; px_170x170?: string }
+  profile_image_urls?: { px_16x16?: string; px_50x50?: string; px_170x170?: string }
 }
 
 interface AppIllust {
@@ -125,6 +125,11 @@ function toDiscoveryWork(raw: RawDiscoveryWork): SearchWork {
   })
 }
 
+/** 头像有多种尺寸键，按大 → 小兜底 */
+function avatarOf(urls?: AppUser['profile_image_urls']): string {
+  return urls?.px_170x170 || urls?.px_50x50 || urls?.px_16x16 || ''
+}
+
 function toUserCard(preview: AppUserPreview): UserSearchItem | null {
   const user = preview.user
   const id = String(user?.id ?? '').trim()
@@ -146,7 +151,10 @@ function toUserCard(preview: AppUserPreview): UserSearchItem | null {
     name: user?.name || '未知用户',
     // 推荐接口通常不带简介，退化成 @账号也能帮助识别
     comment: user?.comment || (user?.account ? `@${user.account}` : ''),
-    avatar: user?.profile_image_urls?.px_170x170 || user?.profile_image_urls?.px_50x50 || '',
+    // 推荐接口的 user 偶尔不带头像，用同一条目里作品作者的头像兜底
+    avatar:
+      avatarOf(user?.profile_image_urls) ||
+      avatarOf(preview.illusts?.[0]?.user?.profile_image_urls),
     works
   }
 }
@@ -171,15 +179,12 @@ export async function fetchRecommendedWorks(
   if (!status.connected) {
     const data = await fetchJson<DiscoveryResponse>(discoverUrl(params.mode), '', signal)
     if (data.error) throw new Error('发现接口报错')
-    const works = (data.body?.illusts || [])
-      .map(toDiscoveryWork)
-      .filter((work) => work.id)
+    const works = (data.body?.illusts || []).map(toDiscoveryWork).filter((work) => work.id)
     return { works, nextUrl: '', source: 'web' }
   }
 
   const path =
-    params.nextUrl ||
-    appEndpoints.recommendedIllusts(params.kind === 'manga' ? 'manga' : 'illust')
+    params.nextUrl || appEndpoints.recommendedIllusts(params.kind === 'manga' ? 'manga' : 'illust')
   const data = await appApiGet<AppIllustResponse>(path, signal)
   const works = (data.illusts || []).map(toSearchWork).filter((work) => work.id)
   return { works, nextUrl: data.next_url || '', source: 'app' }

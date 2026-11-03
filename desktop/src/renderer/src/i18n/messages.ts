@@ -638,6 +638,7 @@ const zhCN = {
   'users.searchHint': '在顶部搜索框输入昵称，回车即可搜索用户',
   'users.followingTitle': '我的关注',
   'users.followingHint': '点击任意用户进入主页',
+  'users.refresh': '刷新',
   'users.followingEmpty': '还没有关注任何用户',
 
   'user.tabIllust': '插画',
@@ -1519,6 +1520,7 @@ const en: Record<MessageKey, string> = {
   'users.searchHint': 'Type a nickname in the top search box and press Enter',
   'users.followingTitle': 'My following',
   'users.followingHint': 'Click any user to open their profile',
+  'users.refresh': 'Refresh',
   'users.followingEmpty': 'You are not following anyone yet',
 
   'user.tabIllust': 'Illustrations',
@@ -2411,6 +2413,7 @@ const ja: Record<MessageKey, string> = {
   'users.searchHint': '上部の検索ボックスにニックネームを入力し、Enter で検索します',
   'users.followingTitle': 'フォロー中のユーザー',
   'users.followingHint': 'ユーザーをクリックするとプロフィールを開きます',
+  'users.refresh': '更新',
   'users.followingEmpty': 'まだ誰もフォローしていません',
 
   'user.tabIllust': 'イラスト',

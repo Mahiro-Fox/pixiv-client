@@ -1,10 +1,12 @@
-import { Loader2, Users } from 'lucide-react'
+import { Loader2, RefreshCw, Users } from 'lucide-react'
 import { useState } from 'react'
 import type * as React from 'react'
 import type { FollowingResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { Button } from '@renderer/components/ui/button'
 import { Pager } from '@renderer/components/Pager'
 import { UserCard } from '@renderer/components/UserCard'
+import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
@@ -16,10 +18,13 @@ export function UsersFollowingPage(): React.JSX.Element {
   /** 关注列表与搜索用户页共用同一套四图预览 */
   const { openPreview, previewNode } = useWorkPreview()
   const [page, setPage] = useState(1)
+  /** 本页在 keep-alive 里，进用户主页再回来要停在原来的位置 */
+  const scroll = useKeepAliveScroll<HTMLDivElement>('users:following')
 
-  const { data, loading } = usePagedQuery<FollowingResult>({
+  const { data, loading, reload } = usePagedQuery<FollowingResult>({
     page,
     signature: '',
+    scroll,
     query: (next) =>
       window.pixiv.getFollowing({ userId: '', offset: (next - 1) * PAGE_SIZE, limit: PAGE_SIZE })
   })
@@ -38,14 +43,22 @@ export function UsersFollowingPage(): React.JSX.Element {
           </h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{t('users.followingHint')}</p>
         </div>
-        {total > 0 ? (
-          <span className="text-[11px] text-muted-foreground">
-            {t('users.total', { total })}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {total > 0 ? (
+            <span className="text-[11px] text-muted-foreground">{t('users.total', { total })}</span>
+          ) : null}
+          <Button variant="ghost" size="sm" onClick={reload} disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {t('users.refresh')}
+          </Button>
+        </div>
       </div>
 
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+      <div ref={scroll.ref} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
