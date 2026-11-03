@@ -62,5 +62,6 @@ module.exports = {
       }
     }
   },
-  plugins: []
+  // shadcn 组件引用的 animate-in / fade-in 等类由该插件提供
+  plugins: [require('tailwindcss-animate')]
 }

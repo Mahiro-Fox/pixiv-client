@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDown,
-  FolderOpen,
   Loader2,
   List,
   X
@@ -19,10 +18,10 @@ import type {
   BookmarkPrivacy,
   BookmarkState,
   NovelDetail,
-  NovelDownloadResult,
   NovelSeriesDetail
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import {
   loadReaderSettings,
   loadReadingProgress,
@@ -57,13 +56,11 @@ export function NovelReaderPage(): React.JSX.Element {
 
   const [detail, setDetail] = useState<NovelDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
   const [percent, setPercent] = useState(0)
   const [tocOpen, setTocOpen] = useState(false)
   const [series, setSeries] = useState<NovelSeriesDetail | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [saved, setSaved] = useState<NovelDownloadResult | null>(null)
   const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
   const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
   const [bookmarkBusy, setBookmarkBusy] = useState(false)
@@ -76,11 +73,9 @@ export function NovelReaderPage(): React.JSX.Element {
     if (!novelId) return
     let alive = true
     setLoading(true)
-    setError('')
     setDetail(null)
     restoredRef.current = false
     setSeries(null)
-    setSaved(null)
     void window.pixiv
       .getNovelDetail(novelId)
       .then((data) => {
@@ -91,7 +86,7 @@ export function NovelReaderPage(): React.JSX.Element {
         if (sid) saveSeriesPosition(sid, data.id)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -175,13 +170,13 @@ export function NovelReaderPage(): React.JSX.Element {
   const download = async (): Promise<void> => {
     if (!detail || downloading) return
     setDownloading(true)
-    setError('')
-    setSaved(null)
     try {
       const result = await window.pixiv.downloadNovel({ novelId: detail.id })
-      setSaved(result)
+      toast.success(t('novel.saved', { path: result.path }), {
+        action: { label: t('novel.openDir'), onClick: () => void window.pixiv.openDir(dirOf(result.path)) }
+      })
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setDownloading(false)
     }
@@ -191,13 +186,12 @@ export function NovelReaderPage(): React.JSX.Element {
     const id = detail?.id || novelId
     if (!id || bookmarkBusy) return
     setBookmarkBusy(true)
-    setError('')
     try {
       const next = await window.pixiv.setNovelBookmark(id, input)
       setBookmark(next)
       setPrivacy(next.restrict)
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setBookmarkBusy(false)
     }
@@ -231,9 +225,6 @@ export function NovelReaderPage(): React.JSX.Element {
   if (!detail) {
     return (
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
-        <p className="max-w-lg text-center text-sm text-destructive">
-          {error || t('novel.loadFailed')}
-        </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft />
@@ -322,20 +313,6 @@ export function NovelReaderPage(): React.JSX.Element {
         </Button>
       </div>
 
-      {error ? (
-        <div className="mx-4 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-      {saved ? (
-        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-          <span className="flex-1 break-all">{t('novel.saved', { path: saved.path })}</span>
-          <Button variant="ghost" size="sm" onClick={() => void window.pixiv.openDir(dirOf(saved.path))}>
-            <FolderOpen />
-            {t('novel.openDir')}
-          </Button>
-        </div>
-      ) : null}
 
       <div
         ref={scrollRef}

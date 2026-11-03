@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { messageOf } from './errors'
+import { toast } from './toast'
 import { usePageActive } from './pageActive'
 
 /**
@@ -39,7 +40,6 @@ export interface PagedQueryOptions<T> {
 export interface PagedQueryResult<T> {
   data: T | null
   loading: boolean
-  error: string
   /** 同条件下强制重取（刷新按钮） */
   reload: () => void
 }
@@ -49,7 +49,6 @@ export function usePagedQuery<T>(options: PagedQueryOptions<T>): PagedQueryResul
 
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   /** 递增即强制重取：条件和页码都没变时用它绕过去重 */
   const [nonce, setNonce] = useState(0)
 
@@ -74,7 +73,6 @@ export function usePagedQuery<T>(options: PagedQueryOptions<T>): PagedQueryResul
 
     if (skip) {
       setData(null)
-      setError('')
       setLoading(false)
       loadedSig.current = ''
       return
@@ -88,7 +86,6 @@ export function usePagedQuery<T>(options: PagedQueryOptions<T>): PagedQueryResul
     lastSignature.current = signature
     resetScrollRef.current?.()
     setLoading(true)
-    setError('')
     void queryRef
       .current(page)
       .then((next) => {
@@ -102,7 +99,7 @@ export function usePagedQuery<T>(options: PagedQueryOptions<T>): PagedQueryResul
         // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
         loadedSig.current = ''
         setData(null)
-        setError(messageOf(reason))
+        toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -115,7 +112,7 @@ export function usePagedQuery<T>(options: PagedQueryOptions<T>): PagedQueryResul
 
   const reload = useCallback(() => setNonce((value) => value + 1), [])
 
-  return { data, loading, error, reload }
+  return { data, loading, reload }
 }
 
 /** 本地分页（浏览记录 / 稍后看这类一次性取回整个列表的页面） */

@@ -37,8 +37,8 @@ function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
 }
 
 export interface UseWorkCollectionOptions {
-  setError: Dispatch<SetStateAction<string>>
-  setNotice: Dispatch<SetStateAction<string>>
+  setError: (message: string) => void
+  setNotice: (message: string) => void
   setTab: Dispatch<SetStateAction<string>>
   setDownload: Dispatch<SetStateAction<DownloadProgress | null>>
   setItems: Dispatch<SetStateAction<DownloadItemEvent[]>>
@@ -306,10 +306,11 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
       if (result.works.length === 0) {
         // 切到「漫画」这类栏目时，作者本来就没有该类作品，空列表比报错更贴切
         if (!options?.quietEmpty) {
-          setError(cfg.contentKind === 'bookmarks' ? t('app.noWorksBookmarks') : t('app.noWorks'))
+          // 空结果不是错误，用中性提示
+          toast.info(cfg.contentKind === 'bookmarks' ? t('app.noWorksBookmarks') : t('app.noWorks'))
         }
       } else if (result.failedPages > 0) {
-        setError(t('app.partialFail', { count: result.failedPages }))
+        toast.info(t('app.partialFail', { count: result.failedPages }))
       }
     } catch (reason) {
       setError(messageOf(reason))

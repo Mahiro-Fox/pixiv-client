@@ -11,8 +11,8 @@ import type {
   WorkSearchScope
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Pagination } from '@renderer/components/ui/pagination'
-import { Select } from '@renderer/components/ui/select'
+import { Pager } from '@renderer/components/Pager'
+import { SelectMenu } from '@renderer/components/SelectMenu'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
@@ -83,7 +83,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
     setChips([])
   }, [props.kind])
 
-  const { data: result, loading, error } = usePagedQuery<WorkSearchResult>({
+  const { data: result, loading } = usePagedQuery<WorkSearchResult>({
     page,
     // 关键词 / 排序 / 筛选 / 重新提交都算换了内容；页码由 hook 自己拼进签名
     signature: [
@@ -181,7 +181,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 py-4">
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Select
+        <SelectMenu
           size="sm"
           className="w-[9rem]"
           value={order}
@@ -212,12 +212,6 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
           <span className="ml-auto text-[11px]">{t('works.total', { total: result.total })}</span>
         ) : null}
       </div>
-
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       {!word ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
@@ -271,7 +265,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
           </div>
 
           {result && result.lastPage > 1 ? (
-            <Pagination
+            <Pager
               page={page}
               lastPage={result.lastPage}
               onChange={(next) => apply({ page: String(next) })}

@@ -115,12 +115,6 @@ export interface WorkbenchPageProps {
   onRecheckCookie: () => void;
   onDismissCookieBanner: () => void;
 
-  /* —— 提示条 —— */
-  notice: string;
-  error: string;
-  onDismissNotice: () => void;
-  onDismissError: () => void;
-
   /* —— 页签 —— */
   tab: string;
   onTabChange: (value: string) => void;
@@ -195,10 +189,6 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
     onRelogin,
     onRecheckCookie,
     onDismissCookieBanner,
-    notice,
-    error,
-    onDismissNotice,
-    onDismissError,
     tab,
     onTabChange,
     works,
@@ -276,36 +266,6 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
             onRecheck={onRecheckCookie}
             onDismiss={onDismissCookieBanner}
           />
-        ) : null}
-
-        {notice ? (
-          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-            <p className="flex-1 break-all leading-5">{notice}</p>
-            <button
-              type="button"
-              onClick={onDismissNotice}
-              className="rounded p-0.5 text-emerald-500/70 transition-colors hover:bg-emerald-500/15 hover:text-emerald-500"
-              aria-label={t("app.dismissNotice")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-            <p className="flex-1 break-all leading-5">{error}</p>
-            <button
-              type="button"
-              onClick={onDismissError}
-              className="rounded p-0.5 text-destructive/70 transition-colors hover:bg-destructive/15 hover:text-destructive"
-              aria-label={t("app.dismissNotice")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
         ) : null}
 
         <Tabs

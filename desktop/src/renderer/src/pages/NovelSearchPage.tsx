@@ -23,13 +23,14 @@ import type {
 import { useI18n } from '@renderer/i18n'
 import { FilteredHint } from '@renderer/components/FilteredHint'
 import { useFilteredNovels } from '@renderer/lib/filterContext'
+import { toast } from '@renderer/lib/toast'
 import { readingMinutes } from '@renderer/lib/novel'
 import { usePageActive } from '@renderer/lib/pageActive'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { Select } from '@renderer/components/ui/select'
+import { SelectMenu } from '@renderer/components/SelectMenu'
 
 const ORDERS: NovelOrder[] = ['date_d', 'date', 'popular_d', 'popular_male_d', 'popular_female_d']
 const TARGETS: NovelSearchTarget[] = ['s_tag_full', 's_tag', 's_tc']
@@ -153,7 +154,6 @@ export function NovelSearchPage(): React.JSX.Element {
   const [input, setInput] = useState(word)
   const [result, setResult] = useState<NovelSearchResult | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   /** 顶栏回车提交的序号：同一个关键词再提交一次也要刷新 */
   const submitVersion = useSearchSubmitVersion()
@@ -174,7 +174,6 @@ export function NovelSearchPage(): React.JSX.Element {
     if (!active) return
     if (!word) {
       setResult(null)
-      setError('')
       loadedSig.current = ''
       return
     }
@@ -185,7 +184,6 @@ export function NovelSearchPage(): React.JSX.Element {
     // 参数变了就是换了内容，位置回顶
     scroll.reset()
     setLoading(true)
-    setError('')
     void window.pixiv
       .searchNovels({ word, order, mode, target, page })
       .then((data) => {
@@ -198,7 +196,7 @@ export function NovelSearchPage(): React.JSX.Element {
           // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
           loadedSig.current = ''
           setResult(null)
-          setError(messageOf(reason))
+          toast.error(messageOf(reason))
         }
       })
       .finally(() => {
@@ -254,7 +252,7 @@ export function NovelSearchPage(): React.JSX.Element {
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>{t('novel.target')}</span>
-        <Select
+        <SelectMenu
           size="sm"
           className="w-[7.5rem]"
           value={target}
@@ -266,7 +264,7 @@ export function NovelSearchPage(): React.JSX.Element {
           ]}
         />
         <span className="ml-2">{t('novel.order')}</span>
-        <Select
+        <SelectMenu
           size="sm"
           className="w-[8rem]"
           value={order}
@@ -280,7 +278,7 @@ export function NovelSearchPage(): React.JSX.Element {
           ]}
         />
         <span className="ml-2">{t('novel.mode')}</span>
-        <Select
+        <SelectMenu
           size="sm"
           className="w-[8.5rem]"
           value={mode}
@@ -294,12 +292,6 @@ export function NovelSearchPage(): React.JSX.Element {
           <span className="ml-auto text-[11px]">{t('novel.total', { total: result.total })}</span>
         ) : null}
       </div>
-
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       {!word ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">

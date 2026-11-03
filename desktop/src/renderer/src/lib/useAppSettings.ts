@@ -28,7 +28,7 @@ export function bootLocale(): Locale {
 export interface UseAppSettingsOptions {
   config: AppConfig | null
   updateConfig: (patch: Partial<AppConfig>) => void
-  setError: Dispatch<SetStateAction<string>>
+  setError: (message: string) => void
 }
 
 export interface AppSettingsState {

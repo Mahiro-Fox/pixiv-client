@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import {
   loadReaderSettings,
   loadReadingProgress,
@@ -30,7 +31,6 @@ export function NovelLocalReaderPage(): React.JSX.Element {
 
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
   const [percent, setPercent] = useState(0)
 
@@ -40,12 +40,11 @@ export function NovelLocalReaderPage(): React.JSX.Element {
   useEffect(() => {
     if (!filePath) {
       setLoading(false)
-      setError(t('novel.loadFailed'))
+      toast.error(t('novel.loadFailed'))
       return
     }
     let alive = true
     setLoading(true)
-    setError('')
     restoredRef.current = false
     void window.pixiv
       .readNovelLibraryFile(filePath)
@@ -53,7 +52,7 @@ export function NovelLocalReaderPage(): React.JSX.Element {
         if (alive) setText(data)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -125,11 +124,6 @@ export function NovelLocalReaderPage(): React.JSX.Element {
         </Button>
       </div>
 
-      {error ? (
-        <div className="mx-4 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       <div
         ref={scrollRef}

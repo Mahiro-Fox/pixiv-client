@@ -136,8 +136,12 @@ export const webEndpoints = {
   },
 
   // ---- 搜索 -------------------------------------------------------------------
+  /**
+   * 标签联想。网页搜索框走的是 `rpc/cps.php`（返回 candidates 候选列表），
+   * 比 `/ajax/search/tags/{word}` 只给一组面包屑更接近真实搜索的联想结果。
+   */
   tagSuggest(word: string): string {
-    return web(`/ajax/search/tags/${seg(word)}`)
+    return web('/rpc/cps.php', { keyword: word })
   },
 
   /**
@@ -206,13 +210,17 @@ export const webEndpoints = {
   },
 
   userProfileIllusts(userId: string, ids: string[]): string {
-    return `${BASE}/ajax/user/${seg(userId)}/profile/illusts?${idsQuery(ids)}` +
+    return (
+      `${BASE}/ajax/user/${seg(userId)}/profile/illusts?${idsQuery(ids)}` +
       `&work_category=illustManga&is_first_page=1&lang={lang}`
+    )
   },
 
   userProfileNovels(userId: string, ids: string[]): string {
-    return `${BASE}/ajax/user/${seg(userId)}/profile/novels?${idsQuery(ids)}` +
+    return (
+      `${BASE}/ajax/user/${seg(userId)}/profile/novels?${idsQuery(ids)}` +
       `&work_category=novel&is_first_page=1&lang={lang}`
+    )
   },
 
   // ---- 小说 -------------------------------------------------------------------

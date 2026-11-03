@@ -15,6 +15,7 @@ import { SearchWorkGrid } from "@renderer/components/WorkCard";
 import { usePageActive } from "@renderer/lib/pageActive";
 import { useKeepAliveScroll } from "@renderer/lib/scrollMemory";
 import { useWorkPreview } from "@renderer/lib/workPreview";
+import { toast } from "@renderer/lib/toast";
 
 /** 续拉去重：接口偶尔会在不同批里返回同一件 */
 function appendUnique<T extends { id: string }>(previous: T[], next: T[]): T[] {
@@ -80,7 +81,6 @@ export function RecommendPage({
   bucketsRef.current = worksBuckets;
   const [worksLoadingKind, setWorksLoadingKind] =
     useState<WorkSearchKind | null>(null);
-  const [worksError, setWorksError] = useState("");
   const [worksReload, setWorksReload] = useState(0);
 
   const bucket = worksBuckets[kind];
@@ -91,7 +91,6 @@ export function RecommendPage({
   const [users, setUsers] = useState<UserSearchItem[]>([]);
   const [usersNext, setUsersNext] = useState("");
   const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState("");
   const [usersReload, setUsersReload] = useState(0);
   const [usersLoaded, setUsersLoaded] = useState(false);
 
@@ -114,7 +113,6 @@ export function RecommendPage({
 
     let alive = true;
     setWorksLoadingKind(kind);
-    setWorksError("");
     void window.pixiv
       .listRecommendedWorks({ kind, mode: "all" })
       .then((data) => {
@@ -125,7 +123,7 @@ export function RecommendPage({
         }));
       })
       .catch((reason: unknown) => {
-        if (alive) setWorksError(messageOf(reason));
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
         if (alive) setWorksLoadingKind(null);
@@ -142,7 +140,6 @@ export function RecommendPage({
       // 断开后不保留上一份数据，重新连接时要重新取
       setUsers([]);
       setUsersNext("");
-      setUsersError("");
       setUsersLoaded(false);
       return;
     }
@@ -151,7 +148,6 @@ export function RecommendPage({
 
     let alive = true;
     setUsersLoading(true);
-    setUsersError("");
     void window.pixiv
       .listRecommendedUsers({})
       .then((data) => {
@@ -161,7 +157,7 @@ export function RecommendPage({
         setUsersLoaded(true);
       })
       .catch((reason: unknown) => {
-        if (alive) setUsersError(messageOf(reason));
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
         if (alive) setUsersLoading(false);
@@ -184,7 +180,6 @@ export function RecommendPage({
   const loadMoreWorks = async (): Promise<void> => {
     if (!worksNext || worksLoading || !bucket) return;
     setWorksLoadingKind(kind);
-    setWorksError("");
     try {
       const data = await window.pixiv.listRecommendedWorks({
         kind,
@@ -203,7 +198,7 @@ export function RecommendPage({
         };
       });
     } catch (reason) {
-      setWorksError(messageOf(reason));
+      toast.error(messageOf(reason));
     } finally {
       setWorksLoadingKind(null);
     }
@@ -212,7 +207,6 @@ export function RecommendPage({
   const loadMoreUsers = async (): Promise<void> => {
     if (!usersNext || usersLoading) return;
     setUsersLoading(true);
-    setUsersError("");
     try {
       const data = await window.pixiv.listRecommendedUsers({
         nextUrl: usersNext,
@@ -220,7 +214,7 @@ export function RecommendPage({
       setUsers((previous) => appendUnique(previous, data.users));
       setUsersNext(data.nextUrl);
     } catch (reason) {
-      setUsersError(messageOf(reason));
+      toast.error(messageOf(reason));
     } finally {
       setUsersLoading(false);
     }
@@ -254,7 +248,6 @@ export function RecommendPage({
     kind,
   ]);
 
-  const error = tab === "users" ? usersError : worksError;
   const loading = tab === "users" ? usersLoading : worksLoading;
   const count = tab === "users" ? users.length : works.length;
 
@@ -351,12 +344,6 @@ export function RecommendPage({
         </div>
       ) : null}
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-
       {!oauthReady || (loading && count === 0) ? (
         <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -387,7 +374,7 @@ export function RecommendPage({
                 </>
               }
             />
-        ) : !loading && !error ? (
+        ) : !loading ? (
           <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
             {t("recommend.empty")}
           </div>
@@ -421,7 +408,7 @@ export function RecommendPage({
               <div ref={usersSentinel} className="h-1" aria-hidden />
             ) : null}
           </div>
-        ) : !loading && !error ? (
+        ) : !loading ? (
           <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
             {t("recommend.emptyUsers")}
           </div>

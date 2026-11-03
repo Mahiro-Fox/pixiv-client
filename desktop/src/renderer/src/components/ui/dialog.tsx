@@ -1,87 +1,121 @@
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
-import { useEffect } from 'react'
-import type * as React from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import { useI18n } from '@renderer/i18n'
+import * as React from 'react'
 import { cn } from '@renderer/lib/utils'
 
-interface DialogProps {
-  title: string
-  description?: string
-  icon?: React.ReactNode
-  onClose: () => void
-  /** 底部操作区，可选 */
-  footer?: React.ReactNode
-  children: React.ReactNode
-  className?: string
-  /**
-   * 是否响应 Esc 关闭，默认响应。
-   * 上层弹窗里又开了一层弹窗时，先关掉上层的那次 Esc 应该只关内层。
-   */
-  closeOnEscape?: boolean
-}
+/**
+ * shadcn 的 Dialog（Radix 底座）。
+ *
+ * 项目里的弹窗都带「图标 + 标题 + 说明 + 底部操作区」这套固定骨架，
+ * 逐个改写成组合式写法噪声太大，所以骨架封在 `components/DialogShell.tsx`，
+ * 这里保持官方原样，供需要自己拼装的内容使用。
+ */
+const Dialog = DialogPrimitive.Root
 
-/** 通用弹窗外壳：遮罩 + 卡片 + 标题栏，支持 Esc 与点击遮罩关闭 */
-export function Dialog(props: DialogProps): React.JSX.Element {
-  const { t } = useI18n()
-  const reduce = useReducedMotion()
-  const { closeOnEscape = true } = props
-  useEffect(() => {
-    if (!closeOnEscape) return
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') props.onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [props, closeOnEscape])
+const DialogTrigger = DialogPrimitive.Trigger
 
-  // 弹窗由调用方条件渲染（关掉就是直接卸载），所以只能做入场；退场没有宿主可等
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
-      onClick={props.onClose}
-      initial={reduce ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: reduce ? 0 : 0.15, ease: 'easeOut' }}
+const DialogPortal = DialogPrimitive.Portal
+
+const DialogClose = DialogPrimitive.Close
+
+const DialogOverlay = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      'fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      className
+    )}
+    {...props}
+  />
+))
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+const DialogContent = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+        className
+      )}
+      {...props}
     >
-      <motion.div
-        className={cn(
-          'flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl',
-          props.className
-        )}
-        onClick={(event) => event.stopPropagation()}
-        initial={reduce ? false : { opacity: 0, scale: 0.96, y: 6 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
-      >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border/60 px-5 py-4">
-          <div className="min-w-0 space-y-1">
-            <h2 className="flex items-center gap-2 text-base font-semibold">
-              {props.icon}
-              {props.title}
-            </h2>
-            {props.description ? (
-              <p className="text-xs leading-5 text-muted-foreground">{props.description}</p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            aria-label={t('common.close')}
-            onClick={props.onClose}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+))
+DialogContent.displayName = DialogPrimitive.Content.displayName
 
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">{props.children}</div>
-
-        {props.footer ? (
-          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-            {props.footer}
-          </footer>
-        ) : null}
-      </motion.div>
-    </motion.div>
+function DialogHeader({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element {
+  return (
+    <div
+      className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)}
+      {...props}
+    />
   )
+}
+DialogHeader.displayName = 'DialogHeader'
+
+function DialogFooter({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element {
+  return (
+    <div
+      className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+      {...props}
+    />
+  )
+}
+DialogFooter.displayName = 'DialogFooter'
+
+const DialogTitle = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn('text-lg font-semibold leading-none tracking-tight', className)}
+    {...props}
+  />
+))
+DialogTitle.displayName = DialogPrimitive.Title.displayName
+
+const DialogDescription = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-sm text-muted-foreground', className)}
+    {...props}
+  />
+))
+DialogDescription.displayName = DialogPrimitive.Description.displayName
+
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogTrigger,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription
 }

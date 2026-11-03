@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { UserProfile } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -82,7 +83,11 @@ export function AuthorPopover(props: AuthorPopoverProps): React.JSX.Element {
       setFailed(false)
       void loadProfile(props.userId)
         .then((data) => setProfile(data))
-        .catch(() => setFailed(true))
+        .catch(() => {
+          // 浮层里只留一个占位横线，失败原因交给轻提示
+          setFailed(true)
+          toast.error(t('author.loadFailed'))
+        })
     }, 160)
   }
 
@@ -213,7 +218,7 @@ export function AuthorPopover(props: AuthorPopoverProps): React.JSX.Element {
 
               <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                 {failed ? (
-                  <span className="text-muted-foreground/70">{t('author.loadFailed')}</span>
+                  <span className="text-muted-foreground/70">—</span>
                 ) : profile ? (
                   <>
                     <span>{t('user.followingCount', { count: profile.following })}</span>

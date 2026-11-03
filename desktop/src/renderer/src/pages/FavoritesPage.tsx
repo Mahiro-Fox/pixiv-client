@@ -7,7 +7,7 @@ import { useI18n } from '@renderer/i18n'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
-import { Pagination } from '@renderer/components/ui/pagination'
+import { Pager } from '@renderer/components/Pager'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
@@ -61,7 +61,7 @@ export function FavoritesPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { data: content, loading, error } = usePagedQuery<UserContentResult>({
+  const { data: content, loading } = usePagedQuery<UserContentResult>({
     page,
     signature: [userId, rest, tag].join('|'),
     // 登录信息没到位、没指定用户、或看别人的私密收藏时都不发请求
@@ -169,12 +169,6 @@ export function FavoritesPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-
       {!userId || privateBlocked ? null : (
         <>
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -203,7 +197,7 @@ export function FavoritesPage(): React.JSX.Element {
           ) : null}
 
           {pageCount > 1 ? (
-            <Pagination
+            <Pager
               page={page}
               lastPage={pageCount}
               onChange={(next) => apply({ page: String(next) })}

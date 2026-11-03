@@ -32,11 +32,12 @@ import type { LocalContent } from '@shared/layout'
 import { dirOf, formatBytes, toLocalUrl } from '@renderer/lib/files'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { useImagePreview } from './ImagePreview'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Select } from './ui/select'
+import { SelectMenu } from './SelectMenu'
 
 /** 能直接交给图片预览的扩展名；动图成品另走 openUgoira */
 const PREVIEW_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp'])
@@ -484,7 +485,6 @@ export function LibraryPanel(): React.JSX.Element {
   const preview = useImagePreview()
   const [data, setData] = useState<LibraryResult | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<LibrarySort>('updated')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -517,7 +517,6 @@ export function LibraryPanel(): React.JSX.Element {
 
   const load = async (force = false, silent = false): Promise<void> => {
     if (!silent) setLoading(true)
-    setError('')
     try {
       const result = await window.pixiv.listLibrary(force)
       setData(result)
@@ -525,7 +524,7 @@ export function LibraryPanel(): React.JSX.Element {
       const alive = new Set(result.works.map((work) => keyOf(work)))
       setSelected((previous) => new Set([...previous].filter((key) => alive.has(key))))
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
       setData(null)
     } finally {
       if (!silent) setLoading(false)
@@ -631,7 +630,7 @@ export function LibraryPanel(): React.JSX.Element {
         .catch((reason: unknown) => {
           if (alive) {
             setDeepResult(null)
-            setError(messageOf(reason))
+            toast.error(messageOf(reason))
           }
         })
         .finally(() => {
@@ -761,7 +760,7 @@ export function LibraryPanel(): React.JSX.Element {
         )
         preview.open([{ src: '', alt, video: videoUrlRef.current }])
       } catch (reason) {
-        setError(messageOf(reason))
+        toast.error(messageOf(reason))
       }
       return
     }
@@ -785,14 +784,14 @@ export function LibraryPanel(): React.JSX.Element {
           .map((file) => ({ src: toLocalUrl(file.path), alt: `${work.title} p${file.page}` }))
         preview.open(images, start)
       } catch (reason) {
-        setError(messageOf(reason))
+        toast.error(messageOf(reason))
       }
     })()
   }
 
   const openDir = (dir: string): void => {
     if (!dir) return
-    void window.pixiv.openLibraryDir(dir).catch((reason: unknown) => setError(messageOf(reason)))
+    void window.pixiv.openLibraryDir(dir).catch((reason: unknown) => toast.error(messageOf(reason)))
   }
 
   const openNovel = (item: { path: string; title: string; author: string }): void => {
@@ -819,7 +818,6 @@ export function LibraryPanel(): React.JSX.Element {
   const deleteSelected = async (): Promise<void> => {
     if (selectedWorks.length === 0) return
     setDeleting(true)
-    setError('')
     try {
       const groups = await window.pixiv.getLibraryFiles(selectedWorks.map(workKeyOf))
       const paths = groups.flatMap((group) => group.files.map((file) => file.path))
@@ -829,7 +827,7 @@ export function LibraryPanel(): React.JSX.Element {
       setConfirmingDelete(false)
       anchorRef.current = null
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setDeleting(false)
     }
@@ -897,7 +895,7 @@ export function LibraryPanel(): React.JSX.Element {
               </Button>
             ) : (
               <div className="w-[130px] shrink-0">
-                <Select
+                <SelectMenu
                   value={sort}
                   onChange={(value) => setSort(value as LibrarySort)}
                   options={[
@@ -1086,14 +1084,8 @@ export function LibraryPanel(): React.JSX.Element {
       ) : null}
 
       <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pb-3">
-        {error ? (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-            <p className="flex-1 break-all leading-5">{error}</p>
-          </div>
-        ) : null}
 
-        {!loading && !error && data && data.works.length === 0 && data.novels.length === 0 ? (
+        {!loading && data && data.works.length === 0 && data.novels.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 py-20 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
               <Images className="h-4 w-4" />
@@ -1106,7 +1098,7 @@ export function LibraryPanel(): React.JSX.Element {
         ) : null}
 
         {/* 作者列表：按保存目录里的作者文件夹展示 */}
-        {!currentAuthor && !loading && !error && authors.length > 0 ? (
+        {!currentAuthor && !loading && authors.length > 0 ? (
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {authors.map((group) => (
               <AuthorCard key={group.key} group={group} onOpen={openAuthor} />
@@ -1165,7 +1157,7 @@ export function LibraryPanel(): React.JSX.Element {
           </div>
         ) : null}
 
-        {currentAuthor && tab !== 'novel' && !loading && !error && filtered.length === 0 ? (
+        {currentAuthor && tab !== 'novel' && !loading && filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4" />
             {t('library.noMatch')}

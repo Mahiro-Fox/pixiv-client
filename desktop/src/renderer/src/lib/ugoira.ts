@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { UgoiraFrames } from '@shared/types'
 import { messageOf } from './errors'
+import { toast } from './toast'
 
 /**
  * 动图帧的来源。
@@ -77,7 +78,10 @@ export function useUgoiraFrames(source: UgoiraSource | null): {
         setFrames(views)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (!alive) return
+        // 取帧失败就用缩略图兜底，原因交给轻提示，不在弹窗里再堆一行红字
+        setError(messageOf(reason))
+        toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)

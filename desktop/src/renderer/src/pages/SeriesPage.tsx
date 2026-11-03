@@ -12,6 +12,7 @@ import type * as React from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { OAuthStatus, SearchWork, SeriesDetail, SeriesEpisode } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -63,7 +64,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
 
   const [detail, setDetail] = useState<SeriesDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [watching, setWatching] = useState(false)
   const [watchBusy, setWatchBusy] = useState(false)
 
@@ -73,7 +73,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
     if (!seriesId) return
     let alive = true
     setLoading(true)
-    setError('')
     setDetail(null)
     void window.pixiv
       .getWorkSeries({ seriesId, workId })
@@ -83,7 +82,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
         setWatching(data.watchlisted)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -96,13 +95,12 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
   const toggleWatch = async (): Promise<void> => {
     if (!detail || watchBusy) return
     setWatchBusy(true)
-    setError('')
     try {
       const next = !watching
       await window.pixiv.setSeriesWatch(detail.id, next)
       setWatching(next)
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setWatchBusy(false)
     }
@@ -120,7 +118,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
   if (!detail) {
     return (
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
-        <p className="text-center text-sm text-destructive">{error || t('series.loadFailed')}</p>
         <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft />
           {t('series.back')}
@@ -140,11 +137,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">

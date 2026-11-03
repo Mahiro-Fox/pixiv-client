@@ -26,7 +26,7 @@ import type {
 import { useI18n } from "@renderer/i18n";
 import { Badge } from "@renderer/components/ui/badge";
 import { Button } from "@renderer/components/ui/button";
-import { Pagination } from "@renderer/components/ui/pagination";
+import { Pager } from '@renderer/components/Pager'
 import {
   Tabs,
   TabsContent,
@@ -36,6 +36,7 @@ import {
 import { SearchWorkGrid } from "@renderer/components/WorkCard";
 import { usePagedQuery } from "@renderer/lib/usePagedQuery";
 import { useWorkPreview } from "@renderer/lib/workPreview";
+import { toast } from "@renderer/lib/toast";
 
 const PAGE_SIZE = 48;
 const TABS: UserContentTab[] = ["illust", "manga", "novel", "bookmarks"];
@@ -73,7 +74,6 @@ export function UserDetailPage({
   const page = Math.max(1, Math.round(Number(params.get("page") || 1) || 1));
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileError, setProfileError] = useState("");
   /** 未登录时收藏接口必然失败，先取登录状态，避免把接口原始报错抛给用户 */
   const [hasCookie, setHasCookie] = useState<boolean | null>(null);
 
@@ -83,14 +83,12 @@ export function UserDetailPage({
   const [followed, setFollowed] = useState(false);
   const [followReady, setFollowReady] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
-  const [writeError, setWriteError] = useState("");
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     setFollowReady(false);
     setFollowed(false);
-    setWriteError("");
     void window.pixiv
       // 未配置 Cookie 时取不到自己，按「不是本人」处理即可
       .getSelfUser()
@@ -107,7 +105,7 @@ export function UserDetailPage({
       .catch((reason: unknown) => {
         if (!alive) return;
         setFollowReady(true);
-        setWriteError(messageOf(reason));
+        toast.error(messageOf(reason));
       });
     return () => {
       alive = false;
@@ -118,13 +116,12 @@ export function UserDetailPage({
   const toggleFollow = async (): Promise<void> => {
     if (followBusy) return;
     setFollowBusy(true);
-    setWriteError("");
     try {
       setFollowed(
         await window.pixiv.setFollow(userId, { followed: !followed }),
       );
     } catch (reason) {
-      setWriteError(messageOf(reason));
+      toast.error(messageOf(reason));
     } finally {
       setFollowBusy(false);
     }
@@ -149,25 +146,20 @@ export function UserDetailPage({
     if (!userId) return;
     let alive = true;
     setProfile(null);
-    setProfileError("");
     void window.pixiv
       .getUserProfile(userId)
       .then((data) => {
         if (alive) setProfile(data);
       })
       .catch((reason: unknown) => {
-        if (alive) setProfileError(messageOf(reason));
+        if (alive) toast.error(messageOf(reason));
       });
     return () => {
       alive = false;
     };
   }, [userId]);
 
-  const {
-    data: content,
-    loading,
-    error,
-  } = usePagedQuery<UserContentResult>({
+  const { data: content, loading } = usePagedQuery<UserContentResult>({
     page,
     signature: [userId, tab].join("|"),
     // 没选用户不发请求；收藏标签在登录状态确定前也不发（必然失败）
@@ -236,12 +228,6 @@ export function UserDetailPage({
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
-
-      {profileError ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {profileError}
-        </div>
-      ) : null}
 
       {profile ? (
         <div className="flex items-start gap-4 rounded-xl border border-border/60 bg-card/40 p-4">
@@ -314,12 +300,6 @@ export function UserDetailPage({
         </div>
       ) : null}
 
-      {writeError ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {writeError}
-        </div>
-      ) : null}
-
       <Tabs
         value={tab}
         onValueChange={(value) => apply({ tab: value, page: "1" })}
@@ -347,12 +327,6 @@ export function UserDetailPage({
               <p className="text-[11px] text-muted-foreground/70">
                 {t("user.bookmarksLoginHint")}
               </p>
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
             </div>
           ) : null}
 
@@ -434,7 +408,7 @@ export function UserDetailPage({
 
           {!loading && pageCount > 1 ? (
             <div className="mt-3">
-              <Pagination
+              <Pager
                 page={page}
                 lastPage={pageCount}
                 onChange={(next) => apply({ page: String(next) })}

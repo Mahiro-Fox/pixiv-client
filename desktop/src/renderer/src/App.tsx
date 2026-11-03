@@ -65,8 +65,9 @@ import { WatchLaterPage } from './pages/WatchLaterPage'
 import { RankingPage } from './pages/RankingPage'
 import { RecommendPage } from './pages/RecommendPage'
 import { Button } from './components/ui/button'
-import { Toaster } from './components/Toaster'
+import { Toaster } from './components/ui/sonner'
 import { messageOf } from './lib/errors'
+import { toast } from './lib/toast'
 
 /**
  * 缓存范围：用户点名的六个浏览页。
@@ -154,20 +155,29 @@ export default function App(): React.JSX.Element {
   const openFilter = useCallback(() => setFilterOpen(true), [])
   const [tagsOpen, setTagsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  /**
+   * 全应用只有这一处把「要告诉用户的话」变成轻提示：
+   * 以前是顶部一条可关闭的错误条 / 成功条，占版面且要手动关，
+   * 现在统一走 toast，空字符串（原「清空」调用）自然不弹。
+   */
+  const reportError = useCallback((message: string) => {
+    if (message) toast.error(message)
+  }, [])
+  const reportNotice = useCallback((message: string) => {
+    if (message) toast.success(message)
+  }, [])
   const [tab, setTab] = useState('works')
   /** 顶栏搜索：关键词同步、栏目查询串还原与回车提交 */
   const { keyword, setKeyword, submitSearch, linkWithWord } = useTopbarSearch()
 
   /** 下载与队列事件只在这里订阅：下载状态、日志、并行任务、队列、限速 */
-  const downloadEvents = useDownloadEvents(setError)
+  const downloadEvents = useDownloadEvents(reportError)
   /** Cookie / OAuth 会话：账号识别与体检都由它派生 */
-  const session = useCookieSession(setError)
+  const session = useCookieSession(reportError)
   /** 作品采集与浏览状态：抓取、筛选排序分页、选择与导出 */
   const collection = useWorkCollection({
-    setError,
-    setNotice,
+    setError: reportError,
+    setNotice: reportNotice,
     setTab,
     setDownload: downloadEvents.setDownload,
     setItems: downloadEvents.setItems,
@@ -183,15 +193,15 @@ export default function App(): React.JSX.Element {
     selectedWorks: collection.selectedWorks,
     setQueue: downloadEvents.setQueue,
     setItems: downloadEvents.setItems,
-    setError,
-    setNotice,
+    setError: reportError,
+    setNotice: reportNotice,
     setTab
   })
   /** 外壳设置：主题语言、代理、自动更新、下载目录 */
   const settings = useAppSettings({
     config: collection.config,
     updateConfig: collection.updateConfig,
-    setError
+    setError: reportError
   })
   const {
     proxy,
@@ -321,10 +331,6 @@ export default function App(): React.JSX.Element {
     onRelogin: () => void session.loginPixiv(),
     onRecheckCookie: () => void session.recheckCookie(),
     onDismissCookieBanner: () => session.setHealthDismissed(true),
-    notice,
-    error,
-    onDismissNotice: () => setNotice(''),
-    onDismissError: () => setError(''),
     tab,
     onTabChange: setTab,
     works: pagedWorks,
@@ -362,7 +368,7 @@ export default function App(): React.JSX.Element {
     onRetryFailure: queueActions.retryFailure,
     onExportFailures: (id) => void queueActions.exportFailures(id),
     onOpenDir: (dir) =>
-      void window.pixiv.openDir(dir).catch((reason: unknown) => setError(messageOf(reason))),
+      void window.pixiv.openDir(dir).catch((reason: unknown) => reportError(messageOf(reason))),
     items: downloadEvents.items,
     running: downloadEvents.running
   }
@@ -649,7 +655,8 @@ export default function App(): React.JSX.Element {
           blocked={settingsOpen || filterOpen || tagsOpen || updateOpen || Boolean(preview)}
           onAction={prepareTourWorks}
         />
-        <Toaster />
+        {/* 位置与可关闭沿用旧提示条的习惯：底部居中、最多同时 3 条 */}
+        <Toaster position="bottom-center" closeButton visibleToasts={3} />
       </ImagePreviewProvider>
     </I18nProvider>
   )

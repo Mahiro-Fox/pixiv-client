@@ -1,66 +1,53 @@
-import { useSyncExternalStore } from 'react'
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
+import { createElement } from 'react'
+import { toast as sonner } from 'sonner'
 
 /**
- * 极简全局轻提示。
+ * 全局轻提示：对 sonner（`components/ui/sonner.tsx` 的 `<Toaster />`）的一层薄封装。
  *
- * 右键菜单里的动作（复制、加入下载、屏蔽作者）都是「点完就结束」的，
- * 没有页面级状态可以承载反馈；又因为菜单组件在卡片内部、拿不到 App 的
- * 错误条，所以用一个模块级的订阅式 store，由根部的 `<Toaster />` 统一渲染。
+ * 项目里的调用点大多是「右键菜单点完给个反馈」这类一句话提示，
+ * 直接用 `toast.success(message)` 比 `toast({ title, description })` 更省事，
+ * 所以这里保留动词式 API，再映射到 sonner 的等级上，调用方不必关心底层实现。
  */
 
 export type ToastKind = 'info' | 'success' | 'error'
 
-export interface ToastItem {
-  id: number
-  message: string
-  kind: ToastKind
+export interface ToastAction {
+  label: string
+  onClick: () => void
 }
 
-let items: ToastItem[] = []
-let nextId = 1
-const listeners = new Set<() => void>()
-
-function notify(): void {
-  listeners.forEach((listener) => listener())
+export interface ToastOptions {
+  /** 追加一个操作按钮，例如保存成功后的「打开目录」 */
+  action?: ToastAction
 }
 
-function show(message: string, kind: ToastKind): number {
-  const text = String(message || '').trim()
+/** 图标与语气沿用旧实现，统一提示条后仍保留颜色区分 */
+const ICON = {
+  info: { icon: Info, className: 'h-4 w-4' },
+  success: { icon: CheckCircle2, className: 'h-4 w-4 text-emerald-500' },
+  error: { icon: AlertCircle, className: 'h-4 w-4 text-destructive' }
+} as const
+
+/** 错误多留一会儿，方便看清原因；带操作按钮的多给一点反应时间 */
+const DURATION: Record<ToastKind, number> = { info: 2200, success: 2200, error: 4200 }
+
+function show(message: string, kind: ToastKind, options?: ToastOptions): string | number {
+  const text = String(message ?? '').trim()
   if (!text) return 0
-  const id = nextId
-  nextId += 1
-  items = [...items, { id, message: text, kind }]
-  notify()
-  // 错误多留一会儿，方便看清原因
-  window.setTimeout(() => dismissToast(id), kind === 'error' ? 4200 : 2200)
-  return id
-}
-
-export function dismissToast(id: number): void {
-  const next = items.filter((item) => item.id !== id)
-  if (next.length === items.length) return
-  items = next
-  notify()
+  const { icon, className } = ICON[kind]
+  const action = options?.action
+  return sonner(text, {
+    icon: createElement(icon, { className }),
+    duration: action ? Math.max(DURATION[kind], 5000) : DURATION[kind],
+    action: action ? { label: action.label, onClick: action.onClick } : undefined
+  })
 }
 
 export const toast = {
-  info: (message: string): number => show(message, 'info'),
-  success: (message: string): number => show(message, 'success'),
-  error: (message: string): number => show(message, 'error')
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-/** 供 `<Toaster />` 订阅当前提示栈；items 只在变化时换引用，可安全用于 useSyncExternalStore */
-export function useToasts(): ToastItem[] {
-  return useSyncExternalStore(
-    subscribe,
-    () => items,
-    () => items
-  )
+  info: (message: string, options?: ToastOptions): string | number => show(message, 'info', options),
+  success: (message: string, options?: ToastOptions): string | number =>
+    show(message, 'success', options),
+  error: (message: string, options?: ToastOptions): string | number =>
+    show(message, 'error', options)
 }

@@ -4,7 +4,7 @@ import type * as React from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { CookieStatus, UserSearchResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Pagination } from '@renderer/components/ui/pagination'
+import { Pager } from '@renderer/components/Pager'
 import { UserCard } from '@renderer/components/UserCard'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
@@ -33,11 +33,7 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
   /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLDivElement>('users')
 
-  const {
-    data: result,
-    loading,
-    error
-  } = usePagedQuery<UserSearchResult>({
+  const { data: result, loading } = usePagedQuery<UserSearchResult>({
     page,
     signature: [word, postedOnly ? 1 : 0, submitVersion].join('|'),
     skip: !word || loggedOut,
@@ -54,11 +50,6 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
   useEffect(() => {
     if (word && loggedOut) toast.error(t('app.needLogin'))
   }, [word, loggedOut, submitVersion])
-
-  useEffect(() => {
-    if (!error) return
-    toast.error(error)
-  }, [error])
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)
@@ -136,7 +127,7 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
           </div>
 
           {result && lastPage > 1 ? (
-            <Pagination
+            <Pager
               page={page}
               lastPage={lastPage}
               onChange={(next) => apply({ page: String(next) })}

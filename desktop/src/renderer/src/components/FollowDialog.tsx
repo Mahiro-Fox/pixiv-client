@@ -7,6 +7,7 @@ import type { BatchArtist, FollowUser } from '@shared/types'
 import { lastFollowPage, readFollowPage, rememberFollowPage, writeFollowPage } from '@renderer/lib/dialogCache'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -53,7 +54,6 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
   const [users, setUsers] = useState<FollowUser[]>(initial?.users ?? [])
   const [total, setTotal] = useState(initial?.total ?? 0)
   const [loading, setLoading] = useState(initial === null)
-  const [error, setError] = useState('')
   // —— 批量同步屏蔽：勾选状态与勾选逻辑，恢复时取消注释 ——
   // 勾选的画师跨页保留，顺序即勾选顺序
   // const [picked, setPicked] = useState<BatchArtist[]>([])
@@ -91,7 +91,6 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
     if (cached) {
       setUsers(cached.users)
       setTotal(cached.total)
-      setError('')
       setLoading(false)
       return () => {
         alive = false
@@ -99,7 +98,6 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
     }
 
     setLoading(true)
-    setError('')
 
     void window.pixiv
       .getFollowing({ userId: '', offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE })
@@ -112,7 +110,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
       .catch((reason: unknown) => {
         if (!alive) return
         setUsers([])
-        setError(messageOf(reason))
+        toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -274,10 +272,6 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
             <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('follow.loading')}
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
             </div>
           ) : visibleUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-20 text-sm text-muted-foreground">

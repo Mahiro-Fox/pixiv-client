@@ -50,13 +50,15 @@ import {
 import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle'
 import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n'
 import type { Translate } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
-import { Field } from './ui/field'
-import { Select } from './ui/select'
+import { DialogShell } from './DialogShell'
+import { FormField } from './FormField'
+import { SelectMenu } from './SelectMenu'
 
-import { Input, Textarea } from './ui/input'
+import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
 
 interface SettingsDialogProps {
   config: AppConfig
@@ -245,7 +247,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [cookieInput, setCookieInput] = useState('')
   const [savingCookie, setSavingCookie] = useState(false)
   const [loggingIn, setLoggingIn] = useState(false)
-  const [loginCancelled, setLoginCancelled] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   /** App API 凭据表单：一次填三项，保存时主进程会先刷新校验 */
@@ -255,9 +256,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     refreshToken: ''
   })
   const [savingOAuth, setSavingOAuth] = useState(false)
-  const [oauthError, setOAuthError] = useState('')
   /** 授权登录的结果提示（成功 / 取消），与错误分开显示 */
-  const [oauthNotice, setOAuthNotice] = useState('')
   const [confirmingOAuthClear, setConfirmingOAuthClear] = useState(false)
 
   // 版本与更新：主进程在启动后会自动检查，这里只负责展示与手动触发
@@ -302,9 +301,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   const [proxyBypass, setProxyBypass] = useState(proxyConfig.bypassRules)
   const [proxyPassword, setProxyPassword] = useState('')
   const [proxyBusy, setProxyBusy] = useState(false)
-  const [proxyError, setProxyError] = useState('')
   const [proxyTesting, setProxyTesting] = useState(false)
-  const [proxyTest, setProxyTest] = useState<ProxyTestResult | null>(null)
 
   const proxyQueue = useRef<Promise<unknown>>(Promise.resolve())
 
@@ -326,11 +323,10 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   ): Promise<void> => {
     const task = proxyQueue.current.then(async () => {
       setProxyBusy(true)
-      setProxyError('')
       try {
         await props.onSaveProxy(patch, password)
       } catch (reason) {
-        setProxyError(reason instanceof Error ? reason.message : String(reason))
+        toast.error(reason instanceof Error ? reason.message : String(reason))
       } finally {
         setProxyBusy(false)
       }
@@ -348,16 +344,20 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   }
 
   const runProxyTest = async (): Promise<void> => {
+    // 表单没填全时只在点按钮后提示，不在表单下方一直挂一行黄字
+    if (proxyConfig.enabled && proxyIncomplete) {
+      toast.error(t('settings.proxy.invalid'))
+      return
+    }
     setProxyTesting(true)
-    setProxyTest(null)
     try {
-      setProxyTest(await props.onTestProxy())
+      const result = await props.onTestProxy()
+      if (!result.ok) toast.error(t('settings.proxy.testFail', { message: result.message }))
+      else if (result.status && result.status >= 400)
+        toast.info(t('settings.proxy.testWarn', { status: result.status, ms: result.latencyMs }))
+      else toast.success(t('settings.proxy.testOk', { ms: result.latencyMs }))
     } catch (reason) {
-      setProxyTest({
-        ok: false,
-        latencyMs: 0,
-        message: reason instanceof Error ? reason.message : String(reason)
-      })
+      toast.error(reason instanceof Error ? reason.message : String(reason))
     } finally {
       setProxyTesting(false)
     }
@@ -385,11 +385,10 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
   const login = async (): Promise<void> => {
     setLoggingIn(true)
-    setLoginCancelled(false)
     try {
       // 登录窗口是独立窗口，用户在那边输完密码；这里只负责等待结果
       const ok = await props.onLogin()
-      setLoginCancelled(!ok)
+      if (!ok) toast.info(t('settings.cookie.loginCancelled'))
     } finally {
       setLoggingIn(false)
     }
@@ -400,7 +399,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     try {
       await props.onClearCookie()
       setConfirmingClear(false)
-      setLoginCancelled(false)
     } finally {
       setClearing(false)
     }
@@ -408,14 +406,13 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
   const saveOAuth = async (): Promise<void> => {
     setSavingOAuth(true)
-    setOAuthError('')
-    setOAuthNotice('')
     try {
       await props.onSaveOAuth(oauthForm)
       // 保存成功后清空表单，避免密钥长时间留在界面里
       setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
+      toast.success(t('settings.oauth.saved'))
     } catch (reason) {
-      setOAuthError(String(reason instanceof Error ? reason.message : reason))
+      toast.error(String(reason instanceof Error ? reason.message : reason))
     } finally {
       setSavingOAuth(false)
     }
@@ -424,21 +421,19 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   /** 打开 pixiv 授权页登录：把 code 换成的 refresh_token 直接落盘，无需手填 */
   const loginOAuth = async (): Promise<void> => {
     setSavingOAuth(true)
-    setOAuthError('')
-    setOAuthNotice('')
     try {
       const ok = await props.onLoginOAuth(
         oauthForm.clientId.trim(),
         oauthForm.clientSecret.trim()
       )
       if (!ok) {
-        setOAuthNotice(t('settings.oauth.loginCanceled'))
+        toast.info(t('settings.oauth.loginCanceled'))
         return
       }
       setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
-      setOAuthNotice(t('settings.oauth.loginDone'))
+      toast.success(t('settings.oauth.loginDone'))
     } catch (reason) {
-      setOAuthError(String(reason instanceof Error ? reason.message : reason))
+      toast.error(String(reason instanceof Error ? reason.message : reason))
     } finally {
       setSavingOAuth(false)
     }
@@ -449,7 +444,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     try {
       await props.onClearOAuth()
       setConfirmingOAuthClear(false)
-      setOAuthError('')
     } finally {
       setSavingOAuth(false)
     }
@@ -545,7 +539,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
   }
 
   return (
-    <Dialog
+    <DialogShell
       title={t('settings.title')}
       description={t('settings.description')}
       icon={<Settings2 className="h-4 w-4 text-primary" />}
@@ -921,8 +915,8 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           ) : null}
 
           <div className="grid grid-cols-3 gap-2">
-            <Field label={t('settings.proxy.protocol')}>
-              <Select
+            <FormField label={t('settings.proxy.protocol')}>
+              <SelectMenu
                 value={proxyConfig.protocol}
                 onChange={(value) =>
                   void commitProxy({ protocol: value as ProxyProtocol })
@@ -934,9 +928,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   { value: 'socks5', label: 'socks5' },
                 ]}
               />
-            </Field>
+            </FormField>
             <div className="col-span-2">
-              <Field label={t('settings.proxy.host')}>
+              <FormField label={t('settings.proxy.host')}>
                 <Input
                   value={proxyHost}
                   spellCheck={false}
@@ -947,7 +941,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                     if (value !== proxyConfig.host) void commitProxy({ host: value })
                   }}
                 />
-              </Field>
+              </FormField>
             </div>
           </div>
           {proxyConfig.protocol === 'https' ? (
@@ -957,7 +951,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           ) : null}
 
           <div className="grid grid-cols-3 gap-2">
-            <Field label={t('settings.proxy.port')}>
+            <FormField label={t('settings.proxy.port')}>
               <Input
                 value={proxyPort}
                 inputMode="numeric"
@@ -968,8 +962,8 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   if (value !== proxyConfig.port) void commitProxy({ port: value })
                 }}
               />
-            </Field>
-            <Field label={t('settings.proxy.username')}>
+            </FormField>
+            <FormField label={t('settings.proxy.username')}>
               <Input
                 value={proxyUsername}
                 spellCheck={false}
@@ -980,8 +974,8 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   if (value !== proxyConfig.username) void commitProxy({ username: value })
                 }}
               />
-            </Field>
-            <Field label={t('settings.proxy.password')}>
+            </FormField>
+            <FormField label={t('settings.proxy.password')}>
               <Input
                 type="password"
                 value={proxyPassword}
@@ -997,7 +991,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   if (event.key === 'Enter') commitProxyPassword()
                 }}
               />
-            </Field>
+            </FormField>
           </div>
           {proxyIsSocks ? (
             <p className="text-[11px] leading-4 text-amber-500">
@@ -1005,7 +999,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             </p>
           ) : null}
 
-          <Field label={t('settings.proxy.bypass')} hint={t('settings.proxy.bypassHint')}>
+          <FormField label={t('settings.proxy.bypass')} hint={t('settings.proxy.bypassHint')}>
             <Input
               value={proxyBypass}
               spellCheck={false}
@@ -1016,7 +1010,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 if (value !== proxyConfig.bypassRules) void commitProxy({ bypassRules: value })
               }}
             />
-          </Field>
+          </FormField>
 
           <div className="flex items-center gap-2">
             <Button
@@ -1041,40 +1035,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               </Button>
             ) : null}
           </div>
-
-          {proxyConfig.enabled && proxyIncomplete ? (
-            <p className="text-[11px] leading-4 text-amber-500">
-              {t('settings.proxy.invalid')}
-            </p>
-          ) : null}
-          {proxyConfig.enabled && props.proxy?.error ? (
-            <p className="text-[11px] leading-4 text-destructive">
-              {t('settings.proxy.applyError', { message: props.proxy.error })}
-            </p>
-          ) : null}
-          {proxyError ? (
-            <p className="text-[11px] leading-4 text-destructive">{proxyError}</p>
-          ) : null}
-          {proxyTest ? (
-            <p
-              className={`text-[11px] leading-4 ${
-                !proxyTest.ok
-                  ? 'text-destructive'
-                  : proxyTest.status && proxyTest.status >= 400
-                    ? 'text-amber-500'
-                    : 'text-emerald-500'
-              }`}
-            >
-              {!proxyTest.ok
-                ? t('settings.proxy.testFail', { message: proxyTest.message })
-                : proxyTest.status && proxyTest.status >= 400
-                  ? t('settings.proxy.testWarn', {
-                      status: proxyTest.status,
-                      ms: proxyTest.latencyMs
-                    })
-                  : t('settings.proxy.testOk', { ms: proxyTest.latencyMs })}
-            </p>
-          ) : null}
         </section>
 
         <section className="space-y-2.5 border-t border-border/60 pt-4">
@@ -1163,11 +1123,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 {t('settings.cookie.clear')}
               </Button>
             )
-          ) : null}
-          {loginCancelled ? (
-            <p className="text-[11px] leading-4 text-amber-500">
-              {t('settings.cookie.loginCancelled')}
-            </p>
           ) : null}
           <p className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
             <span className="h-px flex-1 bg-border/60" />
@@ -1297,12 +1252,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               <p className="text-[11px] leading-4 text-muted-foreground">
                 {t('settings.oauth.loginHint')}
               </p>
-              {oauthNotice ? (
-                <p className="text-[11px] leading-4 text-emerald-500">{oauthNotice}</p>
-              ) : null}
-              {oauthError ? (
-                <p className="text-[11px] leading-4 text-red-500">{oauthError}</p>
-              ) : null}
             </>
           )}
         </section>
@@ -1355,6 +1304,6 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           </p>
         </section>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

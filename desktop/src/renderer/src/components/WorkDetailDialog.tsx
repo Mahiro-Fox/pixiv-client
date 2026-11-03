@@ -1,5 +1,6 @@
 import { Bookmark, BookmarkCheck, Check, Clock3, ExternalLink, Gem, Image as ImageIcon, ImageOff, Layers, Loader2, Plus, X } from 'lucide-react'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type * as React from 'react'
@@ -34,7 +35,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const preview = useImagePreview()
   const [pages, setPages] = useState<WorkPage[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [quality, setQuality] = useState<ImageQuality>(props.quality)
 
   /** 收藏依赖 App API 凭据；未连接时整块控件不渲染 */
@@ -42,7 +42,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
   const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
   const [bookmarkBusy, setBookmarkBusy] = useState(false)
-  const [writeError, setWriteError] = useState('')
   /** 稍后看是纯本地列表，不依赖 OAuth；状态需要单独读一次 */
   const [watchLater, setWatchLater] = useState(false)
   const [watchLaterBusy, setWatchLaterBusy] = useState(false)
@@ -82,7 +81,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const toggleWatchLater = async (): Promise<void> => {
     if (watchLaterBusy) return
     setWatchLaterBusy(true)
-    setWriteError('')
     try {
       if (watchLater) {
         await window.pixiv.removeWatchLater(work.id)
@@ -102,7 +100,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
       })
       setWatchLater(true)
     } catch (reason) {
-      setWriteError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setWatchLaterBusy(false)
     }
@@ -112,7 +110,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   useEffect(() => {
     let alive = true
     setBookmark(null)
-    setWriteError('')
     void window.pixiv
       .getOAuthStatus()
       .then(async (status) => {
@@ -125,7 +122,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
         setPrivacy(state.restrict)
       })
       .catch((reason: unknown) => {
-        if (alive) setWriteError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
     return () => {
       alive = false
@@ -135,13 +132,12 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
   const applyBookmark = async (input: BookmarkInput): Promise<void> => {
     if (bookmarkBusy) return
     setBookmarkBusy(true)
-    setWriteError('')
     try {
       const next = await window.pixiv.setBookmark(work.id, input)
       setBookmark(next)
       setPrivacy(next.restrict)
     } catch (reason) {
-      setWriteError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setBookmarkBusy(false)
     }
@@ -221,7 +217,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
 
   useEffect(() => {
     let alive = true
-    setError('')
 
     if (isUgoira) {
       setPages([])
@@ -252,7 +247,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
         writeWorkPages(work.id, result)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -386,7 +381,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                       className="max-h-[50vh] rounded-lg object-contain"
                     />
                   ) : null}
-                  <p className="text-xs text-destructive">{ugoira.error}</p>
                 </div>
               ) : ugoira.frames.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
@@ -401,10 +395,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('detail.resolving')}
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
             </div>
           ) : pages.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
@@ -438,12 +428,6 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
             </div>
           )}
         </div>
-
-        {writeError ? (
-          <div className="shrink-0 border-t border-destructive/30 bg-destructive/10 px-5 py-2 text-[11px] text-destructive">
-            {writeError}
-          </div>
-        ) : null}
 
         <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
           <p className="truncate text-[11px] text-muted-foreground">

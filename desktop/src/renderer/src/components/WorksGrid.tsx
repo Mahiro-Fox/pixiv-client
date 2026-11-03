@@ -13,7 +13,7 @@ import type { PixivWork, WorkSort } from '@shared/types'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
-import { buildPageItems } from './ui/pagination'
+import { buildPageItems } from './Pager'
 import { WorkCard } from './WorkCard'
 
 interface WorksGridProps {

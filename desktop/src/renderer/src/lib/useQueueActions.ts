@@ -7,6 +7,7 @@ import type {
   QueueSummary
 } from '@shared/types'
 import { messageOf } from './errors'
+import { toast } from './toast'
 import { worksTag } from './files'
 import { translate } from '../i18n'
 import type { Translate } from '../i18n'
@@ -17,8 +18,8 @@ export interface UseQueueActionsOptions {
   setQueue: Dispatch<SetStateAction<QueueSummary[]>>
   /** 入队前清空上一轮的下载日志 */
   setItems: Dispatch<SetStateAction<DownloadItemEvent[]>>
-  setError: Dispatch<SetStateAction<string>>
-  setNotice: Dispatch<SetStateAction<string>>
+  setError: (message: string) => void
+  setNotice: (message: string) => void
   setTab: Dispatch<SetStateAction<string>>
 }
 
@@ -48,7 +49,7 @@ export function useQueueActions(options: UseQueueActionsOptions): QueueActionsSt
   const startDownload = async (): Promise<void> => {
     if (!config) return
     if (selectedWorks.length === 0) {
-      setError(t('app.selectFirst'))
+      toast.info(t('app.selectFirst'))
       return
     }
     setError('')

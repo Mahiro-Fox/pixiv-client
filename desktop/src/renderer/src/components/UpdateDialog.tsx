@@ -4,7 +4,7 @@ import type { UpdateStatus } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { toast } from '@renderer/lib/toast'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
+import { DialogShell } from './DialogShell'
 
 /**
  * 自动更新弹窗。
@@ -29,7 +29,7 @@ export function UpdateDialog(props: {
   }
 
   return (
-    <Dialog
+    <DialogShell
       title={t('update.readyTitle', { version: status.version })}
       description={t('update.readyHint')}
       icon={<Sparkles className="h-4 w-4 text-primary" />}
@@ -53,6 +53,6 @@ export function UpdateDialog(props: {
       }
     >
       <p className="text-xs text-muted-foreground">{t('update.laterHint')}</p>
-    </Dialog>
+    </DialogShell>
   )
 }

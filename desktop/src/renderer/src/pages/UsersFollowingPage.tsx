@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type * as React from 'react'
 import type { FollowingResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Pagination } from '@renderer/components/ui/pagination'
+import { Pager } from '@renderer/components/Pager'
 import { UserCard } from '@renderer/components/UserCard'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
 import { useWorkPreview } from '@renderer/lib/workPreview'
@@ -17,7 +17,7 @@ export function UsersFollowingPage(): React.JSX.Element {
   const { openPreview, previewNode } = useWorkPreview()
   const [page, setPage] = useState(1)
 
-  const { data, loading, error } = usePagedQuery<FollowingResult>({
+  const { data, loading } = usePagedQuery<FollowingResult>({
     page,
     signature: '',
     query: (next) =>
@@ -45,12 +45,6 @@ export function UsersFollowingPage(): React.JSX.Element {
         ) : null}
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -72,7 +66,7 @@ export function UsersFollowingPage(): React.JSX.Element {
       </div>
 
       {pageCount > 1 ? (
-        <Pagination page={page} lastPage={pageCount} onChange={setPage} disabled={loading} />
+        <Pager page={page} lastPage={pageCount} onChange={setPage} disabled={loading} />
       ) : null}
 
       {previewNode}

@@ -5,9 +5,10 @@ import type { ViewHistoryEntry } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
-import { Pagination } from '@renderer/components/ui/pagination'
+import { Pager } from '@renderer/components/Pager'
 import { WorkCard } from '@renderer/components/WorkCard'
 import { messageOf } from '@renderer/lib/errors'
+import { toast } from '@renderer/lib/toast'
 import { useWorkContextMenu } from '@renderer/lib/cardMenu'
 import { useLocalPage } from '@renderer/lib/usePagedQuery'
 import { recordToSearchWork } from '@renderer/lib/workRecords'
@@ -26,7 +27,6 @@ export function HistoryPage(): React.JSX.Element {
   const menu = useWorkContextMenu({ onPreview: openPreview })
   const [items, setItems] = useState<ViewHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
@@ -34,14 +34,13 @@ export function HistoryPage(): React.JSX.Element {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    setError('')
     void window.pixiv
       .listViewHistory()
       .then((result) => {
         if (alive) setItems(result)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -84,7 +83,7 @@ export function HistoryPage(): React.JSX.Element {
         reset()
         setConfirming(false)
       })
-      .catch((reason: unknown) => setError(messageOf(reason)))
+      .catch((reason: unknown) => toast.error(messageOf(reason)))
       .finally(() => setClearing(false))
   }
 
@@ -162,12 +161,6 @@ export function HistoryPage(): React.JSX.Element {
         </div>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -203,7 +196,7 @@ export function HistoryPage(): React.JSX.Element {
       </div>
 
       {!loading && filtered.length > PAGE_SIZE ? (
-        <Pagination page={page} lastPage={lastPage} onChange={setPage} />
+        <Pager page={page} lastPage={lastPage} onChange={setPage} />
       ) : null}
 
       {previewNode}

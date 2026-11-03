@@ -35,7 +35,7 @@ export interface CookieSessionState {
  * 由 Cookie 派生出来的两件事（识别当前账号、体检）都跟着 hasCookie / masked 走：
  * 保存或清除之后自动重算，不需要调用方再手动触发。
  */
-export function useCookieSession(setError: Dispatch<SetStateAction<string>>): CookieSessionState {
+export function useCookieSession(setError: (message: string) => void): CookieSessionState {
   const [cookie, setCookie] = useState<CookieStatus | null>(null)
   /** App API 凭据状态；写操作（收藏、关注）依赖它 */
   const [oauth, setOAuth] = useState<OAuthStatus | null>(null)

@@ -24,8 +24,8 @@ import { useI18n } from '@renderer/i18n'
 import type { MessageKey } from '@renderer/i18n'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Field } from './ui/field'
-import { Select } from './ui/select'
+import { FormField } from './FormField'
+import { SelectMenu } from './SelectMenu'
 import { Input } from './ui/input'
 import { Separator } from './ui/separator'
 
@@ -451,7 +451,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <Field
+              <FormField
                 label={t('collect.userId')}
                 required={!isBookmarks}
                 hint={
@@ -467,13 +467,13 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   onChange={(event) => props.onConfigChange({ userId: event.target.value })}
                   placeholder={isBookmarks ? (selfUser?.id ?? '114638697') : '114638697'}
                 />
-              </Field>
+              </FormField>
               {isBookmarks ? (
-                <Field
+                <FormField
                   label={t('collect.bookmarkType')}
                   hint={otherUserId ? t('collect.bookmarkOtherUserHint') : undefined}
                 >
-                  <Select
+                  <SelectMenu
                     value={config.bookmarkRest}
                     onChange={(value) =>
                       props.onConfigChange({ bookmarkRest: value as BookmarkRest })
@@ -483,26 +483,26 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                       { value: 'hide', label: t('collect.bookmarkHide'), disabled: otherUserId }
                     ]}
                   />
-                </Field>
+                </FormField>
               ) : (
-                <Field label={t('collect.tag')}>
+                <FormField label={t('collect.tag')}>
                   <TagInput
                     value={config.tag}
                     onChange={(value) => props.onConfigChange({ tag: value })}
                     onSuggest={props.onSuggestTags}
                   />
-                </Field>
+                </FormField>
               )}
             </div>
 
             {isBookmarks ? (
-              <Field label={t('collect.bookmarkTag')} hint={t('collect.bookmarkTagHint')}>
+              <FormField label={t('collect.bookmarkTag')} hint={t('collect.bookmarkTagHint')}>
                 <TagInput
                   value={config.tag}
                   onChange={(value) => props.onConfigChange({ tag: value })}
                   onSuggest={props.onSuggestTags}
                 />
-              </Field>
+              </FormField>
             ) : null}
 
             <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/10 p-3">
@@ -534,7 +534,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   ))}
                 </div>
               </div>
-              <Field
+              <FormField
                 label={t('collect.tagExtra')}
                 hint={
                   isBookmarks && !config.tag.trim()
@@ -550,19 +550,19 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   onSuggest={props.onSuggestTags}
                   placeholder={t('collect.tagExtraPlaceholder')}
                 />
-              </Field>
-              <Field label={t('collect.tagExclude')} hint={t('collect.tagExcludeHint')}>
+              </FormField>
+              <FormField label={t('collect.tagExclude')} hint={t('collect.tagExcludeHint')}>
                 <TagListInput
                   value={config.tagExclude}
                   onChange={(value) => props.onConfigChange({ tagExclude: value })}
                   onSuggest={props.onSuggestTags}
                   placeholder={t('collect.tagExcludePlaceholder')}
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t('collect.offset')}>
+              <FormField label={t('collect.offset')}>
                 <Input
                   type="number"
                   min={0}
@@ -571,8 +571,8 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     props.onConfigChange({ offset: Math.max(0, Number(event.target.value) || 0) })
                   }
                 />
-              </Field>
-              <Field label={t('collect.limit')} hint={t('collect.limitHint')}>
+              </FormField>
+              <FormField label={t('collect.limit')} hint={t('collect.limitHint')}>
                 <Input
                   type="number"
                   min={1}
@@ -584,10 +584,10 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     })
                   }
                 />
-              </Field>
+              </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t('collect.workers')} hint={t('collect.workersHint')}>
+              <FormField label={t('collect.workers')} hint={t('collect.workersHint')}>
                 <Input
                   type="number"
                   min={1}
@@ -599,8 +599,8 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     })
                   }
                 />
-              </Field>
-              <Field label={t('collect.delay')}>
+              </FormField>
+              <FormField label={t('collect.delay')}>
                 <Input
                   type="number"
                   min={0}
@@ -613,7 +613,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                     })
                   }
                 />
-              </Field>
+              </FormField>
             </div>
           </CardContent>
         </Card>

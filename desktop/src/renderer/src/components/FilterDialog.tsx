@@ -8,10 +8,10 @@ import { countActiveFilters } from '@renderer/lib/filters'
 import { useI18n } from '@renderer/i18n'
 import { BlockManagerDialog } from './BlockManagerDialog'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
-import { Field } from './ui/field'
+import { DialogShell } from './DialogShell'
+import { FormField } from './FormField'
 import { Input } from './ui/input'
-import { Select } from './ui/select'
+import { SelectMenu } from './SelectMenu'
 
 interface FilterDialogProps {
   config: AppConfig
@@ -49,7 +49,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
   }
 
   return (
-    <Dialog
+    <DialogShell
       title={t('filter.title')}
       description={t('filter.description')}
       icon={<Filter className="h-4 w-4 text-primary" />}
@@ -73,7 +73,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t('filter.minPages')} hint={t('filter.noLimit')}>
+          <FormField label={t('filter.minPages')} hint={t('filter.noLimit')}>
             <Input
               type="number"
               min={0}
@@ -84,8 +84,8 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 })
               }
             />
-          </Field>
-          <Field label={t('filter.maxPages')} hint={t('filter.noLimit')}>
+          </FormField>
+          <FormField label={t('filter.maxPages')} hint={t('filter.noLimit')}>
             <Input
               type="number"
               min={0}
@@ -96,11 +96,11 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 })
               }
             />
-          </Field>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t('filter.minWidth')} hint={t('filter.minWidthHint')}>
+          <FormField label={t('filter.minWidth')} hint={t('filter.minWidthHint')}>
             <Input
               type="number"
               min={0}
@@ -111,8 +111,8 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 })
               }
             />
-          </Field>
-          <Field label={t('filter.minHeight')} hint={t('filter.minHeightHint')}>
+          </FormField>
+          <FormField label={t('filter.minHeight')} hint={t('filter.minHeightHint')}>
             <Input
               type="number"
               min={0}
@@ -123,15 +123,15 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 })
               }
             />
-          </Field>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field
+          <FormField
             label={t('filter.r18')}
             hint={ratingSupported ? undefined : t('filter.r18Unsupported')}
           >
-            <Select
+            <SelectMenu
               value={config.filterR18}
               disabled={!ratingSupported}
               onChange={(value) => props.onConfigChange({ filterR18: value as R18Filter })}
@@ -141,7 +141,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 { value: 'exclude', label: t('filter.r18Exclude') }
               ]}
             />
-          </Field>
+          </FormField>
           <div className="flex items-end pb-1">
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <input
@@ -157,7 +157,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
           </div>
         </div>
 
-        <Field label={t('filter.excludeKeywords')} hint={t('filter.excludeKeywordsHint')}>
+        <FormField label={t('filter.excludeKeywords')} hint={t('filter.excludeKeywordsHint')}>
           <Input
             value={config.filterExcludeKeywords}
             onChange={(event) =>
@@ -165,33 +165,33 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
             }
             placeholder={t('filter.excludeKeywordsPlaceholder')}
           />
-        </Field>
+        </FormField>
 
-        <Field label={t('filter.excludeTags')} hint={t('filter.excludeTagsHint')}>
+        <FormField label={t('filter.excludeTags')} hint={t('filter.excludeTagsHint')}>
           <Input
             value={config.filterExcludeTags}
             onChange={(event) => props.onConfigChange({ filterExcludeTags: event.target.value })}
             placeholder={t('filter.excludeTagsPlaceholder')}
           />
-        </Field>
+        </FormField>
 
         {/* 与上面的「排除标签」不同：屏蔽是全局的，搜索、用户主页、收藏里都不再出现 */}
         <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-3">
           <p className="text-[11px] text-muted-foreground">{t('filter.blockHint')}</p>
-          <Field label={t('filter.blockTags')} hint={t('filter.blockTagsHint')}>
+          <FormField label={t('filter.blockTags')} hint={t('filter.blockTagsHint')}>
             <Input
               value={config.blockTags}
               onChange={(event) => props.onConfigChange({ blockTags: event.target.value })}
               placeholder={t('filter.blockTagsPlaceholder')}
             />
-          </Field>
-          <Field label={t('filter.blockUsers')} hint={t('filter.blockUsersHint')}>
+          </FormField>
+          <FormField label={t('filter.blockUsers')} hint={t('filter.blockUsersHint')}>
             <Input
               value={config.blockUsers}
               onChange={(event) => props.onConfigChange({ blockUsers: event.target.value })}
               placeholder={t('filter.blockUsersPlaceholder')}
             />
-          </Field>
+          </FormField>
           <button
             type="button"
             onClick={() => setManaging(true)}
@@ -215,6 +215,6 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
           onClose={() => setManaging(false)}
         />
       ) : null}
-    </Dialog>
+    </DialogShell>
   )
 }

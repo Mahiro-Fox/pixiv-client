@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import type { RankingMode, RankingResult, WorkSearchKind } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
-import { Pagination } from '@renderer/components/ui/pagination'
+import { Pager } from '@renderer/components/Pager'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
@@ -70,7 +70,7 @@ export function RankingPage(): React.JSX.Element {
   /** 滚动位置记忆：本页的滚动容器就是外层 main，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLElement>('ranking')
 
-  const { data: result, loading, error, reload } = usePagedQuery<RankingResult>({
+  const { data: result, loading, reload } = usePagedQuery<RankingResult>({
     page,
     signature: [kind, mode, date].join('|'),
     scroll,
@@ -172,12 +172,6 @@ export function RankingPage(): React.JSX.Element {
         <p className="text-[11px] text-muted-foreground/80">{t('ranking.dateHint')}</p>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-
       {result ? (
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           <span>{t('ranking.count', { count: result.total })}</span>
@@ -210,7 +204,7 @@ export function RankingPage(): React.JSX.Element {
       ) : null}
 
       {result && result.lastPage > 1 ? (
-        <Pagination
+        <Pager
           page={page}
           lastPage={result.lastPage}
           onChange={(next) => apply({ page: next === 1 ? '' : String(next) })}

@@ -6,8 +6,9 @@ import { cn } from '@renderer/lib/utils'
 import { messageOf } from '@renderer/lib/errors'
 import { readUserTags, writeUserTags } from '@renderer/lib/dialogCache'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
+import { DialogShell } from './DialogShell'
 import { Input } from './ui/input'
 
 interface UserTagDialogProps {
@@ -49,14 +50,13 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
   /** 每次手动刷新 +1；0 表示首次加载（允许读缓存） */
   const [reloadTick, setReloadTick] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
-  /** 手动刷新失败时保留旧列表，只在顶部提示一行 */
-  const [refreshError, setRefreshError] = useState('')
   const hasTags = useRef(false)
   hasTags.current = state.phase === 'ready'
 
   useEffect(() => {
     if (!userId) {
-      setState({ phase: 'error', message: t('tags.needUser') })
+      toast.error(t('tags.needUser'))
+      setState({ phase: 'error', message: '' })
       return
     }
     let alive = true
@@ -69,7 +69,6 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
     // 已有数据时刷新不清空列表，只转小圈；没有数据（首次加载 / 重试）才走 loading
     if (hasTags.current) setRefreshing(true)
     else setState({ phase: 'loading' })
-    setRefreshError('')
 
     window.pixiv
       .userTags(userId, content)
@@ -84,8 +83,9 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
         setRefreshing(false)
         const message = messageOf(reason)
         // 刷新失败不该把已经拿到的标签弄丢
-        if (hasTags.current) setRefreshError(message)
-        else setState({ phase: 'error', message })
+        // 刷新失败不该把已经拿到的标签弄丢，原因用轻提示说明
+        toast.error(message)
+        if (!hasTags.current) setState({ phase: 'error', message })
       })
     return () => {
       alive = false
@@ -105,7 +105,7 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
   }, [state, keyword])
 
   return (
-    <Dialog
+    <DialogShell
       title={t('tags.title')}
       description={t('tags.description')}
       icon={<Tags className="h-4 w-4 text-primary" />}
@@ -170,12 +170,6 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
           ) : null}
         </div>
 
-        {refreshError ? (
-          <p className="-mt-1 shrink-0 truncate text-[11px] text-destructive">
-            {t('tags.refreshFailed', { message: refreshError })}
-          </p>
-        ) : null}
-
         <div className="scrollbar-thin -mr-1 min-h-0 flex-1 overflow-y-auto pr-1">
           {state.phase === 'loading' ? (
             <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -186,7 +180,6 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
 
           {state.phase === 'error' ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <p className="text-xs text-muted-foreground">{state.message}</p>
               {userId ? (
                 <Button
                   variant="outline"
@@ -244,6 +237,6 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
           </div>
         </div>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

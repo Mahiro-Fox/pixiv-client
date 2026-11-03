@@ -1,13 +1,12 @@
 import { ExternalLink, ShieldBan, Tag, Trash2, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import type * as React from 'react'
-import { createPortal } from 'react-dom'
 import type { AppConfig } from '@shared/types'
 import { joinBlockTerms, splitBlockTermsRaw } from '@shared/block'
 import { userWebUrl } from '@renderer/lib/workActions'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
-import { Dialog } from './ui/dialog'
+import { DialogShell } from './DialogShell'
 
 interface BlockManagerDialogProps {
   config: AppConfig
@@ -41,76 +40,74 @@ export function BlockManagerDialog(props: BlockManagerDialogProps): React.JSX.El
     props.onConfigChange({ blockTags: joinBlockTerms(keep) })
   }
 
-  return createPortal(
-    // 外层加一层更高的 z，避免与父级弹窗（过滤规则）同级叠在一起分不清前后
-    <div className="fixed inset-0 z-[60]">
-      <Dialog
-        title={t('block.title')}
-        description={t('block.description')}
-        icon={<ShieldBan className="h-4 w-4 text-primary" />}
-        onClose={props.onClose}
-        footer={
-          <Button size="sm" onClick={props.onClose}>
-            {t('common.close')}
-          </Button>
-        }
-      >
-        <div className="space-y-5">
-          <Section
-            icon={<UserRound className="h-4 w-4" />}
-            title={t('block.users')}
-            count={users.length}
-            empty={t('block.emptyUsers')}
-            onClear={() => props.onConfigChange({ blockUsers: '' })}
-          >
-            {users.map((term) => (
-              <Row
-                key={term}
-                term={term}
-                note={USER_ID.test(term) ? t('block.byId') : t('block.byName')}
-                onRemove={() => removeUser(term)}
-                action={
-                  USER_ID.test(term) ? (
-                    <button
-                      type="button"
-                      title={t('block.openProfile')}
-                      onClick={() => window.open(userWebUrl(term), '_blank')}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
-                  ) : null
-                }
-              />
-            ))}
-          </Section>
+  // 这层弹窗叠在「过滤规则」之上，靠更高的 z 保证前后关系
+  return (
+    <DialogShell
+      className="z-[60]"
+      title={t('block.title')}
+      description={t('block.description')}
+      icon={<ShieldBan className="h-4 w-4 text-primary" />}
+      onClose={props.onClose}
+      footer={
+        <Button size="sm" onClick={props.onClose}>
+          {t('common.close')}
+        </Button>
+      }
+    >
+      <div className="space-y-5">
+        <Section
+          icon={<UserRound className="h-4 w-4" />}
+          title={t('block.users')}
+          count={users.length}
+          empty={t('block.emptyUsers')}
+          onClear={() => props.onConfigChange({ blockUsers: '' })}
+        >
+          {users.map((term) => (
+            <Row
+              key={term}
+              term={term}
+              note={USER_ID.test(term) ? t('block.byId') : t('block.byName')}
+              onRemove={() => removeUser(term)}
+              action={
+                USER_ID.test(term) ? (
+                  <button
+                    type="button"
+                    title={t('block.openProfile')}
+                    onClick={() => window.open(userWebUrl(term), '_blank')}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </button>
+                ) : null
+              }
+            />
+          ))}
+        </Section>
 
-          <Section
-            icon={<Tag className="h-4 w-4" />}
-            title={t('block.tags')}
-            count={tags.length}
-            empty={t('block.emptyTags')}
-            onClear={() => props.onConfigChange({ blockTags: '' })}
-          >
-            {tags.map((term) => (
-              <Row
-                key={term}
-                term={term}
-                note={t('block.byTag')}
-                onRemove={() => removeTag(term)}
-              />
-            ))}
-          </Section>
+        <Section
+          icon={<Tag className="h-4 w-4" />}
+          title={t('block.tags')}
+          count={tags.length}
+          empty={t('block.emptyTags')}
+          onClear={() => props.onConfigChange({ blockTags: '' })}
+        >
+          {tags.map((term) => (
+            <Row
+              key={term}
+              term={term}
+              note={t('block.byTag')}
+              onRemove={() => removeTag(term)}
+            />
+          ))}
+        </Section>
 
-          <p className="text-[11px] leading-5 text-muted-foreground">
-            {t('block.note')}
-            <br />
-            {t('block.emptyHint')}
-          </p>
-        </div>
-      </Dialog>
-    </div>,
-    document.body
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          {t('block.note')}
+          <br />
+          {t('block.emptyHint')}
+        </p>
+      </div>
+    </DialogShell>
   )
 }
 

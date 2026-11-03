@@ -5,7 +5,6 @@ import {
   BookOpen,
   Check,
   FileDown,
-  FolderOpen,
   ImageOff,
   Loader2,
   Play,
@@ -15,8 +14,9 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { NovelDownloadProgress, NovelDownloadResult, NovelSeriesDetail } from '@shared/types'
+import type { NovelDownloadProgress, NovelSeriesDetail } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
+import { toast } from '@renderer/lib/toast'
 import {
   loadReadNovels,
   loadSeriesPosition,
@@ -42,10 +42,8 @@ export function NovelSeriesPage(): React.JSX.Element {
 
   const [detail, setDetail] = useState<NovelSeriesDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const [progress, setProgress] = useState<NovelDownloadProgress | null>(null)
-  const [saved, setSaved] = useState<NovelDownloadResult | null>(null)
   const [readIds, setReadIds] = useState<Set<string>>(() => loadReadNovels())
   const [watching, setWatching] = useState(false)
   const [watchBusy, setWatchBusy] = useState(false)
@@ -55,7 +53,6 @@ export function NovelSeriesPage(): React.JSX.Element {
     if (!seriesId) return
     let alive = true
     setLoading(true)
-    setError('')
     setDetail(null)
     void window.pixiv
       .getNovelSeries(seriesId)
@@ -63,7 +60,7 @@ export function NovelSeriesPage(): React.JSX.Element {
         if (alive) setDetail(data)
       })
       .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason))
+        if (alive) toast.error(messageOf(reason))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -100,13 +97,12 @@ export function NovelSeriesPage(): React.JSX.Element {
   const toggleWatch = async (): Promise<void> => {
     if (!detail || watchBusy) return
     setWatchBusy(true)
-    setError('')
     try {
       const next = !watching
       await window.pixiv.setNovelSeriesWatch(detail.series.id, next)
       setWatching(next)
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setWatchBusy(false)
     }
@@ -124,14 +120,14 @@ export function NovelSeriesPage(): React.JSX.Element {
   const download = async (): Promise<void> => {
     if (downloading) return
     setDownloading(true)
-    setError('')
-    setSaved(null)
     setProgress(null)
     try {
       const result = await window.pixiv.downloadNovel({ seriesId })
-      setSaved(result)
+      toast.success(t('novel.saved', { path: result.path }), {
+        action: { label: t('novel.openDir'), onClick: () => void window.pixiv.openDir(dirOf(result.path)) }
+      })
     } catch (reason) {
-      setError(messageOf(reason))
+      toast.error(messageOf(reason))
     } finally {
       setDownloading(false)
       setProgress(null)
@@ -150,7 +146,6 @@ export function NovelSeriesPage(): React.JSX.Element {
   if (!detail) {
     return (
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
-        <p className="text-sm text-destructive">{error || t('novel.loadFailed')}</p>
         <Button variant="outline" size="sm" onClick={() => navigate('/novel')}>
           <ArrowLeft />
           {t('novel.back')}
@@ -168,20 +163,6 @@ export function NovelSeriesPage(): React.JSX.Element {
         </Button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-      {saved ? (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
-          <span className="flex-1 break-all">{t('novel.saved', { path: saved.path })}</span>
-          <Button variant="ghost" size="sm" onClick={() => void window.pixiv.openDir(dirOf(saved.path))}>
-            <FolderOpen />
-            {t('novel.openDir')}
-          </Button>
-        </div>
-      ) : null}
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">

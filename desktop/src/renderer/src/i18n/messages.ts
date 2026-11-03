@@ -144,6 +144,7 @@ const zhCN = {
   'settings.oauth.loginHint':
     '点上方按钮会打开 pixiv 授权页，登录成功后自动换取并保存 refresh_token，无需手工复制；client_id / client_secret 留空即用内置值',
   'settings.oauth.loginDone': '已获取 refresh_token 并保存，可以开始收藏 / 关注',
+  'settings.oauth.saved': 'OAuth 凭据已保存',
   'settings.oauth.loginCanceled': '已取消授权登录',
   'settings.oauth.clear': '清除凭据',
   'settings.oauth.clearConfirm': '清除后写操作将不可用，读取数据不受影响。确定清除？',
@@ -1003,6 +1004,7 @@ const en: Record<MessageKey, string> = {
   'settings.oauth.loginHint':
     'The button opens the pixiv authorization page and saves the refresh_token automatically — no copying needed. Leave client_id / client_secret empty to use the built-in values',
   'settings.oauth.loginDone': 'refresh_token saved — bookmarking and following are ready',
+  'settings.oauth.saved': 'OAuth credentials saved',
   'settings.oauth.loginCanceled': 'Authorization cancelled',
   'settings.oauth.clear': 'Clear credentials',
   'settings.oauth.clearConfirm':
@@ -1891,6 +1893,7 @@ const ja: Record<MessageKey, string> = {
   'settings.oauth.loginHint':
     '上のボタンで pixiv の認証ページが開き、refresh_token を自動で取得・保存します（手動コピー不要）。client_id / client_secret は空欄なら内蔵値を使用します',
   'settings.oauth.loginDone': 'refresh_token を保存しました。ブックマーク / フォローが使えます',
+  'settings.oauth.saved': 'OAuth 認証情報を保存しました',
   'settings.oauth.loginCanceled': '認証ログインをキャンセルしました',
   'settings.oauth.clear': '認証情報を削除',
   'settings.oauth.clearConfirm':

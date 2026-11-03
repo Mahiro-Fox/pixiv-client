@@ -18,7 +18,6 @@ import type {
 import { buildTagQuery, hasTagFilter, matchesTagQuery } from '../../shared/tags'
 import { fetchJson } from './http'
 import { webEndpoints } from './endpoints'
-import { pickLangText } from './lang'
 import { mapPool } from './pool'
 import { workBase } from './workFields'
 
@@ -125,21 +124,15 @@ export interface UgoiraMeta {
   frames: UgoiraFrame[]
 }
 
-interface TagBreadcrumb {
-  tag?: string
-  translation?: Record<string, string>
+interface TagSuggestCandidate {
+  tag_name?: string
+  tag_translation?: string
 }
 
 interface TagSuggestResponse {
   error?: boolean
   message?: string
-  body?: {
-    tag?: string
-    word?: string
-    pixpedia?: { parentTag?: string; tag?: string; siblingsTags?: string[] }
-    breadcrumbs?: { successor?: TagBreadcrumb[]; current?: TagBreadcrumb[] }
-    tagTranslation?: Record<string, Record<string, string>>
-  }
+  candidates?: TagSuggestCandidate[]
 }
 
 function toWork(raw: RawWork): PixivWork {
@@ -323,9 +316,7 @@ async function fetchProfileWorksPage(
   pages.flat().forEach((work) => {
     if (work.id) map.set(work.id, work)
   })
-  const works = pageIds
-    .map((id) => map.get(id))
-    .filter((work): work is PixivWork => Boolean(work))
+  const works = pageIds.map((id) => map.get(id)).filter((work): work is PixivWork => Boolean(work))
   return { works, total: ids.length }
 }
 
@@ -356,10 +347,7 @@ export async function fetchBookmarks(
  * pixiv 没有公开的自省接口，这里按候选列表依次尝试并做宽松解析，
  * 全部失败时由调用方提示用户手动填写收藏用户 ID。
  */
-export async function fetchSelfUser(
-  cookie = '',
-  signal?: AbortSignal
-): Promise<SelfUser | null> {
+export async function fetchSelfUser(cookie = '', signal?: AbortSignal): Promise<SelfUser | null> {
   for (const url of SELF_CANDIDATES) {
     try {
       const data = await fetchJson<SelfResponse>(url, cookie, signal)
@@ -459,11 +447,7 @@ export async function fetchPages(
   cookie = '',
   signal?: AbortSignal
 ): Promise<PageInfo[]> {
-  const data = await fetchJson<PagesResponse>(
-    webEndpoints.illustPages(illustId),
-    cookie,
-    signal
-  )
+  const data = await fetchJson<PagesResponse>(webEndpoints.illustPages(illustId), cookie, signal)
   if (data.error) throw new Error(`作品分页接口报错：${data.message || '未知错误'}`)
   return data.body || []
 }
@@ -474,11 +458,7 @@ export async function fetchUgoiraMeta(
   cookie = '',
   signal?: AbortSignal
 ): Promise<UgoiraMeta> {
-  const data = await fetchJson<UgoiraResponse>(
-    webEndpoints.ugoiraMeta(illustId),
-    cookie,
-    signal
-  )
+  const data = await fetchJson<UgoiraResponse>(webEndpoints.ugoiraMeta(illustId), cookie, signal)
   if (data.error) throw new Error(`动图接口报错：${data.message || '未知错误'}`)
 
   const zipUrl = data.body?.originalSrc || data.body?.src || ''
@@ -521,8 +501,8 @@ export async function fetchWorkPages(
 }
 
 /**
- * 标签建议：pixiv 的搜索补全接口对每个关键词只返回最佳匹配，
- * 这里把「搜索词 / 标签 / 父标签 / 关联标签」合并去重后作为候选。
+ * 标签联想：网页搜索框走的是 `rpc/cps.php`，直接返回候选标签列表，
+ * 每项带日文原名与当前界面语言的译文；这里去重后原样映射。
  */
 export async function suggestTags(
   word: string,
@@ -532,47 +512,17 @@ export async function suggestTags(
   const keyword = word.trim()
   if (keyword.length < 2) return []
 
-  const data = await fetchJson<TagSuggestResponse>(
-    webEndpoints.tagSuggest(keyword),
-    cookie,
-    signal
-  )
+  const data = await fetchJson<TagSuggestResponse>(webEndpoints.tagSuggest(keyword), cookie, signal)
   if (data.error) return []
 
-  const body = data.body || {}
   const seen = new Set<string>()
-  const result: TagSuggestion[] = []
-
-  const push = (tag?: string, translation?: string): void => {
-    const value = (tag || '').trim()
-    if (!value || seen.has(value.toLowerCase())) return
-    seen.add(value.toLowerCase())
-    result.push({ tag: value, translation: translation || undefined })
-  }
-
-  const successors = body.breadcrumbs?.successor || []
-  const translations = new Map<string, string>()
-  const translationOf = (tag?: string): string | undefined => {
-    const key = (tag || '').trim()
-    if (!key) return undefined
-    const dict = body.tagTranslation?.[key]
-    if (dict) return pickLangText(dict) || undefined
-    return translations.get(key.toLowerCase())
-  }
-
-  successors.forEach((item) => {
-    if (!item.tag) return
-    const text = pickLangText(item.translation)
-    if (text) translations.set(item.tag.toLowerCase(), text)
-  })
-
-  push(body.word)
-  push(body.tag, translationOf(body.tag))
-  push(body.pixpedia?.parentTag, translationOf(body.pixpedia?.parentTag))
-  successors.forEach((item) => push(item.tag, translationOf(item.tag)))
-  body.breadcrumbs?.current?.forEach((item) => push(item.tag, translationOf(item.tag)))
-
-  return result.slice(0, 8)
+  return (data.candidates ?? []).reduce<TagSuggestion[]>((result, item) => {
+    const tag = (item.tag_name ?? '').trim()
+    if (!tag || seen.has(tag.toLowerCase())) return result
+    seen.add(tag.toLowerCase())
+    result.push({ tag, translation: (item.tag_translation ?? '').trim() || undefined })
+    return result
+  }, [])
 }
 
 interface RawUserTag {

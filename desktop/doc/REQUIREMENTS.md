@@ -988,6 +988,30 @@
 - 下载完成提醒：窗口不在前台（不可见 / 最小化 / 失去焦点）时才弹——成功为「下载完成」，有失败项为「下载结束，有失败项」并带数量；窗口在前台不打扰。Windows 走托盘气泡（不依赖 AUMID 注册，开发模式也能弹），其他平台退化为系统通知。
 - 设置 →「托盘与后台」四项：显示托盘图标（关掉后关窗口即退出）、关闭窗口时收进托盘、最小化时收进托盘、后台下载结束时提醒。四位都是即时落盘，不依赖关闭设置弹窗；托盘关闭时后三项置灰。
 
+### 3.41 轻提示（sonner）
+
+**背景**：原来的 `lib/toast.ts` 是自研的模块级 store + 手写气泡，只能显示一行纯文本，固定 2.2s / 4.2s 消失；要做带描述、操作按钮、滑动关闭的提示就得再补一套动画与队列。
+
+- 组件走 shadcn 的 sonner（`pnpm dlx shadcn@latest add sonner`），落在 `components/ui/sonner.tsx`。shadcn 官方已弃用旧的 radix `toast`，推荐 sonner。
+- CLI 能直接跑的前提是项目本来就是 shadcn 结构（`cn()` 在 `lib/utils.ts`、Tailwind 3.4、`index.css` 有全套 HSL 变量），只缺 `components.json`。新增该文件把别名指向 `@renderer/*`；CLI 解析别名读的是根 `tsconfig.json`，所以根 tsconfig 补了 `compilerOptions.paths`（此前后端别名只写在 `tsconfig.web.json` 里）。
+- 去掉 `next-themes`：官方模板靠它读主题，本项目主题由 `lib/theme.ts` 直接切 `html` 的 `dark` class。`ui/sonner.tsx` 用 MutationObserver 监听这个 class 反推 `light` / `dark`，切换主题即时跟手，不引入额外依赖。
+- `lib/toast.ts` 保留原来的动词式 API（`toast.info/success/error(message)`），内部转调 sonner：26 处调用点一行未改；空串仍然不弹；成功 / 信息 2.2s、失败 4.2s 的时长，以及绿勾 / 红叹号 / 信息的图标配色沿用。
+- 位置仍是底部居中、最多同时 3 条、可点关闭；另外新增滑动关闭、悬停暂停计时、堆叠展开动画。
+- 手写的 `components/Toaster.tsx` 删除，App 根部改挂 `components/ui/sonner` 的 `<Toaster />`。
+
+### 3.42 错误与提示统一走轻提示 / ui 组件换成 shadcn
+
+**背景**：错误提示原来散在十几处——App 顶部一条红条、各页面一条内联红字、各弹窗自己 `useState('')` 存错误再渲染一行 `text-destructive`。同一种失败在不同页面长得不一样，切换页面或关掉弹窗还会直接丢掉。
+
+- 事件型消息一律走轻提示（`lib/toast.ts`）：请求失败、操作结果、可重试的失败原因（含服务器返回的原始 message）。
+- `App` 不再持有 `error` / `notice` 状态，也不再渲染顶部提示条；改为 `reportError` / `reportNotice` 两个回调，注入 `useDownloadEvents` / `useCookieSession` / `useQueueActions` / `useWorkCollection` / `useAppSettings`，这些 hook 的参数类型从 `Dispatch<SetStateAction<string>>` 换成 `(message: string) => void`。
+- 页面级：12 个页面（收藏 / 历史 / 稍后 / 搜索 / 排行 / 推荐 / 用户 / 系列 / 小说 …）删掉内联错误块与本地 `error` state；`usePagedQuery` 也不再返回 `error`，失败即提示。「加载失败」不再是页面内容的一部分。
+- 语气分档：空结果、未选中、部分页失败、登录取消用 `toast.info`；操作成功用 `toast.success`（小说「已保存」带「打开目录」按钮）；失败用 `toast.error`。
+- 留在页面上的只剩结构性文字：加载骨架、真实空态、状态读数（更新器状态、队列项状态、日志行）、表单常驻字段说明与即时校验（输出模板边输边校验）、以及需要当场操作的常驻条件条（Cookie 过期重登、OAuth 未连接）。这些不是「刚发生了一件事」，做成会自己消失的提示反而会漏信息。
+- `ui` 目录整体换成官方实现：button / badge / card / input / textarea / label / separator / scroll-area / tabs / progress / dialog / select / pagination / field / sonner。给 `badge` 补回项目在用的 `success` / `warning` 变体，给 `button` 补 `xs` 尺寸，进度条保留原有弹簧过渡。
+- 原先自研的 dialog / select / pagination / field 改成「官方原语 + 一层薄封装」：`DialogShell`（遮罩、标题栏、关闭、Esc、滚动区）、`SelectMenu`（`value` / `options` / `onChange` 简写）、`Pager`（页码条 + `buildPageItems`）、`FormField`（label + 控件 + 说明）。调用点只改 import 与标签名，props 未变。
+- 新增依赖：`@radix-ui/react-dialog`、`@radix-ui/react-select`（弹窗 / 下拉原语）与 `tailwindcss-animate`（进出场动画）。
+
 ---
 
 ## 4. 非功能需求
@@ -1220,3 +1244,7 @@
 119. 托盘常驻：关闭主窗口后进程与下载任务继续，窗口从任务栏消失；托盘菜单「显示主窗口」或再次双击桌面图标都能把窗口叫回来，且不会启动第二个实例（任务管理器里仍只有一套进程）。
 120. 托盘菜单：有任务在跑时显示「下载中 N 个任务 · P%」与「全部暂停」，暂停后显示「全部继续」；「打开下载目录」直接打开保存目录；「退出 Pixiv Client」正常退出并落盘队列，重启后任务停在进行中的位置可继续。
 121. 设置 → 托盘与后台：关掉「显示托盘图标」后图标立即消失、同组其余三项置灰，此时关窗口直接退出应用；重新打开立即恢复。关掉「后台下载结束时提醒」后，窗口隐藏时下载结束不再弹托盘气泡；开着时只在窗口不在前台才弹。
+122. 轻提示：右键任意作品卡点「复制链接」，窗口底部居中弹出带绿勾的「已复制链接」，约 2 秒后自动消失，也可点左上角 × 立即关闭；连续触发多条时最多同时显示 3 条并堆叠，鼠标悬停时倒计时暂停。切到浅色 / 深色主题，提示条底色与文字立即跟随，无需刷新。
+123. 断网或 Cookie 失效后点刷新：窗口底部弹出红色提示并写明失败原因（服务器原始 message），页面本身不再出现一行内联红字；恢复网络后再点刷新即正常显示。
+124. 收藏页选中 0 项点下载、搜索无结果、取消 Pixiv 登录：分别弹出中性提示，不出现红色错误块；保存小说成功时提示里带「打开目录」按钮，点了直接打开保存目录。
+125. 任意弹窗（设置 / 过滤规则 / 收藏 / 作品详情）：下拉、翻页、进度条、按钮、输入框观感与换新前一致；在弹窗内点开下拉，选项浮在弹窗之上并可正常选中。

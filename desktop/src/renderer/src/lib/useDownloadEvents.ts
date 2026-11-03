@@ -31,7 +31,7 @@ export interface DownloadEventsState {
  * 进度本身已经在主进程里节流，这里不再做额外的合并；
  * activeIds 维护的是「当前真正在跑」的任务集合，界面据此显示并行数量。
  */
-export function useDownloadEvents(setError: Dispatch<SetStateAction<string>>): DownloadEventsState {
+export function useDownloadEvents(setError: (message: string) => void): DownloadEventsState {
   const [download, setDownload] = useState<DownloadProgress | null>(null)
   const [batch, setBatch] = useState<BatchSyncProgress | null>(null)
   const [items, setItems] = useState<DownloadItemEvent[]>([])
