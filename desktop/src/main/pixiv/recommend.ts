@@ -26,7 +26,7 @@ interface AppUser {
   name?: string
   account?: string
   comment?: string
-  profile_image_urls?: { px_16x16?: string; px_50x50?: string; px_170x170?: string }
+  profile_image_urls?: { medium?: string }
 }
 
 interface AppIllust {
@@ -92,7 +92,7 @@ function toSearchWork(raw: AppIllust): SearchWork {
     userId: raw.user?.id,
     userName: raw.user?.name,
     thumbnail: images.medium || images.large || images.square_medium,
-    profileImageUrl: raw.user?.profile_image_urls?.px_50x50,
+    profileImageUrl: raw.user?.profile_image_urls?.medium,
     pageCount: raw.page_count,
     width: raw.width,
     height: raw.height,
@@ -125,11 +125,6 @@ function toDiscoveryWork(raw: RawDiscoveryWork): SearchWork {
   })
 }
 
-/** 头像有多种尺寸键，按大 → 小兜底 */
-function avatarOf(urls?: AppUser['profile_image_urls']): string {
-  return urls?.px_170x170 || urls?.px_50x50 || urls?.px_16x16 || ''
-}
-
 function toUserCard(preview: AppUserPreview): UserSearchItem | null {
   const user = preview.user
   const id = String(user?.id ?? '').trim()
@@ -152,9 +147,7 @@ function toUserCard(preview: AppUserPreview): UserSearchItem | null {
     // 推荐接口通常不带简介，退化成 @账号也能帮助识别
     comment: user?.comment || (user?.account ? `@${user.account}` : ''),
     // 推荐接口的 user 偶尔不带头像，用同一条目里作品作者的头像兜底
-    avatar:
-      avatarOf(user?.profile_image_urls) ||
-      avatarOf(preview.illusts?.[0]?.user?.profile_image_urls),
+    avatar: user?.profile_image_urls?.medium || '',
     works
   }
 }
