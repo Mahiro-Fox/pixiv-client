@@ -81,9 +81,18 @@ export function registerSettingsHandlers(): void {
   })
 
   // 清除 Cookie：同时清空登录窗口分区的旧会话，
-  // 否则下次点登录会被残留会话直接跳过，窗口来不及显示就关掉了
+  // 否则下次点登录会被残留会话直接跳过，窗口来不及显示就关掉了。
+  // App API 的 refresh_token 绑定的也是当前账号，只删 Cookie 会让收藏 / 关注
+  // 等写操作继续以已退出的账号执行，所以两套凭据必须一起清。
+  // 三个清理动作彼此独立：任何一步失败都要继续把其余状态清掉，
+  // 否则会留下「点了清除但仍按旧身份请求」的假象
   ipcMain.handle('cookie:clear', async () => {
-    await clearPixivLoginSession()
+    // 凭据清理失败时内存缓存也已置空，回读一次真实状态再广播，避免界面显示还在连线
+    const oauthStatus = await clearOAuth().catch(() => getOAuthStatus())
+    broadcast('oauth:changed', oauthStatus)
+    // 登录分区只影响下次登录要不要重过验证码，失败不该阻塞退出
+    await clearPixivLoginSession().catch(() => undefined)
+    // Cookie 文件是主凭据，删不掉要如实报给界面，不能假装已退出
     return clearCookie()
   })
 
