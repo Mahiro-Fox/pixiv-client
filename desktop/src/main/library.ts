@@ -1,6 +1,13 @@
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
-import type { HistoryEntry, LibraryFile, LibraryResult, LibraryWork } from '../shared/types'
+import type {
+  HistoryEntry,
+  LibraryFile,
+  LibraryResult,
+  LibraryWork,
+  LibraryWorkFiles,
+  LibraryWorkKey
+} from '../shared/types'
 import { CONTENT_DIR, IMAGE_CONTENTS, type ImageContent } from '../shared/layout'
 import {
   DEFAULT_FILE_TEMPLATE,
@@ -173,7 +180,8 @@ export async function scanLibrary(
       .filter((file) => IMAGE_EXTS.has(file.ext))
       .sort((a, b) => a.page - b.page || b.bytes - a.bytes)[0]
     const historyMeta = acc.history
-    const ugoira = files.some((file) => UGOIRA_EXTS.has(file.ext)) || Boolean(historyMeta?.ugoira)
+    const ugoiraFile = files.find((file) => UGOIRA_EXTS.has(file.ext))
+    const ugoira = Boolean(ugoiraFile) || Boolean(historyMeta?.ugoira)
     const pageCount = new Set(files.map((file) => file.page)).size
 
     list.push({
@@ -184,10 +192,13 @@ export async function scanLibrary(
       content: acc.content,
       authorPath: acc.authorPath,
       pageCount,
-      files,
+      fileCount: files.length,
+      imageCount: files.filter((file) => IMAGE_EXTS.has(file.ext)).length,
       totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
       updatedAt: acc.updatedAt || scannedAt,
       cover: coverFile ? coverFile.path : '',
+      ugoiraPath: ugoiraFile ? ugoiraFile.path : '',
+      dir: path.join(acc.authorPath, CONTENT_DIR[acc.content]),
       ugoira,
       hasHistory: Boolean(historyMeta)
     })
@@ -210,4 +221,85 @@ export async function scanLibrary(
     totalFiles,
     totalBytes
   }
+}
+
+/** 作者目录必须落在保存目录内，避免渲染层传入任意路径 */
+function isInside(rootDir: string, target: string): boolean {
+  const relative = path.relative(rootDir, target)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+/**
+ * 按需读取作品文件列表。
+ *
+ * `library:list` 不再下发全部绝对路径；打开预览、动图或删除选中项时，
+ * 只读这几个作品所在的内容目录，避免万级文件时整份 structured clone。
+ */
+export async function readWorkFiles(
+  outDir: string,
+  template: string,
+  keys: LibraryWorkKey[]
+): Promise<LibraryWorkFiles[]> {
+  const rootDir = path.resolve(outDir)
+  const matchers = matchersFor(template || DEFAULT_FILE_TEMPLATE)
+  if (matchers.length === 0) return []
+
+  const results: LibraryWorkFiles[] = []
+  for (const key of keys) {
+    const authorPath = path.resolve(String(key.authorPath || ''))
+    const content = key.content
+    const empty: LibraryWorkFiles = { id: key.id, content, authorPath, files: [] }
+    if (!isInside(rootDir, authorPath) || (key.content !== 'illustration' && key.content !== 'manga')) {
+      results.push(empty)
+      continue
+    }
+
+    const contentPath = path.join(authorPath, CONTENT_DIR[content])
+    let entries
+    try {
+      entries = await readdir(contentPath, { withFileTypes: true })
+    } catch {
+      results.push(empty)
+      continue
+    }
+
+    const files: LibraryFile[] = []
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      const name = entry.name
+      if (name.endsWith('.part') || name.startsWith('.')) continue
+
+      const matched = matchers
+        .map((matcher) => {
+          const result = matcher.re.exec(name)
+          if (!result) return null
+          const id = result[matcher.idGroup]
+          const page = Number(result[matcher.pageGroup]) - matcher.pageOffset
+          if (!id || id !== key.id || !Number.isFinite(page) || page < 0) return null
+          return page
+        })
+        .find((page): page is number => page !== null)
+      if (matched === undefined) continue
+
+      const filePath = path.join(contentPath, name)
+      let info
+      try {
+        info = await stat(filePath)
+      } catch {
+        continue
+      }
+
+      files.push({
+        page: matched,
+        path: filePath,
+        name,
+        bytes: info.size,
+        ext: path.extname(name).toLowerCase()
+      })
+    }
+
+    files.sort((a, b) => a.page - b.page || b.bytes - a.bytes)
+    results.push({ id: key.id, content, authorPath, files })
+  }
+  return results
 }

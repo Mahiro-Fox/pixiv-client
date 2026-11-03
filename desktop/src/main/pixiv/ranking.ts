@@ -6,6 +6,7 @@ import type {
 } from '../../shared/types'
 import { fetchJson } from './http'
 import { webEndpoints } from './endpoints'
+import { searchWorkBase, thumbUrl } from './workFields'
 
 /** 与 pixiv 网页端 ranking.php 的 mode 参数一致 */
 const MODES: RankingMode[] = [
@@ -48,36 +49,28 @@ interface RankingResponse {
   next_date?: string | number | false
 }
 
-/**
- * ranking.php 给的是 480x960 的竖图，卡片只需要小图；
- * 把 /c/... 段换成统一的 250 方图，失败时原样返回。
- */
-function thumbOf(url: string): string {
-  const text = String(url || '').trim()
-  if (!text) return ''
-  const match = /^(https?:\/\/i\.pximg\.net)\/c\/[^/]+(\/img-master\/.+)$/i.exec(text)
-  return match ? `${match[1]}/c/250x250_80_a2${match[2]}` : text
-}
-
 function toSearchWork(raw: RawRankingWork): SearchWork {
   return {
-    id: String(raw.illust_id ?? '').trim(),
-    title: raw.title || '无题',
-    userId: String(raw.user_id ?? '').trim(),
-    userName: raw.user_name || '未知作者',
-    thumbnail: thumbOf(String(raw.url || '')),
-    profileImageUrl: String(raw.profile_img || ''),
-    pageCount: Number(raw.illust_page_count || 0),
-    width: Number(raw.width || 0),
-    height: Number(raw.height || 0),
-    // 榜单没有 xRestrict 字段，用内容分级里的 sexual 代替
-    xRestrict: Number(raw.illust_content_type?.sexual || 0),
-    illustType: Number(raw.illust_type || 0),
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    createDate: String(raw.date || ''),
-    // 榜单接口不返回收藏数与 AI 标识，留默认值
-    bookmarkCount: 0,
-    aiType: 0,
+    ...searchWorkBase({
+      id: raw.illust_id,
+      title: raw.title,
+      userId: raw.user_id,
+      userName: raw.user_name,
+      // 榜单给的是 480x960 竖图，列表只要小图
+      thumbnail: thumbUrl(raw.url),
+      profileImageUrl: raw.profile_img,
+      pageCount: raw.illust_page_count,
+      width: raw.width,
+      height: raw.height,
+      // 榜单没有 xRestrict 字段，用内容分级里的 sexual 代替
+      xRestrict: raw.illust_content_type?.sexual,
+      illustType: raw.illust_type,
+      tags: raw.tags,
+      createDate: raw.date,
+      // 榜单接口不返回收藏数与 AI 标识，留默认值
+      bookmarkCount: 0,
+      aiType: 0
+    }),
     rank: Number(raw.rank || 0)
   }
 }

@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ViewRecordInput, WatchLaterEntry } from '../shared/types'
+import { thumbUrl } from './pixiv/workFields'
 
 /**
  * 稍后看：用户在作品详情里手动加入的待看列表，只存本地。
@@ -27,13 +28,6 @@ function watchLaterFile(): string {
   return path.join(app.getPath('userData'), 'watchLater.json')
 }
 
-/** 把任意尺寸的 pximg 地址收敛成 250px 缩略图 */
-function toThumb(url: string): string {
-  const text = String(url || '').trim()
-  const match = /^(https?:\/\/i\.pximg\.net)(?:\/c\/[^/]+)?(\/img-master\/.+)$/i.exec(text)
-  return match ? `${match[1]}/c/250x250_80_a2${match[2]}` : text
-}
-
 function normalize(entry: Partial<WatchLaterEntry>): WatchLaterEntry | null {
   const id = String(entry?.id || '').trim()
   if (!id) return null
@@ -42,7 +36,7 @@ function normalize(entry: Partial<WatchLaterEntry>): WatchLaterEntry | null {
     title: entry.title || `ID ${id}`,
     userId: String(entry.userId || ''),
     userName: String(entry.userName || ''),
-    thumbnail: toThumb(entry.thumbnail || ''),
+    thumbnail: thumbUrl(entry.thumbnail),
     pageCount: Math.max(1, Math.round(Number(entry.pageCount) || 1)),
     xRestrict: Math.max(0, Math.round(Number(entry.xRestrict) || 0)),
     illustType: Math.max(0, Math.round(Number(entry.illustType) || 0)),

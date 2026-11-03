@@ -78,7 +78,7 @@ function orderFrames(files: string[], frames: UgoiraFrame[]): { file: string; de
   }
 
   // 帧信息不全时用最后一帧的时长补齐剩余图片
-  const fallbackDelay = ordered[ordered.length - 1].delay
+  const fallbackDelay = ordered[ordered.length - 1]?.delay ?? 100
   files
     .filter((file) => !used.has(file))
     .sort((a, b) => a.localeCompare(b))

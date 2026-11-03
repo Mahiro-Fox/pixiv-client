@@ -135,7 +135,8 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
       setActive((previous) => (previous <= 0 ? items.length - 1 : previous - 1))
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      apply(items[active >= 0 ? active : 0])
+      const target = items[active >= 0 ? active : 0]
+      if (target) apply(target)
     } else if (event.key === 'Escape') {
       close()
     }
@@ -296,7 +297,8 @@ function TagListInput({
     }
     if (event.key === 'Backspace' && !draft && chips.length > 0) {
       event.preventDefault()
-      remove(chips[chips.length - 1])
+      const last = chips[chips.length - 1]
+      if (last) remove(last)
       return
     }
     if (!open || items.length === 0) return

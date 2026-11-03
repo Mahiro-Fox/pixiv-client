@@ -32,6 +32,7 @@ function UserAvatar(props: { src: string; name: string }): React.JSX.Element {
       src={props.src}
       alt={props.name}
       loading="lazy"
+      decoding="async"
       className="h-16 w-16 shrink-0 rounded-full border border-border/60 object-cover"
       onError={() => setFailed(true)}
     />
@@ -104,6 +105,7 @@ export function UserCard(props: {
                   src={thumb.url}
                   alt=""
                   loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                   onError={(event) => {
                     event.currentTarget.style.visibility = 'hidden'

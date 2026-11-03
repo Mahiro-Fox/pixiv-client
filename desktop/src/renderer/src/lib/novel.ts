@@ -34,11 +34,11 @@ export function renderNovelPage(raw: string, embedded: Record<string, string>): 
   }
 
   const imageHtml = (id: string): string => {
-    const url = embedded[id] || embedded[id.split('-')[0]] || ''
+    const url = embedded[id] || embedded[id.split('-')[0] ?? ''] || ''
     if (!url) return '<span class="novel-image-missing">［插图］</span>'
     return `<figure class="novel-image"><img src="${escapeHtml(
       url
-    )}" alt="插图" loading="lazy" /></figure>`
+    )}" alt="插图" loading="lazy" decoding="async" /></figure>`
   }
 
   let text = raw

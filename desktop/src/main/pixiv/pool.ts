@@ -13,7 +13,8 @@ export async function mapPool<T, R>(
       const index = cursor
       cursor += 1
       if (signal?.aborted) return
-      results[index] = await worker(items[index], index)
+      // index 由 cursor 递增而来，必然落在 items 范围内
+      results[index] = await worker(items[index] as T, index)
     }
   }
 

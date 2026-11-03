@@ -1,8 +1,8 @@
 import { app } from 'electron'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { OAuthCredentials, OAuthStatus } from '../../shared/types'
 import { resolveAppClient } from '../../shared/appClient'
+import { readSecureText, writeSecureText } from '../secureFile'
 import { postFormJson } from './http'
 
 /**
@@ -61,8 +61,12 @@ function isFilled(record: Partial<TokenRecord> | null): boolean {
 async function load(): Promise<TokenRecord | null> {
   if (cached !== undefined) return cached
   try {
-    const raw = await readFile(tokenFile(), 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<TokenRecord>
+    const found = await readSecureText(tokenFile())
+    if (!found) {
+      cached = null
+      return cached
+    }
+    const parsed = JSON.parse(found.text) as Partial<TokenRecord>
     cached = isFilled(parsed)
       ? {
           clientId: String(parsed.clientId),
@@ -81,8 +85,7 @@ async function load(): Promise<TokenRecord | null> {
 
 async function persist(record: TokenRecord): Promise<void> {
   cached = record
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(tokenFile(), JSON.stringify(record, null, 2), 'utf-8')
+  await writeSecureText(tokenFile(), JSON.stringify(record, null, 2))
 }
 
 function statusOf(record: TokenRecord | null): OAuthStatus {
@@ -235,8 +238,7 @@ export async function saveOAuthCredentials(raw: OAuthCredentials): Promise<OAuth
 export async function clearOAuth(): Promise<OAuthStatus> {
   cached = null
   inflight = null
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(tokenFile(), '{}', 'utf-8')
+  await writeSecureText(tokenFile(), '{}')
   return statusOf(null)
 }
 

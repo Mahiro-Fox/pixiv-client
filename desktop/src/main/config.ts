@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { AppConfig, CookieSource, CookieStatus, ProxyConfig, ProxyProtocol } from '../shared/types'
 import { DEFAULT_FILE_TEMPLATE } from '../shared/template'
 import { DEFAULT_THROTTLE_LIMITS } from '../shared/throttle'
+import { readSecureText, writeSecureText } from './secureFile'
 
 function configFile(): string {
   return path.join(app.getPath('userData'), 'config.json')
@@ -147,7 +148,8 @@ export async function resolveCookie(): Promise<{ cookie: string; source: CookieS
   const fromEnv = (process.env.PIXIV_COOKIE || '').trim()
   if (fromEnv) return { cookie: normalizeCookie(fromEnv), source: 'env' }
 
-  const saved = await readIfExists(cookieFile())
+  const savedRecord = await readSecureText(cookieFile())
+  const saved = savedRecord ? savedRecord.text.trim() : ''
   if (saved) return { cookie: normalizeCookie(saved), source: 'file' }
 
   if (!app.isPackaged) {
@@ -171,8 +173,7 @@ export async function getCookieStatus(): Promise<CookieStatus> {
 
 export async function saveCookie(raw: string): Promise<CookieStatus> {
   const normalized = normalizeCookie(raw)
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(cookieFile(), normalized, 'utf-8')
+  await writeSecureText(cookieFile(), normalized)
   return {
     hasCookie: Boolean(normalized),
     masked: maskCookie(normalized),

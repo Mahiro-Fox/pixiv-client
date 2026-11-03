@@ -74,7 +74,7 @@ export function Select(props: SelectProps): React.JSX.Element {
     let index = active
     for (let guard = 0; guard < options.length; guard += 1) {
       index = (index + delta + options.length) % options.length
-      if (!options[index].disabled) {
+      if (!options[index]?.disabled) {
         setActive(index)
         return
       }

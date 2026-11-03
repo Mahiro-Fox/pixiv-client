@@ -316,6 +316,7 @@ function PreviewOverlay({
         setDragging(true)
       } else if (pointers.size === 2) {
         const [a, b] = [...pointers.values()]
+        if (!a || !b) return
         const center = getCenter()
         gestureRef.current = {
           type: 'pinch',
@@ -359,6 +360,7 @@ function PreviewOverlay({
 
       if (gesture.type === 'pinch' && pointers.size >= 2) {
         const [a, b] = [...pointers.values()]
+        if (!a || !b) return
         const center = getCenter()
         const mid = {
           x: (a.x + b.x) / 2 - center.x,
@@ -394,6 +396,7 @@ function PreviewOverlay({
       // 双指松开一根 → 回到单指拖拽
       if (pointers.size === 1) {
         const point = [...pointers.values()][0]
+        if (!point) return
         gestureRef.current = {
           type: 'pan',
           startX: point.x,
@@ -526,6 +529,7 @@ function PreviewOverlay({
             key={current.src}
             src={current.src}
             alt={current.alt}
+            decoding="async"
             draggable={false}
             data-preview-image
             onLoad={() => setLoaded(true)}

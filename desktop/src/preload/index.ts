@@ -21,6 +21,8 @@ import type {
   FollowingResult,
   FollowInput,
   LibraryResult,
+  LibraryWorkFiles,
+  LibraryWorkKey,
   NovelDetail,
   NovelDownloadParams,
   NovelDownloadProgress,
@@ -152,6 +154,8 @@ const api: PixivApi = {
   openLibraryDir: (dir: string) => ipcRenderer.invoke('library:open-dir', dir) as Promise<void>,
   deleteLibraryFiles: (paths: string[]) =>
     ipcRenderer.invoke('library:delete', paths) as Promise<LibraryResult>,
+  getLibraryFiles: (keys: LibraryWorkKey[]) =>
+    ipcRenderer.invoke('library:files', keys) as Promise<LibraryWorkFiles[]>,
   listViewHistory: () => ipcRenderer.invoke('viewHistory:list') as Promise<ViewHistoryEntry[]>,
   recordView: (entry: ViewRecordInput) =>
     ipcRenderer.invoke('viewHistory:record', entry) as Promise<void>,

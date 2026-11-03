@@ -6,6 +6,8 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "strict": true,
+    "noUnusedLocals": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
     "esModuleInterop": true,

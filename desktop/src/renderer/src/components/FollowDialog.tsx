@@ -332,6 +332,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                       src={user.avatar}
                       alt={user.name}
                       loading="lazy"
+                      decoding="async"
                       className="h-12 w-12 shrink-0 rounded-full border border-border/60 object-cover"
                       onError={(event) => {
                         event.currentTarget.style.visibility = 'hidden'

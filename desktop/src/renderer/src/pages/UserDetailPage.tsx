@@ -249,6 +249,7 @@ export function UserDetailPage({
             <img
               src={profile.avatar}
               alt=""
+              decoding="async"
               className="h-16 w-16 shrink-0 rounded-full border border-border/60 bg-secondary object-cover"
             />
           ) : (
@@ -393,6 +394,7 @@ export function UserDetailPage({
                       src={novel.cover}
                       alt=""
                       loading="lazy"
+                      decoding="async"
                       className="h-[5.4rem] w-[3.9rem] shrink-0 rounded object-cover"
                     />
                   ) : (

@@ -4,10 +4,10 @@ import type * as React from 'react'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './button'
 
-type PageItem = number | 'gap'
+export type PageItem = number | 'gap'
 
 /** 页数较多时折叠成「首页 … 当前页附近 … 末页」 */
-function buildItems(page: number, lastPage: number): PageItem[] {
+export function buildPageItems(page: number, lastPage: number): PageItem[] {
   if (lastPage <= 7) return Array.from({ length: lastPage }, (_, index) => index + 1)
 
   const start = Math.max(2, Math.min(page - 1, lastPage - 4))
@@ -96,7 +96,7 @@ export function Pagination(props: {
       </Button>
 
       <div className="flex items-center gap-0.5">
-        {buildItems(page, lastPage).map((item, index) =>
+        {buildPageItems(page, lastPage).map((item, index) =>
           item === 'gap' ? (
             <span
               key={`gap-${index}`}

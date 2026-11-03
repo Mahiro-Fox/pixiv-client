@@ -159,6 +159,7 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
             src={cover}
             alt=""
             loading="lazy"
+            decoding="async"
             onLoad={() => setThumbLoaded(true)}
             className={cn(
               'h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-[1.04]',

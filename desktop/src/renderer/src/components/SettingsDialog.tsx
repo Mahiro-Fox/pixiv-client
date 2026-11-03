@@ -820,11 +820,11 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={props.onPickDir}>
-              <FolderSearch />
+              <FolderSearch className="h-4 w-4" />
               {t('settings.outDir.pick')}
             </Button>
-            <Button variant="ghost" size="sm" className="flex-1" onClick={props.onOpenDir}>
-              <FolderOpen />
+            <Button variant="outline" size="sm" className="flex-1" onClick={props.onOpenDir}>
+              <FolderOpen className="h-4 w-4" />
               {t('settings.outDir.open')}
             </Button>
           </div>
@@ -1026,7 +1026,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               disabled={proxyTesting || proxyBusy}
               onClick={() => void runProxyTest()}
             >
-              {proxyTesting ? <Loader2 className="animate-spin" /> : <Globe />}
+              {proxyTesting ? <Loader2 className="animate-spin h-4 w-4" /> : <Globe className="h-4 w-4" />}
               {proxyTesting ? t('settings.proxy.testing') : t('settings.proxy.test')}
             </Button>
             {props.proxy?.hasPassword ? (
@@ -1036,7 +1036,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={proxyBusy}
                 onClick={() => void commitProxy({}, '')}
               >
-                <Trash2 />
+                <Trash2 className="h-4 w-4" />
                 {t('settings.proxy.passwordClear')}
               </Button>
             ) : null}
@@ -1116,7 +1116,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={loggingIn}
                   onClick={() => void login()}
                 >
-                  {loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
+                  {loggingIn ? <Loader2 className="animate-spin h-4 w-4" /> : <LogIn className="h-4 w-4" />}
                   {loggingIn ? t('settings.cookie.loggingIn') : t('settings.cookie.login')}
                 </Button>
               </div>
@@ -1140,7 +1140,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={clearing}
                   onClick={() => void clearCookie()}
                 >
-                  {clearing ? <Loader2 className="animate-spin" /> : null}
+                  {clearing ? <Loader2 className="animate-spin h-4 w-4" /> : null}
                   {t('settings.cookie.clearOk')}
                 </Button>
                 <Button
@@ -1159,7 +1159,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 className="w-full"
                 onClick={() => setConfirmingClear(true)}
               >
-                <Trash2 />
+                <Trash2 className="h-4 w-4" />
                 {t('settings.cookie.clear')}
               </Button>
             )
@@ -1187,7 +1187,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             disabled={!cookieInput.trim() || savingCookie}
             onClick={() => void saveCookie()}
           >
-            {savingCookie ? <Loader2 className="animate-spin" /> : <Cookie />}
+            {savingCookie ? <Loader2 className="animate-spin h-4 w-4" /> : <Cookie className="h-4 w-4" />}
             {t('settings.cookie.save')}
           </Button>
         </section>
@@ -1224,7 +1224,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={savingOAuth}
                   onClick={() => void clearOAuth()}
                 >
-                  {savingOAuth ? <Loader2 className="animate-spin" /> : null}
+                  {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : null}
                   {t('settings.oauth.clearOk')}
                 </Button>
                 <Button
@@ -1243,7 +1243,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 className="w-full"
                 onClick={() => setConfirmingOAuthClear(true)}
               >
-                <Trash2 />
+                <Trash2 className="h-4 w-4" />
                 {t('settings.oauth.clear')}
               </Button>
             )
@@ -1281,7 +1281,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={savingOAuth || !oauthForm.refreshToken.trim()}
                 onClick={() => void saveOAuth()}
               >
-                {savingOAuth ? <Loader2 className="animate-spin" /> : <KeyRound />}
+                {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
                 {t('settings.oauth.save')}
               </Button>
               <Button
@@ -1291,7 +1291,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={savingOAuth}
                 onClick={() => void loginOAuth()}
               >
-                {savingOAuth ? <Loader2 className="animate-spin" /> : <LogIn />}
+                {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : <LogIn className="h-4 w-4" />}
                 {t('settings.oauth.login')}
               </Button>
               <p className="text-[11px] leading-4 text-muted-foreground">
@@ -1334,7 +1334,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 className="flex-1"
                 onClick={() => void window.pixiv.installUpdate()}
               >
-                <Download />
+                <Download className="h-4 w-4" />
                 {t('settings.update.install')}
               </Button>
             ) : null}

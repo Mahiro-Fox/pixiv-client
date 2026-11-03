@@ -13,6 +13,7 @@ import type {
 import { fetchJson } from './http'
 import { webEndpoints } from './endpoints'
 import { pickLangText } from './lang'
+import { searchWorkBase } from './workFields'
 
 /** 每页条数由 pixiv 决定（插画/漫画为 60），翻页上限沿用接口返回的 lastPage */
 const ORDERS: WorkSearchOrder[] = [
@@ -198,21 +199,24 @@ export function toWorkSeriesNav(raw: RawSeriesNav | null | undefined): WorkSerie
 /** 用户主页与收藏列表复用同一套作品字段映射 */
 export function toSearchWork(raw: RawSearchWork): SearchWork {
   return {
-    id: String(raw.id ?? raw.illustId ?? '').trim(),
-    title: raw.illustTitle || raw.title || '无题',
-    userId: String(raw.userId ?? '').trim(),
-    userName: raw.userName || '未知作者',
-    thumbnail: raw.url || '',
-    profileImageUrl: raw.profileImageUrl || '',
-    pageCount: Number(raw.pageCount || 0),
-    width: Number(raw.width || 0),
-    height: Number(raw.height || 0),
-    xRestrict: Number(raw.xRestrict || 0),
-    illustType: Number(raw.illustType || 0),
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    createDate: raw.createDate || '',
-    bookmarkCount: Number(raw.bookmarkCount || 0),
-    aiType: Number(raw.aiType || 0),
+    ...searchWorkBase({
+      // 列表接口给 id，详情接口给 illustId
+      id: raw.id ?? raw.illustId,
+      title: raw.illustTitle || raw.title,
+      userId: raw.userId,
+      userName: raw.userName,
+      thumbnail: raw.url,
+      profileImageUrl: raw.profileImageUrl,
+      pageCount: raw.pageCount,
+      width: raw.width,
+      height: raw.height,
+      xRestrict: raw.xRestrict,
+      illustType: raw.illustType,
+      tags: raw.tags,
+      createDate: raw.createDate,
+      bookmarkCount: raw.bookmarkCount,
+      aiType: raw.aiType
+    }),
     // 只有详情接口会带这个字段：缺失表示「不知道」，null 表示确定不属于任何系列
     series: 'seriesNavData' in raw ? toWorkSeriesNav(raw.seriesNavData) : undefined
   }

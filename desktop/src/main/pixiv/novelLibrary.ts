@@ -8,6 +8,7 @@ import type {
 } from '../../shared/types'
 import { CONTENT_DIR } from '../../shared/layout'
 import { parseAuthorFolder } from './files'
+import { UNKNOWN_AUTHOR } from './workFields'
 
 const META_SUFFIX = '.meta.json'
 const MAX_READ_BYTES = 40 * 1024 * 1024
@@ -124,7 +125,7 @@ export async function scanNovelLibrary(
           path: file,
           fileName,
           title: meta?.title || titleFromFileName(fileName),
-          author: meta?.author || folder?.userName || '未知作者',
+          author: meta?.author || folder?.userName || UNKNOWN_AUTHOR,
           authorPath,
           userId: meta?.userId || folder?.userId || '',
           size: info.size,

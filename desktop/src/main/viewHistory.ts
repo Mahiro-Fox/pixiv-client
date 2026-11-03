@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ViewHistoryEntry, ViewRecordInput } from '../shared/types'
+import { thumbUrl } from './pixiv/workFields'
 
 /**
  * 浏览记录（与 history.ts 的「下载文件索引」是两回事）：
@@ -26,13 +27,6 @@ function viewHistoryFile(): string {
   return path.join(app.getPath('userData'), 'viewHistory.json')
 }
 
-/** 把原图/任意尺寸的 pximg 地址收敛成 250px 缩略图，历史页不必拉大图 */
-function toThumb(url: string): string {
-  const text = String(url || '').trim()
-  const match = /^(https?:\/\/i\.pximg\.net)(?:\/c\/[^/]+)?(\/img-master\/.+)$/i.exec(text)
-  return match ? `${match[1]}/c/250x250_80_a2${match[2]}` : text
-}
-
 function normalize(entry: ViewHistoryEntry): ViewHistoryEntry | null {
   const id = String(entry?.id || '').trim()
   if (!id) return null
@@ -41,7 +35,7 @@ function normalize(entry: ViewHistoryEntry): ViewHistoryEntry | null {
     title: entry.title || `ID ${id}`,
     userId: String(entry.userId || ''),
     userName: String(entry.userName || ''),
-    thumbnail: toThumb(entry.thumbnail),
+    thumbnail: thumbUrl(entry.thumbnail),
     pageCount: Math.max(1, Math.round(Number(entry.pageCount) || 1)),
     xRestrict: Math.max(0, Math.round(Number(entry.xRestrict) || 0)),
     illustType: Math.max(0, Math.round(Number(entry.illustType) || 0)),
@@ -104,7 +98,7 @@ export async function recordView(input: ViewRecordInput): Promise<void> {
     userId,
     userName: String(input.userName || ''),
     // 新一次观看没带缩略图时保留旧图，别把已经记好的封面冲成空串
-    thumbnail: toThumb(String(input.url || '')) || previous?.thumbnail || '',
+    thumbnail: thumbUrl(input.url) || previous?.thumbnail || '',
     pageCount: Number(input.pageCount) || 1,
     xRestrict: Number(input.xRestrict) || 0,
     illustType: Number(input.illustType) || 0,

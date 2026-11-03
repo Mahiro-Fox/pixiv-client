@@ -20,6 +20,7 @@ import { BASE, fetchJson } from './http'
 import { webEndpoints } from './endpoints'
 import { authorFolderName, safeName } from './files'
 import { CONTENT_DIR } from '../../shared/layout'
+import { UNKNOWN_AUTHOR, UNTITLED } from './workFields'
 
 /** 小说搜索最多翻到第 10 页 */
 const MAX_SEARCH_PAGE = 10
@@ -145,9 +146,9 @@ interface SeriesContentResponse {
 export function toNovel(raw: RawNovel): NovelWork {
   return {
     id: String(raw.id ?? '').trim(),
-    title: raw.title || '无题',
+    title: raw.title || UNTITLED,
     userId: String(raw.userId ?? '').trim(),
-    userName: raw.userName || '未知作者',
+    userName: raw.userName || UNKNOWN_AUTHOR,
     cover: raw.url || '',
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     xRestrict: Number(raw.xRestrict || 0),
@@ -267,11 +268,11 @@ function toSeries(raw: NonNullable<SeriesResponse['body']>): NovelSeries {
   const urls = raw.cover?.urls || {}
   return {
     id: String(raw.id ?? '').trim(),
-    title: raw.title || '无题',
+    title: raw.title || UNTITLED,
     caption: raw.caption || '',
     cover: urls['1200x1200'] || urls['480mw'] || urls['240mw'] || urls.original || '',
     userId: String(raw.userId ?? '').trim(),
-    userName: raw.userName || '未知作者',
+    userName: raw.userName || UNKNOWN_AUTHOR,
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     xRestrict: Number(raw.xRestrict || 0),
     isConcluded: Boolean(raw.isConcluded),

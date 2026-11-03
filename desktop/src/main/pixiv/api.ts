@@ -20,6 +20,7 @@ import { fetchJson } from './http'
 import { webEndpoints } from './endpoints'
 import { pickLangText } from './lang'
 import { mapPool } from './pool'
+import { workBase } from './workFields'
 
 /** 自省接口候选：按顺序尝试，命中即止 */
 const SELF_CANDIDATES = [webEndpoints.self(), webEndpoints.selfAlt()]
@@ -143,19 +144,22 @@ interface TagSuggestResponse {
 
 function toWork(raw: RawWork): PixivWork {
   return {
-    id: String(raw.id ?? '').trim(),
-    title: raw.title || '无题',
-    userId: String(raw.userId ?? '').trim(),
-    userName: raw.userName || '未知作者',
-    url: raw.url || '',
-    pageCount: Number(raw.pageCount || 0),
-    width: Number(raw.width || 0),
-    height: Number(raw.height || 0),
-    xRestrict: Number(raw.xRestrict || 0),
-    illustType: Number(raw.illustType || 0),
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    createDate: raw.createDate || '',
-    aiType: Number(raw.aiType || 0)
+    ...workBase({
+      id: raw.id,
+      title: raw.title,
+      userId: raw.userId,
+      userName: raw.userName,
+      pageCount: raw.pageCount,
+      width: raw.width,
+      height: raw.height,
+      xRestrict: raw.xRestrict,
+      illustType: raw.illustType,
+      tags: raw.tags,
+      createDate: raw.createDate,
+      aiType: raw.aiType
+    }),
+    // 作者主页接口直接给列表缩略图，保持原样（下载不用这个字段）
+    url: raw.url || ''
   }
 }
 
@@ -767,7 +771,11 @@ async function collectCombined(
   )
 
   const plan =
-    query.include.length === 0 ? [''] : query.mode === 'or' ? query.include : [query.include[0]]
+    query.include.length === 0
+      ? ['']
+      : query.mode === 'or'
+        ? query.include
+        : [query.include[0] ?? '']
 
   const applyFilter = (result: CollectResult): CollectResult => {
     if (!hasTagFilter(query)) return result

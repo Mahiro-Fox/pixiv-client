@@ -13,6 +13,7 @@ import type { PixivWork, WorkSort } from '@shared/types'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
+import { buildPageItems } from './ui/pagination'
 import { WorkCard } from './WorkCard'
 
 interface WorksGridProps {
@@ -46,30 +47,6 @@ interface WorksGridProps {
   onToggleAll: () => void
   onOpen: (work: PixivWork) => void
   onToggleOnlyNew: () => void
-}
-
-/** 生成带省略号的页码序列，例如 1 … 4 5 6 … 12 */
-function pageNumbers(page: number, pageCount: number): (number | 'gap')[] {
-  if (pageCount <= 7) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1)
-  }
-
-  const pages = new Set<number>([1, pageCount, page - 1, page, page + 1])
-  if (page <= 3) [2, 3, 4].forEach((value) => pages.add(value))
-  if (page >= pageCount - 2) {
-    [pageCount - 3, pageCount - 2, pageCount - 1].forEach((value) => pages.add(value))
-  }
-
-  const sorted = Array.from(pages)
-    .filter((value) => value >= 1 && value <= pageCount)
-    .sort((a, b) => a - b)
-
-  const result: (number | 'gap')[] = []
-  sorted.forEach((value, index) => {
-    if (index > 0 && value - sorted[index - 1] > 1) result.push('gap')
-    result.push(value)
-  })
-  return result
 }
 
 export function WorksGrid(props: WorksGridProps): React.JSX.Element {
@@ -276,7 +253,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        {pageNumbers(props.page, props.pageCount).map((item, index) =>
+        {buildPageItems(props.page, props.pageCount).map((item, index) =>
           item === 'gap' ? (
             <span key={`gap-${index}`} className="px-1 text-xs text-muted-foreground">
               …

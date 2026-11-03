@@ -212,7 +212,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
     if (ugoira.frames.length === 0) return
     preview.open([
       {
-        src: ugoira.frames[0].src,
+        src: ugoira.frames[0]!.src,
         alt: work.title,
         ugoira: { kind: 'remote', id: work.id }
       }
@@ -382,6 +382,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                     <img
                       src={work.url}
                       alt={work.title}
+                      decoding="async"
                       className="max-h-[50vh] rounded-lg object-contain"
                     />
                   ) : null}
@@ -425,6 +426,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                       src={src}
                       alt={t('detail.pageAlt', { title: work.title, page: index + 1 })}
                       loading="lazy"
+                      decoding="async"
                       className="aspect-[3/4] w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                     />
                     <span className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white backdrop-blur">

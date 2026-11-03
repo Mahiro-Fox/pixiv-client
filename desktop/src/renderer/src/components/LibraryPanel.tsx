@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom'
 import type {
   LibraryResult,
   LibraryWork,
+  LibraryWorkKey,
   NovelLibraryItem,
   NovelTextSearchResult
 } from '@shared/types'
@@ -45,19 +46,17 @@ function isPreviewable(ext: string): boolean {
 
 /** 本地动图成品：mp4 / webm 走 <video>，其余交给 <img> 或播放器 */
 const UGOIRA_VIDEO_EXTS = new Set(['.mp4', '.webm'])
-/**
- * 同一件作品残留多种成品时的取用顺序：
- * zip 里是原始帧（时长最准、画质无损），其次视频，最后 gif。
- */
-const UGOIRA_PRIORITY = ['.zip', '.mp4', '.webm', '.gif'] as const
-
-/** 找到一件动图作品里真正能播的那个文件 */
+/** 找到一件动图作品里真正能播的那个文件（路径由主进程扫描时按优先级选好） */
 function ugoiraFileOf(work: LibraryWork): { path: string; ext: string } | null {
-  for (const ext of UGOIRA_PRIORITY) {
-    const file = work.files.find((item) => item.ext.toLowerCase() === ext)
-    if (file) return { path: file.path, ext }
-  }
-  return null
+  if (!work.ugoiraPath) return null
+  const dot = work.ugoiraPath.lastIndexOf('.')
+  const ext = dot >= 0 ? work.ugoiraPath.slice(dot).toLowerCase() : ''
+  return { path: work.ugoiraPath, ext }
+}
+
+/** 传给主进程的最小定位信息 */
+function workKeyOf(work: LibraryWork): LibraryWorkKey {
+  return { id: work.id, content: work.content, authorPath: work.authorPath }
 }
 
 /** 卡片之间与网格的间距，虚拟滚动按此推算行高 */
@@ -91,9 +90,9 @@ function formatTime(value: number): string {
   })
 }
 
-/** 作品所在目录：{作者目录}/{illustration|manga} */
+/** 作品所在目录：{作者目录}/{illustration|manga}，扫描时已算好 */
 function workDirOf(work: LibraryWork): string {
-  return dirOf(work.cover || work.files[0]?.path || '')
+  return work.dir
 }
 
 interface AuthorGroup {
@@ -139,7 +138,7 @@ function groupAuthors(works: LibraryWork[], novels: NovelLibraryItem[]): AuthorG
     const group = ensure(work.authorPath, work.userId, work.userName)
     if (work.content === 'manga') group.manga.push(work)
     else group.illustration.push(work)
-    group.files += work.files.length
+    group.files += work.fileCount
     group.bytes += work.totalBytes
     group.updatedAt = Math.max(group.updatedAt, work.updatedAt)
     if (!group.cover && work.cover) group.cover = work.cover
@@ -189,7 +188,7 @@ function useUgoiraCover(work: LibraryWork | null): string {
 
 function sortWorks(works: LibraryWork[], sort: LibrarySort): LibraryWork[] {
   const list = [...works]
-  if (sort === 'files') return list.sort((a, b) => b.files.length - a.files.length)
+  if (sort === 'files') return list.sort((a, b) => b.fileCount - a.fileCount)
   if (sort === 'size') return list.sort((a, b) => b.totalBytes - a.totalBytes)
   if (sort === 'id') return list.sort((a, b) => a.id.localeCompare(b.id))
   return list.sort((a, b) => b.updatedAt - a.updatedAt)
@@ -197,7 +196,6 @@ function sortWorks(works: LibraryWork[], sort: LibrarySort): LibraryWork[] {
 
 interface LibraryCardProps {
   work: LibraryWork
-  imageCount: number
   selected: boolean
   onToggleSelect: (shiftKey: boolean) => void
   onOpen: (work: LibraryWork, index: number) => void
@@ -206,7 +204,6 @@ interface LibraryCardProps {
 
 function LibraryCard({
   work,
-  imageCount,
   selected,
   onToggleSelect,
   onOpen,
@@ -226,12 +223,12 @@ function LibraryCard({
       <div className="relative aspect-square w-full overflow-hidden bg-secondary/40">
         <button
           type="button"
-          onClick={() => (imageCount > 0 || work.ugoira) && onOpen(work, 0)}
+          onClick={() => (work.imageCount > 0 || work.ugoira) && onOpen(work, 0)}
           className="block h-full w-full"
           title={
             work.ugoira
               ? t('library.playUgoira')
-              : imageCount > 0
+              : work.imageCount > 0
                 ? t('library.previewInApp')
                 : t('library.noPreviewUgoira')
           }
@@ -241,14 +238,15 @@ function LibraryCard({
               src={toLocalUrl(cover)}
               alt={work.title}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
             />
           ) : (
             <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
               {work.ugoira ? (
-                <PlayCircle className="h-7 w-7 transition-colors group-hover:text-primary" />
+                <PlayCircle className="h-4 w-4 transition-colors group-hover:text-primary" />
               ) : (
-                <HardDrive className="h-6 w-6" />
+                <HardDrive className="h-4 w-4" />
               )}
               <span className="text-[10px]">
                 {work.ugoira ? t('library.playUgoira') : t('library.ugoiraFile')}
@@ -276,7 +274,7 @@ function LibraryCard({
         </button>
 
         <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] tabular-nums text-white backdrop-blur">
-          {t('library.fileCount', { count: work.files.length })}
+          {t('library.fileCount', { count: work.fileCount })}
         </span>
         {work.ugoira ? (
           <Badge className="pointer-events-none absolute right-1.5 top-1.5 bg-amber-500/80 text-white backdrop-blur">
@@ -338,11 +336,12 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
             src={toLocalUrl(cover)}
             alt={group.userName}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.04]"
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <Users className="h-5 w-5" />
+            <Users className="h-4 w-4" />
           </span>
         )}
       </div>
@@ -397,6 +396,7 @@ function NovelCard(props: {
             src={item.cover}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
             onError={(event) => {
               event.currentTarget.style.visibility = 'hidden'
@@ -431,7 +431,7 @@ function NovelCard(props: {
               props.onOpenDir(dirOf(item.path))
             }}
           >
-            <FolderOpen />
+            <FolderOpen className="h-4 w-4" />
             {t('novel.openDir')}
           </Button>
         </div>
@@ -776,10 +776,18 @@ export function LibraryPanel(): React.JSX.Element {
       void openUgoira(work)
       return
     }
-    const images = work.files
-      .filter((file) => isPreviewable(file.ext))
-      .map((file) => ({ src: toLocalUrl(file.path), alt: `${work.title} p${file.page}` }))
-    preview.open(images, start)
+    // 列表接口不再带绝对路径，真正打开时才向主进程要这一件的文件
+    void (async () => {
+      try {
+        const [entry] = await window.pixiv.getLibraryFiles([workKeyOf(work)])
+        const images = (entry?.files ?? [])
+          .filter((file) => isPreviewable(file.ext))
+          .map((file) => ({ src: toLocalUrl(file.path), alt: `${work.title} p${file.page}` }))
+        preview.open(images, start)
+      } catch (reason) {
+        setError(messageOf(reason))
+      }
+    })()
   }
 
   const openDir = (dir: string): void => {
@@ -813,7 +821,8 @@ export function LibraryPanel(): React.JSX.Element {
     setDeleting(true)
     setError('')
     try {
-      const paths = selectedWorks.flatMap((work) => work.files.map((file) => file.path))
+      const groups = await window.pixiv.getLibraryFiles(selectedWorks.map(workKeyOf))
+      const paths = groups.flatMap((group) => group.files.map((file) => file.path))
       const result = await window.pixiv.deleteLibraryFiles(paths)
       setData(result)
       setSelected(new Set())
@@ -846,7 +855,7 @@ export function LibraryPanel(): React.JSX.Element {
         {currentAuthor ? (
           <>
             <Button variant="ghost" size="sm" onClick={() => setAuthorKey(null)}>
-              <ArrowLeft />
+              <ArrowLeft className="h-4 w-4" />
               {t('library.allAuthors')}
             </Button>
             <div className="relative min-w-[180px] flex-1">
@@ -883,7 +892,7 @@ export function LibraryPanel(): React.JSX.Element {
                 title={t('library.deepSearchHint')}
                 onClick={() => setDeep((value) => !value)}
               >
-                <FileText />
+                <FileText className="h-4 w-4" />
                 {t('library.deepSearch')}
               </Button>
             ) : (
@@ -902,7 +911,7 @@ export function LibraryPanel(): React.JSX.Element {
             )}
 
             <Button variant="ghost" size="sm" onClick={() => openDir(currentAuthor.key)}>
-              <FolderOpen />
+              <FolderOpen className="h-4 w-4" />
               {t('library.openAuthorDir')}
             </Button>
           </>
@@ -917,12 +926,12 @@ export function LibraryPanel(): React.JSX.Element {
         )}
 
         <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>
-          {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           {t('library.rescan')}
         </Button>
         {data ? (
           <Button variant="ghost" size="sm" onClick={() => openDir(data.outDir)}>
-            <FolderOpen />
+            <FolderOpen className="h-4 w-4" />
             {t('library.openLibrary')}
           </Button>
         ) : null}
@@ -985,7 +994,7 @@ export function LibraryPanel(): React.JSX.Element {
                     count:
                       tab === 'novel'
                         ? filteredNovels.length
-                        : filtered.reduce((sum, work) => sum + work.files.length, 0)
+                        : filtered.reduce((sum, work) => sum + work.fileCount, 0)
                   })}
                 </span>
                 <span className="tabular-nums">
@@ -1041,7 +1050,7 @@ export function LibraryPanel(): React.JSX.Element {
               {t('library.clearSelection')}
             </Button>
             <Button variant="outline" size="sm" onClick={openSelectedDirs}>
-              <FolderOpen />
+              <FolderOpen className="h-4 w-4" />
               {t('library.openDir')}
             </Button>
             {confirmingDelete ? (
@@ -1052,9 +1061,9 @@ export function LibraryPanel(): React.JSX.Element {
                   disabled={deleting}
                   onClick={() => void deleteSelected()}
                 >
-                  {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                  {deleting ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
                   {t('library.confirmDelete', {
-                    count: selectedWorks.reduce((sum, work) => sum + work.files.length, 0)
+                    count: selectedWorks.reduce((sum, work) => sum + work.fileCount, 0)
                   })}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)}>
@@ -1068,7 +1077,7 @@ export function LibraryPanel(): React.JSX.Element {
                 onClick={() => setConfirmingDelete(true)}
                 className="text-destructive hover:text-destructive"
               >
-                <Trash2 />
+                <Trash2 className="h-4 w-4" />
                 {t('library.deleteFiles')}
               </Button>
             )}
@@ -1087,7 +1096,7 @@ export function LibraryPanel(): React.JSX.Element {
         {!loading && !error && data && data.works.length === 0 && data.novels.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 py-20 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
-              <Images className="h-6 w-6" />
+              <Images className="h-4 w-4" />
             </div>
             <p className="text-sm font-medium">{t('library.empty')}</p>
             <p className="max-w-md text-xs leading-5 text-muted-foreground">
@@ -1144,12 +1153,12 @@ export function LibraryPanel(): React.JSX.Element {
               </div>
             ) : currentAuthor.novels.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
-                <BookOpen className="h-5 w-5" />
+                <BookOpen className="h-4 w-4" />
                 {t('library.novelEmpty')}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="h-4 w-4" />
                 {t('library.noMatch')}
               </div>
             )}
@@ -1158,7 +1167,7 @@ export function LibraryPanel(): React.JSX.Element {
 
         {currentAuthor && tab !== 'novel' && !loading && !error && filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
-            <Sparkles className="h-5 w-5" />
+            <Sparkles className="h-4 w-4" />
             {t('library.noMatch')}
           </div>
         ) : null}
@@ -1184,7 +1193,6 @@ export function LibraryPanel(): React.JSX.Element {
                       <LibraryCard
                         key={keyOf(work)}
                         work={work}
-                        imageCount={work.files.filter((file) => isPreviewable(file.ext)).length}
                         selected={selected.has(keyOf(work))}
                         onToggleSelect={(shiftKey) => toggleSelect(index, shiftKey)}
                         onOpen={openWork}

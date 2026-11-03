@@ -43,7 +43,7 @@ export function authorFolderName(userId: string, userName: string): string {
 export function parseAuthorFolder(name: string): { userId: string; userName: string } | null {
   const match = /^(\d+)_(.+)$/.exec(name)
   if (!match) return null
-  return { userId: match[1], userName: match[2] }
+  return { userId: match[1] ?? '', userName: match[2] ?? '' }
 }
 
 /** 作品落盘目录：`{保存目录}/{作者ID}_{作者名}/{illustration|manga}` */
@@ -145,7 +145,8 @@ function parseImageSize(buffer: Buffer): ImageSize | null {
         offset += 1
         continue
       }
-      const marker = buffer[offset + 1]
+      // 循环条件已保证 offset + 1 存在；?? -1 仅为满足下标访问的类型检查
+      const marker = buffer[offset + 1] ?? -1
       // 无长度字段的标记
       if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
         offset += 2

@@ -1,4 +1,5 @@
 import { CheckCircle2, FolderCheck, Loader2, RefreshCcw, ScrollText, XCircle } from 'lucide-react'
+import { memo } from 'react'
 import type * as React from 'react'
 import type { DownloadItemEvent } from '@shared/types'
 import { formatBytes } from '@renderer/lib/utils'
@@ -17,6 +18,35 @@ const STATUS_META = {
   replaced: { icon: RefreshCcw, tone: 'text-amber-400', key: 'log.statusReplaced' },
   failed: { icon: XCircle, tone: 'text-destructive', key: 'log.statusFailed' }
 } as const
+
+/**
+ * 单行日志。
+ *
+ * 下载时每个文件都会往列表最前面插一条，整块列表跟着父组件重渲染；
+ * 条目对象是复用的（插新条目不会克隆旧条目），所以 memo 一挡，
+ * 每次只有新增那一行真正渲染，500 行的历史记录不再逐帧 diff。
+ */
+const LogRow = memo(function LogRow({ item }: { item: DownloadItemEvent }): React.JSX.Element {
+  const { t } = useI18n()
+  const meta = STATUS_META[item.status]
+  const Icon = meta.icon
+  return (
+    <li className="flex items-start gap-2.5 px-3 py-2 font-mono text-[11px]">
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', meta.tone)} />
+      <div className="min-w-0 flex-1">
+        <p className="break-all leading-5 text-foreground/90">{item.label}</p>
+        {item.error ? (
+          <p className="break-all text-[10px] leading-4 text-destructive/80">{item.error}</p>
+        ) : null}
+      </div>
+      <span className="shrink-0 tabular-nums text-muted-foreground">
+        {item.status === 'ok' || item.status === 'replaced'
+          ? `${t(meta.key)} ${formatBytes(item.bytes)}`
+          : t(meta.key)}
+      </span>
+    </li>
+  )
+})
 
 export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
   const { t } = useI18n()
@@ -38,29 +68,9 @@ export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
   return (
     <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/70 bg-card/40">
       <ul className="divide-y divide-border/40">
-        {items.map((item, index) => {
-          const meta = STATUS_META[item.status]
-          const Icon = meta.icon
-          return (
-            <li
-              key={`${item.label}-${index}`}
-              className="flex items-start gap-2.5 px-3 py-2 font-mono text-[11px]"
-            >
-              <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', meta.tone)} />
-              <div className="min-w-0 flex-1">
-                <p className="break-all leading-5 text-foreground/90">{item.label}</p>
-                {item.error ? (
-                  <p className="break-all text-[10px] leading-4 text-destructive/80">{item.error}</p>
-                ) : null}
-              </div>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {item.status === 'ok' || item.status === 'replaced'
-                  ? `${t(meta.key)} ${formatBytes(item.bytes)}`
-                  : t(meta.key)}
-              </span>
-            </li>
-          )
-        })}
+        {items.map((item) => (
+          <LogRow key={item.seq} item={item} />
+        ))}
       </ul>
       {running ? (
         <div className="flex items-center justify-center gap-2 border-t border-border/40 py-2 text-[11px] text-muted-foreground">

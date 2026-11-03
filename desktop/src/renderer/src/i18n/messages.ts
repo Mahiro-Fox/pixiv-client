@@ -216,6 +216,11 @@ const zhCN = {
   'app.dismissNotice': '关闭提示',
   /** 通用弹窗关闭按钮的无障碍标签 */
   'common.close': '关闭',
+
+  'error.crashTitle': '这个页面出错了',
+  'error.crashBody': '渲染时抛了异常，其它页面和后台下载不受影响。可以先重试，仍然失败就重新加载。',
+  'error.retry': '重试',
+  'error.reload': '重新加载',
   'app.tabWorks': '作品列表',
   /** 作品列表顶部的栏目切换 */
   'workbench.contentAll': '全部',
@@ -1075,6 +1080,12 @@ const en: Record<MessageKey, string> = {
   'app.openDir': 'Open download folder',
   'app.dismissNotice': 'Dismiss',
   'common.close': 'Close',
+
+  'error.crashTitle': 'This page crashed',
+  'error.crashBody':
+    'Something threw while rendering. Other pages and background downloads are unaffected. Try again, or reload if it keeps happening.',
+  'error.retry': 'Try again',
+  'error.reload': 'Reload',
   'app.tabWorks': 'Works',
   /** Content tabs above the works list */
   'workbench.contentAll': 'All',
@@ -1957,6 +1968,12 @@ const ja: Record<MessageKey, string> = {
   'app.openDir': '保存先を開く',
   'app.dismissNotice': '閉じる',
   'common.close': '閉じる',
+
+  'error.crashTitle': 'このページでエラーが発生しました',
+  'error.crashBody':
+    '描画中に例外が発生しました。他のページとバックグラウンドのダウンロードには影響しません。再試行するか、解決しない場合は再読み込みしてください。',
+  'error.retry': '再試行',
+  'error.reload': '再読み込み',
   'app.tabWorks': '作品一覧',
   /** 作品一覧上部のコンテンツタブ */
   'workbench.contentAll': 'すべて',

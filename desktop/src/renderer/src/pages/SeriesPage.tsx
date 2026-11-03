@@ -149,7 +149,12 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.cover ? (
-            <img src={detail.cover} alt="" className="h-full w-full object-cover" />
+            <img
+              src={detail.cover}
+              alt=""
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
               <ImageOff className="h-6 w-6" />

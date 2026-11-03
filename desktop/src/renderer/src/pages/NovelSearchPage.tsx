@@ -61,6 +61,7 @@ function NovelRow(props: { novel: NovelWork; onOpen: (id: string) => void; onSer
             src={novel.cover}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             onError={(event) => {
               event.currentTarget.style.visibility = 'hidden'

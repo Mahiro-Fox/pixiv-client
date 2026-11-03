@@ -12,12 +12,12 @@ import {
   ScrollText,
   Trophy,
   Users,
-  Settings,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type * as React from "react";
-import { KeepAlive } from "keepalive-for-react";
-import { motion, useReducedMotion } from "motion/react";
+  Settings
+} from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import type * as React from 'react'
+import { KeepAlive } from 'keepalive-for-react'
+import { motion, useReducedMotion } from 'motion/react'
 import {
   Navigate,
   NavLink,
@@ -25,102 +25,48 @@ import {
   Routes,
   useLocation,
   useNavigate,
-  useOutlet,
-  useSearchParams,
-} from "react-router-dom";
-import type { Locale } from "@shared/types";
-import type {
-  AppConfig,
-  BatchArtist,
-  BatchSyncProgress,
-  CollectProgress,
-  CookieHealth,
-  CookieStatus,
-  OAuthCredentials,
-  OAuthStatus,
-  DownloadItemEvent,
-  DownloadProgress,
-  FailureItem,
-  PixivWork,
-  ProxyConfig,
-  ProxyState,
-  ProxyTestResult,
-  QueueSummary,
-  SelfUser,
-  ThrottleState,
-  UpdateStatus,
-  WorkContent,
-  WorkSort,
-} from "@shared/types";
-import { applyWorkFilters, countActiveFilters } from "./lib/filters";
-import { bumpSearchSubmit } from "./lib/searchSubmit";
-import { getSectionSearch, rememberSectionSearch } from "./lib/sectionQuery";
-import type { SearchSection } from "./lib/sectionQuery";
-import { applyTheme, watchSystemTheme } from "./lib/theme";
-import { I18nProvider, translate } from "./i18n";
-import type { Translate } from "./i18n";
-import { FilterDialog } from "./components/FilterDialog";
-import { UserTagDialog } from "./components/UserTagDialog";
-import { FilterProvider } from "./lib/filterContext";
-import { TourProvider, startTour } from "./lib/tour/TourProvider";
-import { TOUR_DEMO_AUTHOR, type TourAction } from "./lib/tour/steps";
-import { ImagePreviewProvider } from "./components/ImagePreview";
-import { LibraryPanel } from "./components/LibraryPanel";
-import { SettingsDialog } from "./components/SettingsDialog";
-import { WorkDetailDialog } from "./components/WorkDetailDialog";
-import { UpdateDialog } from "./components/UpdateDialog";
-import { AccountMenu } from "./components/AccountMenu";
-import { SearchBox } from "./components/SearchBox";
-import { NovelSearchPage } from "./pages/NovelSearchPage";
-import { NovelSeriesPage } from "./pages/NovelSeriesPage";
-import { SeriesPage } from "./pages/SeriesPage";
-import { NovelReaderPage } from "./pages/NovelReaderPage";
-import { NovelLocalReaderPage } from "./pages/NovelLocalReaderPage";
-import { WorksSearchPage } from "./pages/WorksSearchPage";
-import { UsersPage } from "./pages/UsersPage";
-import { UsersFollowingPage } from "./pages/UsersFollowingPage";
-import { UserDetailPage } from "./pages/UserDetailPage";
-import { WorkbenchPage, type WorkbenchPageProps } from "./pages/WorkbenchPage";
-import { FavoritesPage } from "./pages/FavoritesPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { WatchLaterPage } from "./pages/WatchLaterPage";
-import { RankingPage } from "./pages/RankingPage";
-import { RecommendPage } from "./pages/RecommendPage";
-import { Button } from "./components/ui/button";
-import { Toaster } from "./components/Toaster";
-import { worksTag } from "./lib/files";
-import { CONFIG_CHANGED_EVENT } from "./lib/workActions";
-import { messageOf } from "./lib/errors";
-import { toast } from "./lib/toast";
-
-
-/**
- * 配置读出来之前也要有语言可用，否则启动首屏只能是中文。
- * 做法和主题一致：在本地存一份，配置到位后由它接管。
- */
-const LOCALE_STORAGE_KEY = "pixiv-locale";
-
-function bootLocale(): Locale {
-  const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-  return saved === "en" || saved === "ja" ? saved : "zh-CN";
-}
-
-/** 结果排序；'default' 保留接口原始顺序 */
-function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
-  if (sort === "default") return works;
-  const list = [...works];
-  const byDate = (work: PixivWork): number => {
-    const time = Date.parse(work.createDate || "");
-    return Number.isFinite(time) ? time : 0;
-  };
-
-  if (sort === "pages-desc")
-    return list.sort((a, b) => b.pageCount - a.pageCount);
-  if (sort === "pages-asc")
-    return list.sort((a, b) => a.pageCount - b.pageCount);
-  if (sort === "date-desc") return list.sort((a, b) => byDate(b) - byDate(a));
-  return list.sort((a, b) => byDate(a) - byDate(b));
-}
+  useOutlet
+} from 'react-router-dom'
+import type { PixivWork } from '@shared/types'
+import { countActiveFilters } from './lib/filters'
+import { useAppSettings, bootLocale } from './lib/useAppSettings'
+import { useCookieSession } from './lib/useCookieSession'
+import { useDownloadEvents } from './lib/useDownloadEvents'
+import { useQueueActions } from './lib/useQueueActions'
+import { useTopbarSearch } from './lib/useTopbarSearch'
+import { useWorkCollection } from './lib/useWorkCollection'
+import { I18nProvider, translate } from './i18n'
+import type { Translate } from './i18n'
+import { FilterDialog } from './components/FilterDialog'
+import { UserTagDialog } from './components/UserTagDialog'
+import { FilterProvider } from './lib/filterContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { TourProvider, startTour } from './lib/tour/TourProvider'
+import { ImagePreviewProvider } from './components/ImagePreview'
+import { LibraryPanel } from './components/LibraryPanel'
+import { SettingsDialog } from './components/SettingsDialog'
+import { WorkDetailDialog } from './components/WorkDetailDialog'
+import { UpdateDialog } from './components/UpdateDialog'
+import { AccountMenu } from './components/AccountMenu'
+import { SearchBox } from './components/SearchBox'
+import { NovelSearchPage } from './pages/NovelSearchPage'
+import { NovelSeriesPage } from './pages/NovelSeriesPage'
+import { SeriesPage } from './pages/SeriesPage'
+import { NovelReaderPage } from './pages/NovelReaderPage'
+import { NovelLocalReaderPage } from './pages/NovelLocalReaderPage'
+import { WorksSearchPage } from './pages/WorksSearchPage'
+import { UsersPage } from './pages/UsersPage'
+import { UsersFollowingPage } from './pages/UsersFollowingPage'
+import { UserDetailPage } from './pages/UserDetailPage'
+import { WorkbenchPage, type WorkbenchPageProps } from './pages/WorkbenchPage'
+import { FavoritesPage } from './pages/FavoritesPage'
+import { HistoryPage } from './pages/HistoryPage'
+import { WatchLaterPage } from './pages/WatchLaterPage'
+import { RankingPage } from './pages/RankingPage'
+import { RecommendPage } from './pages/RecommendPage'
+import { Button } from './components/ui/button'
+import { Toaster } from './components/Toaster'
+import { messageOf } from './lib/errors'
 
 /**
  * 缓存范围：用户点名的六个浏览页。
@@ -134,20 +80,11 @@ const KEEP_ALIVE_ROUTES = [
   /^\/manga$/,
   /^\/novel$/,
   /^\/ranking$/,
-  /^\/users$/,
-];
-
-/** 顶栏搜索框同步关键词的范围：只有这四个搜索栏目页会随 URL 变化 */
-const SEARCH_SECTION_PATHS = new Set(["/illust", "/manga", "/novel", "/users"]);
+  /^\/users$/
+]
 
 /** 非缓存路由共用一个占位缓存键，避免每个详情页都在缓存表里留一条 */
-const OFF_CACHE_KEY = "/(off)";
-
-/**
- * 工作台作品列表的栏目：全部 / 插画 / 漫画 / 收藏。
- * 收藏只是换一条接口取数，其余（分页、标签、筛选、下载）与前三栏完全一致。
- */
-type ContentTab = WorkContent;
+const OFF_CACHE_KEY = '/(off)'
 
 /**
  * 路由缓存宿主。
@@ -165,16 +102,14 @@ type ContentTab = WorkContent;
  * 反而会闪一下；而且恢复滚动位置时整页位移会让人眼看着位置跳。
  */
 function KeepAliveOutlet(): React.JSX.Element {
-  const location = useLocation();
-  const outlet = useOutlet();
-  const reduce = useReducedMotion();
-  const cached = KEEP_ALIVE_ROUTES.some((pattern) =>
-    pattern.test(location.pathname),
-  );
+  const location = useLocation()
+  const outlet = useOutlet()
+  const reduce = useReducedMotion()
+  const cached = KEEP_ALIVE_ROUTES.some((pattern) => pattern.test(location.pathname))
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={cached ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+      <div className={cached ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
         <KeepAlive
           include={KEEP_ALIVE_ROUTES}
           max={12}
@@ -195,930 +130,149 @@ function KeepAliveOutlet(): React.JSX.Element {
           key={location.pathname}
           initial={reduce ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.16, ease: "easeOut" }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
           className="flex min-h-0 flex-1 flex-col"
         >
           {outlet}
         </motion.div>
       )}
     </div>
-  );
+  )
 }
 
 export default function App(): React.JSX.Element {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const reduce = useReducedMotion();
-  const currentWord = searchParams.get("word") || "";
-  /** 顶栏搜索框的受控值；与 URL 的 word 保持同步 */
-  const [keyword, setKeyword] = useState(currentWord);
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [cookie, setCookie] = useState<CookieStatus | null>(null);
-  /** App API 凭据状态；写操作（收藏、关注）依赖它 */
-  const [oauth, setOAuth] = useState<OAuthStatus | null>(null);
-  const [proxy, setProxy] = useState<ProxyState | null>(null);
-  const [works, setWorks] = useState<PixivWork[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [total, setTotal] = useState(0);
-  const [collecting, setCollecting] = useState(false);
-  const [collectProgress, setCollectProgress] =
-    useState<CollectProgress | null>(null);
-  const [download, setDownload] = useState<DownloadProgress | null>(null);
-  const [batch, setBatch] = useState<BatchSyncProgress | null>(null);
-  const [items, setItems] = useState<DownloadItemEvent[]>([]);
-  /** 正在下载的队列任务 ID（并行下载时可能同时存在多个） */
-  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
-  const running = activeIds.size > 0 || Boolean(batch);
-  const [queue, setQueue] = useState<QueueSummary[]>([]);
-  const [throttle, setThrottle] = useState<ThrottleState[]>([]);
-  const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
-  const [selfUser, setSelfUser] = useState<SelfUser | null>(null);
-  const [cookieHealth, setCookieHealth] = useState<CookieHealth>("valid");
-  const [healthDismissed, setHealthDismissed] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(false);
-  const [onlyNew, setOnlyNew] = useState(false);
-  const [sort, setSort] = useState<WorkSort>("default");
-  const [page, setPage] = useState(1);
-  const [preview, setPreview] = useState<PixivWork | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [tagsOpen, setTagsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  /** 自动更新状态与弹窗开关；取消后保持关闭，直到下一次状态变化 */
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
-  const [updateOpen, setUpdateOpen] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState("works");
-
-  /** 顶栏导航与搜索框共用：按路由判断当前栏目 */
-  const section: "illust" | "manga" | "novel" | "users" = location.pathname.startsWith(
-    "/manga",
-  )
-    ? "manga"
-    : location.pathname.startsWith("/novel")
-      ? "novel"
-      : location.pathname.startsWith("/user")
-        ? "users"
-        : "illust";
-  const sectionPath = `/${section}`;
-
-  // 路由变化（导航切换、点相关标签）后把搜索框同步回 URL 里的关键词，
-  // 同时记住该栏目这一份查询串，供顶栏导航原样还原。
-  // 只在四个搜索栏目页同步：进作者/作品详情页时 URL 没有 word，
-  // 否则搜索框会被清空，返回后又跳回原词，用户会觉得输入框在乱变。
-  useEffect(() => {
-    if (!SEARCH_SECTION_PATHS.has(location.pathname)) return;
-    setKeyword(currentWord);
-    rememberSectionSearch(
-      location.pathname.slice(1) as SearchSection,
-      location.search,
-    );
-  }, [currentWord, location.search, location.pathname]);
-
-  const submitSearch = (value?: string): void => {
-    const word = (value ?? keyword).trim();
-    if (value !== undefined) setKeyword(value);
-    // 只有这里（回车提交）才要求刷新数据；同一个关键词再按一次回车也要重新取
-    bumpSearchSubmit();
-    navigate(
-      word
-        ? `${sectionPath}?word=${encodeURIComponent(word)}`
-        : sectionPath,
-    );
-  };
-
+  const location = useLocation()
+  const navigate = useNavigate()
+  const reduce = useReducedMotion()
+  const [preview, setPreview] = useState<PixivWork | null>(null)
+  const [filterOpen, setFilterOpen] = useState(false)
   /**
-   * 顶部导航跳到某个栏目时，原样还原该栏目上次的查询串（关键词 / 页码 / 筛选）。
-   *
-   * 不能只看当前 URL 的 `currentWord`：站在「推荐 / 排行榜」上它恒为空，
-   * 会把插画页刚搜过的词丢掉。该栏目没有记录时才退回当前关键词，
-   * 保留「换栏目继续搜同一个词」的原有行为。
+   * 打开过滤弹窗的回调必须稳定：它进 FilterProvider 的 context value，
+   * 写成内联箭头的话每次 App 渲染都会产生新引用，让所有列表页跟着重渲染
+   * （下载进度一秒几十次，页面就会被动重绘几十次）。
    */
-  const linkWithWord = (path: string): string => {
-    const saved = getSectionSearch(path.slice(1) as SearchSection);
-    if (saved) return `${path}${saved}`;
-    return currentWord ? `${path}?word=${encodeURIComponent(currentWord)}` : path;
-  };
+  const openFilter = useCallback(() => setFilterOpen(true), [])
+  const [tagsOpen, setTagsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [tab, setTab] = useState('works')
+  /** 顶栏搜索：关键词同步、栏目查询串还原与回车提交 */
+  const { keyword, setKeyword, submitSearch, linkWithWord } = useTopbarSearch()
 
-  /**
-   * 右键菜单里的「屏蔽作者」是直接写主进程配置的，App 内存里的 config 还是旧的。
-   * 不同步过来的话，下次下载前调 setConfig(config) 就会把刚加的屏蔽项覆盖掉。
-   */
-  useEffect(() => {
-    const reload = (): void => {
-      void window.pixiv
-        .getConfig()
-        .then((next) => setConfig(next))
-        .catch(() => undefined);
-    };
-    window.addEventListener(CONFIG_CHANGED_EVENT, reload);
-    return () => window.removeEventListener(CONFIG_CHANGED_EVENT, reload);
-  }, []);
+  /** 下载与队列事件只在这里订阅：下载状态、日志、并行任务、队列、限速 */
+  const downloadEvents = useDownloadEvents(setError)
+  /** Cookie / OAuth 会话：账号识别与体检都由它派生 */
+  const session = useCookieSession(setError)
+  /** 作品采集与浏览状态：抓取、筛选排序分页、选择与导出 */
+  const collection = useWorkCollection({
+    setError,
+    setNotice,
+    setTab,
+    setDownload: downloadEvents.setDownload,
+    setItems: downloadEvents.setItems,
+    setBatch: downloadEvents.setBatch,
+    setPreview,
+    running: downloadEvents.running,
+    download: downloadEvents.download,
+    selfUser: session.selfUser
+  })
+  /** 下载队列操作 */
+  const queueActions = useQueueActions({
+    config: collection.config,
+    selectedWorks: collection.selectedWorks,
+    setQueue: downloadEvents.setQueue,
+    setItems: downloadEvents.setItems,
+    setError,
+    setNotice,
+    setTab
+  })
+  /** 外壳设置：主题语言、代理、自动更新、下载目录 */
+  const settings = useAppSettings({
+    config: collection.config,
+    updateConfig: collection.updateConfig,
+    setError
+  })
+  const {
+    proxy,
+    updateStatus,
+    updateOpen,
+    setUpdateOpen,
+    saveProxy,
+    testProxy,
+    saveTrayConfig,
+    changeLocale,
+    pickDir,
+    openDir
+  } = settings
 
-  useEffect(() => {
-    let alive = true;
-
-    void Promise.all([
-      window.pixiv.getConfig(),
-      window.pixiv.getCookie(),
-      window.pixiv.getOAuthStatus(),
-    ])
-      .then(([loadedConfig, loadedCookie, loadedOAuth]) => {
-        if (!alive) return;
-        setConfig(loadedConfig);
-        setCookie(loadedCookie);
-        setOAuth(loadedOAuth);
-      })
-      .catch((reason: unknown) => {
-        if (alive) setError(messageOf(reason));
-      });
-
-    void window.pixiv.listQueue().then((jobs) => {
-      if (alive) setQueue(jobs);
-    });
-    void window.pixiv.getThrottle().then((states) => {
-      if (alive) setThrottle(states);
-    });
-    void window.pixiv.getProxy().then((state) => {
-      if (alive) setProxy(state);
-    });
-
-    const unsubscribers = [
-      window.pixiv.onCollectProgress((progress) =>
-        setCollectProgress(progress),
-      ),
-      window.pixiv.onDownloadProgress((progress) => {
-        setDownload(progress);
-        const id = progress.jobId;
-        if (!id) return;
-        // 结束的任务从运行集合里移除，界面据此显示并行数量。
-        // 四种结束态都算结束：完成 / 暂停 / 取消 / 失败
-        const finished =
-          progress.phase === "done" ||
-          progress.phase === "paused" ||
-          progress.phase === "cancelled" ||
-          progress.phase === "error";
-        setActiveIds((previous) => {
-          if (finished) {
-            if (!previous.has(id)) return previous;
-            const next = new Set(previous);
-            next.delete(id);
-            return next;
-          }
-          return previous.has(id) ? previous : new Set(previous).add(id);
-        });
-      }),
-      window.pixiv.onBatchProgress((progress) => setBatch(progress)),
-      window.pixiv.onDownloadItem((item) =>
-        setItems((previous) => [item, ...previous].slice(0, 500)),
-      ),
-      window.pixiv.onDownloadDone((summary) => {
-        setDownload(summary);
-        setActiveIds((previous) => {
-          if (!previous.has(summary.jobId)) return previous;
-          const next = new Set(previous);
-          next.delete(summary.jobId);
-          return next;
-        });
-      }),
-      window.pixiv.onQueueChanged((jobs) => setQueue(jobs)),
-      window.pixiv.onQueueError((message) => setError(message)),
-      window.pixiv.onThrottle((state) =>
-        setThrottle((previous) => {
-          const next = previous.filter((item) => item.kind !== state.kind);
-          return [...next, state];
-        }),
-      ),
-    ];
-
-    return () => {
-      alive = false;
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-    };
-  }, []);
-
-  const selectedWorks = useMemo(
-    () => works.filter((work) => selected.has(work.id)),
-    [works, selected],
-  );
-
-  // 先按过滤规则筛选，再按「只看未下载」筛选
-  const ruleFiltered = useMemo(
-    () => (config ? applyWorkFilters(works, config) : { works, removed: 0 }),
-    [works, config],
-  );
-
-  const filteredWorks = useMemo(
-    () =>
-      onlyNew
-        ? ruleFiltered.works.filter((work) => !downloaded.has(work.id))
-        : ruleFiltered.works,
-    [ruleFiltered, onlyNew, downloaded],
-  );
-
-  const sortedWorks = useMemo(
-    () => sortWorks(filteredWorks, sort),
-    [filteredWorks, sort],
-  );
+  const {
+    config,
+    works,
+    selected,
+    total,
+    collecting,
+    collectProgress,
+    downloaded,
+    pagedWorks,
+    downloadedCount,
+    filteredWorks,
+    onlyNew,
+    sort,
+    currentPage,
+    pageCount,
+    pageSize,
+    updateConfig,
+    persistConfig,
+    collect,
+    switchContent,
+    openAuthorDownload,
+    prepareTourWorks,
+    toggleWork,
+    toggleAll,
+    toggleOnlyNew,
+    changeSort,
+    changePage,
+    exportWorks
+  } = collection
 
   // 徽标显示「当前页生效」的规则数：推荐页不适用内容分级，别把它算进去
-  const onRecommend = location.pathname.startsWith("/recommend");
+  const onRecommend = location.pathname.startsWith('/recommend')
   const activeFilterCount = useMemo(
     () => (config ? countActiveFilters(config, { ignoreRating: onRecommend }) : 0),
-    [config, onRecommend],
-  );
-
-  // 分页逻辑与 pixiv 网页端一致：按抓取时的每页数量切页，默认停在第 1 页
-  const pageSize = Math.max(1, Math.min(100, Math.round(config?.limit || 48)));
-  const pageCount = Math.max(1, Math.ceil(sortedWorks.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pagedWorks = useMemo(
-    () =>
-      sortedWorks.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [sortedWorks, currentPage, pageSize],
-  );
-  const downloadedCount = useMemo(
-    () => filteredWorks.filter((work) => downloaded.has(work.id)).length,
-    [filteredWorks, downloaded],
-  );
-
-  // 结果变少（例如开启筛选）时把页码收回到最后一页
-  useEffect(() => {
-    if (page > pageCount) setPage(pageCount);
-  }, [page, pageCount]);
-
-  /** 扫描作者目录，标记哪些作品已经下载过 */
-  const refreshDownloaded = async (
-    list: PixivWork[],
-    cfg: AppConfig | null,
-  ): Promise<Set<string>> => {
-    if (!cfg || list.length === 0) {
-      setDownloaded(new Set());
-      return new Set();
-    }
-    try {
-      const ids = await window.pixiv.checkDownloaded({
-        works: list,
-        outDir: cfg.outDir,
-      });
-      const next = new Set(ids);
-      setDownloaded(next);
-      return next;
-    } catch {
-      setDownloaded(new Set());
-      return new Set();
-    }
-  };
-
-  useEffect(() => {
-    if (!config || works.length === 0 || !download) return;
-    if (
-      download.phase !== "done" &&
-      download.phase !== "paused" &&
-      download.phase !== "cancelled" &&
-      download.phase !== "error"
-    )
-      return;
-    void refreshDownloaded(works, config);
-  }, [download?.phase]);
-
-  // 切换下载质量后「已下载」判定会变化（原图需要匹配原图尺寸），重新扫描一次
-  useEffect(() => {
-    if (!config || works.length === 0) return;
-    void refreshDownloaded(works, config);
-  }, [config?.imageQuality]);
-
-  // Cookie 变化后重新识别当前登录账号（收藏夹同步会用到）
-  useEffect(() => {
-    let alive = true;
-    if (!cookie?.hasCookie) {
-      setSelfUser(null);
-      return;
-    }
-    void window.pixiv.getSelfUser().then((user) => {
-      if (alive) setSelfUser(user);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [cookie?.hasCookie, cookie?.masked]);
-
-  // Cookie 体检：配置变化后主动打一次 pixiv 接口，确认它还认得我们。
-  // 'unknown'（请求没打出去）不当成失效，避免代理抖动就弹提醒。
-  useEffect(() => {
-    if (!cookie?.hasCookie) {
-      setCookieHealth("valid");
-      return;
-    }
-    let alive = true;
-    void window.pixiv.checkCookieHealth().then((health) => {
-      if (alive) setCookieHealth(health);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [cookie?.hasCookie, cookie?.masked]);
-
-  // 任务跑到一半 Cookie 才失效时，主进程会推这个通知过来
-  useEffect(
-    () =>
-      window.pixiv.onCookieInvalid(() => {
-        setHealthDismissed(false);
-        setCookieHealth("expired");
-      }),
-    [],
-  );
-
-  // 登录后静默完成的 App API 授权在后台结束，主进程推送结果过来
-  useEffect(() => window.pixiv.onOAuthChanged((status) => setOAuth(status)), []);
-
-  // 自动更新：主进程在后台检查并下载，这里只在「安装包已就绪」时弹窗问一句是否重启。
-  // 发现新版本（available）不弹窗——那只是下载前的瞬间状态，弹了用户也没得选。
-  useEffect(() => {
-    let alive = true;
-    void window.pixiv.getUpdateStatus().then((value) => {
-      if (alive) setUpdateStatus(value);
-    });
-    return window.pixiv.onUpdateStatus((value) => setUpdateStatus(value));
-  }, []);
-
-  useEffect(() => {
-    if (updateStatus?.state === "downloaded") setUpdateOpen(true);
-  }, [updateStatus]);
-
-  const updateConfig = (patch: Partial<AppConfig>): void => {
-    setConfig((previous) => (previous ? { ...previous, ...patch } : previous));
-  };
-
-  /**
-   * 代理改完立即在主进程生效（不必等关闭设置弹窗），
-   * 同时把规范化后的配置同步回本地状态，避免关闭时把旧值写回磁盘。
-   */
-  const saveProxy = async (
-    patch: Partial<ProxyConfig>,
-    password?: string,
-  ): Promise<ProxyState> => {
-    const state = await window.pixiv.setProxy(patch, password);
-    setProxy(state);
-    setConfig((previous) =>
-      previous ? { ...previous, proxy: state.config } : previous,
-    );
-    return state;
-  };
-
-  const testProxy: () => Promise<ProxyTestResult> = () =>
-    window.pixiv.testProxy();
-
-  /**
-   * 托盘设置改完立刻落盘，不等到关闭设置弹窗：
-   * 托盘图标要马上出现 / 消失，「关闭窗口收进托盘」也必须在用户点关闭之前就生效。
-   * 只提交这一个 patch —— 不能把整份本地配置写回去，否则会盖掉主进程刚规范化的值。
-   */
-  const saveTrayConfig = async (patch: Partial<AppConfig>): Promise<void> => {
-    updateConfig(patch);
-    try {
-      await window.pixiv.setConfig(patch);
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  // 主题与语言：配置变化时立即生效；跟随系统时监听系统配色变化
-  const themeMode = config?.theme;
-  const locale = config?.locale;
-  useEffect(() => {
-    if (!themeMode) return;
-    applyTheme(themeMode);
-    if (themeMode !== "system") return;
-    return watchSystemTheme(() => applyTheme("system"));
-  }, [themeMode]);
-
-  // 这里只同步 DOM 与本地副本，不刷新页面：
-  // 页面加载时 locale 会从 undefined 变成配置里的值，effect 必然再跑一次；
-  // 若在此处 reload，就变成「刷新 → 加载 → 又触发 effect → 再刷新」的死循环。
-  useEffect(() => {
-    if (!locale) return;
-    document.documentElement.lang = locale;
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  }, [locale]);
-
-  /**
-   * 切换界面语言：先落盘，再整页刷新。
-   *
-   * 刷新挂在点击这一处，而不是监听 locale 变化的 effect 里 ——
-   * 只有用户真的换了语言才会刷新，也保证刷新前磁盘配置与主进程的
-   * pixivLang 都已换成新语言（否则新页面还是按旧语言取数据，甚至会
-   * 因为读到旧配置而反复刷新）。刷新后 HashRouter 会保留当前 hash，
-   * 页面位置不丢，但列表数据需要重新获取。
-   */
-  const changeLocale = async (next: Locale): Promise<void> => {
-    if (!config || config.locale === next) return;
-    updateConfig({ locale: next });
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    try {
-      await window.pixiv.setConfig({ ...config, locale: next });
-    } catch (reason) {
-      setError(messageOf(reason));
-      return;
-    }
-    toast.success(t("settings.appearance.languageSuccess"));
-    setTimeout(() => window.location.reload(), 3000);
-  };
-
-  /** 关闭弹窗时把当前配置整份落盘，避免设置在下次抓取前丢失 */
-  const persistConfig = (): void => {
-    if (!config) return;
-    void window.pixiv
-      .setConfig(config)
-      .catch((reason: unknown) => setError(messageOf(reason)));
-  };
-
-  /** patch 用于关注列表等入口「回填参数并立即抓取」；quietEmpty 用于切栏目时安静地展示空列表 */
-  const collect = async (
-    patch?: Partial<AppConfig>,
-    options?: { quietEmpty?: boolean },
-  ): Promise<void> => {
-    // 抓取与下载互不阻塞：下载进行中也能重新抓取作品列表
-    if (!config || collecting) return;
-    const cfg: AppConfig = { ...config, ...patch };
-    if (patch) setConfig(cfg);
-
-    setCollecting(true);
-    setError("");
-    setCollectProgress(null);
-    // 下载进行中时不要清空进度与日志，否则面板会闪回空态并丢掉正在刷的日志
-    if (!running) {
-      setDownload(null);
-      setItems([]);
-    }
-    try {
-      await window.pixiv.setConfig(cfg);
-      const result = await window.pixiv.collectWorks({
-        userId: cfg.userId,
-        tag: cfg.tag,
-        extraTag: cfg.tagExtra,
-        excludeTag: cfg.tagExclude,
-        tagMode: cfg.tagMode,
-        offset: cfg.offset,
-        limit: cfg.limit,
-        workers: cfg.workers,
-        contentKind: cfg.contentKind,
-        bookmarkRest: cfg.bookmarkRest,
-      });
-      setWorks(result.works);
-      setTotal(result.total);
-      setPreview(null);
-      setPage(1);
-
-      // 默认全选「当前筛选结果」的第一页
-      await refreshDownloaded(result.works, cfg);
-      const visible = applyWorkFilters(result.works, cfg).works;
-      setSelected(new Set(visible.slice(0, cfg.limit).map((work) => work.id)));
-
-      setTab("works");
-      if (result.works.length === 0) {
-        // 切到「漫画」这类栏目时，作者本来就没有该类作品，空列表比报错更贴切
-        if (!options?.quietEmpty) {
-          setError(
-            cfg.contentKind === "bookmarks"
-              ? t("app.noWorksBookmarks")
-              : t("app.noWorks"),
-          );
-        }
-      } else if (result.failedPages > 0) {
-        setError(t("app.partialFail", { count: result.failedPages }));
-      }
-    } catch (reason) {
-      setError(messageOf(reason));
-    } finally {
-      setCollecting(false);
-    }
-  };
-
-  /**
-   * 作品列表的栏目：全部（插画+漫画，与作者主页「作品」口径一致）/ 插画 / 漫画 / 收藏。
-   * 四栏共用同一个「用户 ID」：收藏栏取的就是这位用户的收藏夹，留空则用当前登录账号。
-   */
-  const contentTab: ContentTab = config?.contentKind ?? "all";
-
-  /**
-   * 「标签」在两类栏目里含义不同：前三个是作品标签，收藏栏是收藏夹标签。
-   * 各记一份，切换栏目时换回来——否则从「插画 + R-18」切到收藏，会带着 R-18 去查收藏夹标签，
-   * 结果为空还看不出是筛选造成的。
-   */
-  const tagByGroup = useRef<{ author: string; bookmarks: string }>({
-    author: "",
-    bookmarks: "",
-  });
-
-  /**
-   * 切换栏目：只是换查询条件，条件齐了就顺手重抓一次
-   * （与标签弹窗「选完即抓」保持一致）；缺用户 ID 时只切界面，等用户点「抓取」。
-   */
-  const switchContent = (next: ContentTab): void => {
-    if (!config || next === contentTab) return;
-
-    const fromBookmarks = contentTab === "bookmarks";
-    const toBookmarks = next === "bookmarks";
-    let nextTag = config.tag;
-    if (fromBookmarks !== toBookmarks) {
-      if (fromBookmarks) tagByGroup.current.bookmarks = config.tag;
-      else tagByGroup.current.author = config.tag;
-      nextTag = toBookmarks
-        ? tagByGroup.current.bookmarks
-        : tagByGroup.current.author;
-    }
-
-    updateConfig({ contentKind: next, tag: nextTag });
-    // 收藏栏留空会用当前登录账号，所以登录状态已知时也算条件齐全
-    const ready =
-      config.userId.trim() !== "" ||
-      (next === "bookmarks" && Boolean(selfUser?.id));
-    if (ready) {
-      void collect(
-        { contentKind: next, tag: nextTag, offset: 0 },
-        { quietEmpty: true },
-      );
-    }
-  };
-
-  /**
-   * 作者主页「转到下载页面」：填好作者 ID 并直接抓一轮。
-   *
-   * 「去下载某位作者」是一次点击指令，不是工作台页面的状态，所以在点击处就执行完，
-   * 导航只负责导航。之前用 `navigate("/workbench", { state })` 把参数带过去、
-   * 再让工作台的 effect 消费，结果那个 effect 必须靠「replace 掉 state」判断已经处理过：
-   * 而 replace 是低优先级的 transition，setConfig 是同步的紧急更新，state 还没清掉
-   * config 就换了新对象，effect 便反复触发，表现为无限抓取作品列表。
-   */
-  const openAuthorDownload = (userId: string): void => {
-    setTab("works");
-    // 先落盘参数：即使用户此刻正在抓别的东西（collect 会直接返回），ID 也已经填好了
-    updateConfig({ userId, tag: "", offset: 0 });
-    void collect({ userId, tag: "", offset: 0 });
-  };
-
-  /**
-   * 引导第 5 步（采集来源）需要一个「有内容」的工作台。
-   *
-   * 没抓过作品时右侧工具栏根本不渲染，第 6 步（作品工具栏）的锚点就落空了，
-   * 气泡只能原地降级。所以列表为空时先填一个示例作者、抓一页——
-   * 只影响这一次抓取，不改变下载行为。
-   * 已经抓过、或用户自己填过条件（只是没点「抓取」）时不覆盖他的参数。
-   */
-  const prepareTourWorks = (action: TourAction): void => {
-    if (action !== "demo-works") return;
-    if (!config || collecting || works.length > 0) return;
-
-    const hasParams = Boolean(
-      config.userId.trim() || config.tag.trim() || config.tagExtra.trim(),
-    );
-    if (hasParams) {
-      void collect();
-      return;
-    }
-
-    void collect({
-      userId: TOUR_DEMO_AUTHOR,
-      tag: "",
-      tagExtra: "",
-      tagExclude: "",
-      offset: 0,
-    });
-  };
-
-  /**
-   * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
-   * 主进程串行执行，这里只负责转进度与汇总结果。
-   *
-   * ⚠️ 入口已临时屏蔽：改版后关注列表改为独立页面，不再提供勾选批量同步，
-   * 因此这段逻辑目前不会被触发，但整条链路（batchSync / batch 进度 / 进度条）
-   * 保留不动，待需求完善后恢复入口即可复用，请勿删除。
-   */
-  const batchSync = async (artists: BatchArtist[]): Promise<void> => {
-    // 额度是否足够由主进程决定：满了会返回明确错误，这里不再静默拦截
-    if (!config || !artists.length) return;
-    setError("");
-    setNotice("");
-    // 批量占一个额度但仍可与其它任务并行，所以不清空已有的进度与日志
-    if (!running) {
-      setDownload(null);
-      setItems([]);
-    }
-    setBatch({
-      index: 1,
-      total: artists.length,
-      artist: artists[0],
-      phase: "collecting",
-      works: 0,
-      files: 0,
-      failed: 0,
-    });
-    setTab("tasks");
-    try {
-      await window.pixiv.setConfig(config);
-      const summary = await window.pixiv.batchSync({
-        artists,
-        tag: worksTag(config),
-        outDir: config.outDir,
-        workers: config.workers,
-        delay: config.delay,
-        imageQuality: config.imageQuality,
-        ugoiraFormat: config.ugoiraFormat,
-      });
-      const failedNames = summary.artists
-        .filter((item) => item.error)
-        .map((item) => item.artist.name);
-      if (summary.aborted) {
-        setNotice(t("batch.aborted"));
-      } else if (failedNames.length === 0) {
-        setNotice(t("batch.done", { ok: summary.ok, failed: 0 }));
-      } else {
-        setError(
-          `${t("batch.done", { ok: summary.ok, failed: summary.failed })}：${failedNames.join("、")}`,
-        );
-      }
-    } catch (reason) {
-      setError(messageOf(reason));
-    } finally {
-      setBatch(null);
-    }
-  };
-
-  /** 加入下载队列：立即返回，任务由主进程按并行额度自动启动 */
-  const startDownload = async (): Promise<void> => {
-    if (!config) return;
-    if (selectedWorks.length === 0) {
-      setError(t("app.selectFirst"));
-      return;
-    }
-    setError("");
-    setItems([]);
-    setTab("tasks");
-    try {
-      await window.pixiv.setConfig(config);
-      setQueue(
-        await window.pixiv.enqueueDownload({
-          works: selectedWorks,
-          tag: worksTag(config),
-          outDir: config.outDir,
-          workers: config.workers,
-          delay: config.delay,
-          imageQuality: config.imageQuality,
-          ugoiraFormat: config.ugoiraFormat,
-        }),
-      );
-      setNotice(t("app.enqueued", { count: selectedWorks.length }));
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  /** 批量同步是长任务、不进入队列，保留独立的中止入口（只停批量，不碰队列） */
-  const cancelBatch = (): void => {
-    void window.pixiv.cancelBatch();
-  };
-
-  /** 暂停单个任务：运行中只中止它自己，排队中直接转为未完成 */
-  const pauseQueue = async (id: string): Promise<void> => {
-    setError("");
-    try {
-      setQueue(await window.pixiv.pauseQueue(id));
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  /** 取消单个任务：保留已下载文件，任务留在列表里显示「已取消」，可重新开始 */
-  const cancelQueue = async (id: string): Promise<void> => {
-    setError("");
-    try {
-      setQueue(await window.pixiv.cancelQueue(id));
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  /** 继续任务：放回队列后由主进程在额度允许时自动启动 */
-  const resumeQueue = async (id: string): Promise<void> => {
-    setError("");
-    setTab("tasks");
-    try {
-      setQueue(await window.pixiv.resumeQueue(id));
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  /** 失败清单逐条重试：只放行被点的那一项，其余失败项保持不变 */
-  const retryFailure = async (id: string, item: FailureItem): Promise<void> => {
-    setError("");
-    setTab("tasks");
-    try {
-      setQueue(await window.pixiv.retryFailure(id, item));
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  const removeQueue = async (id: string): Promise<void> => {
-    try {
-      setQueue(await window.pixiv.removeQueue(id));
-      setNotice("");
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  const exportFailures = async (id: string): Promise<void> => {
-    try {
-      const file = await window.pixiv.exportFailures(id);
-      if (file) {
-        setNotice(t("app.exportFailures", { file }));
-        setError("");
-      }
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  const saveCookie = async (raw: string): Promise<void> => {
-    try {
-      const status = await window.pixiv.setCookie(raw);
-      setCookie(status);
-      setError("");
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  /** 保存 App API 凭据：主进程先刷新校验，失败会抛出，由设置面板就地展示 */
-  const saveOAuthCredentials = async (
-    credentials: OAuthCredentials,
-  ): Promise<void> => {
-    setOAuth(await window.pixiv.saveOAuthCredentials(credentials));
-  };
-
-  /** 打开 pixiv 授权页，用 PKCE 自动换取并保存 refresh_token；取消返回 false */
-  const loginOAuth = async (
-    clientId: string,
-    clientSecret: string,
-  ): Promise<boolean> => {
-    const status = await window.pixiv.loginOAuth({ clientId, clientSecret });
-    if (!status) return false;
-    setOAuth(status);
-    return true;
-  };
-
-  /** 清除 App API 凭据；不影响 Cookie，只影响写操作 */
-  const clearOAuth = async (): Promise<void> => {
-    setOAuth(await window.pixiv.clearOAuth());
-  };
-
-  /** 应用内登录：弹出 pixiv 登录窗口，成功后自动保存 Cookie；取消则不改动现有配置 */
-  const loginPixiv = async (): Promise<boolean> => {
-    setLoggingIn(true);
-    try {
-      const status = await window.pixiv.loginPixiv();
-      if (!status) return false;
-      setCookie(status);
-      setError("");
-      return true;
-    } catch (reason) {
-      setError(messageOf(reason));
-      return false;
-    } finally {
-      setLoggingIn(false);
-    }
-  };
-
-  /** 清除已保存 Cookie，并重置登录窗口的会话，使下次登录必须重新过一遍验证码 */
-  const clearCookie = async (): Promise<void> => {
-    try {
-      const status = await window.pixiv.clearCookie();
-      setCookie(status);
-      setSelfUser(null);
-      setError("");
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  const pickDir = async (): Promise<void> => {
-    try {
-      const dir = await window.pixiv.pickDir();
-      if (!dir) return;
-      updateConfig({ outDir: dir });
-      await window.pixiv.setConfig({ outDir: dir });
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
-
-  const openDir = (): void => {
-    if (!config) return;
-    void window.pixiv
-      .openDir(config.outDir)
-      .catch((reason: unknown) => setError(messageOf(reason)));
-  };
-
-  const toggleWork = (id: string): void => {
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = (): void => {
-    // 和 pixiv 一样按页操作：全选只作用于当前页显示的这批作品
-    const allSelected =
-      pagedWorks.length > 0 &&
-      pagedWorks.every((work) => selected.has(work.id));
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (allSelected) pagedWorks.forEach((work) => next.delete(work.id));
-      else pagedWorks.forEach((work) => next.add(work.id));
-      return next;
-    });
-  };
-
-  const toggleOnlyNew = (): void => {
-    const next = !onlyNew;
-    setOnlyNew(next);
-    setPage(1);
-    if (next) void refreshDownloaded(works, config);
-  };
-
-  const changeSort = (next: WorkSort): void => {
-    setSort(next);
-    setPage(1);
-  };
-
-  const changePage = (next: number): void => {
-    setPage(Math.max(1, Math.min(pageCount, next)));
-  };
-
-  const exportWorks = async (): Promise<void> => {
-    if (!config || filteredWorks.length === 0) return;
-    try {
-      const file = await window.pixiv.exportWorks({
-        works: sortedWorks,
-        tag: worksTag(config),
-        downloaded: Array.from(downloaded),
-      });
-      if (file) {
-        setNotice(t("app.exportWorks", { file }));
-        setError("");
-      }
-    } catch (reason) {
-      setError(messageOf(reason));
-    }
-  };
+    [config, onRecommend]
+  )
 
   // App 自身的函数体在 I18nProvider 之上，useI18n 取不到配置里的语言，
   // 所以这里直接用纯函数按 locale 取文案（config 未就绪时退回本地缓存）
-  const t: Translate = (key, params) =>
-    translate(config?.locale ?? bootLocale(), key, params);
+  const t: Translate = (key, params) => translate(config?.locale ?? bootLocale(), key, params)
 
   if (!config) {
     return (
       <div className="flex h-screen items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        {t("app.loadingConfig")}
+        {t('app.loadingConfig')}
       </div>
-    );
+    )
   }
 
   const collectText =
     collecting && collectProgress
-      ? t("app.progress", {
+      ? t('app.progress', {
           loaded: collectProgress.loaded,
           total: collectProgress.total,
           done: collectProgress.pagesDone,
-          pages: collectProgress.pagesTotal,
+          pages: collectProgress.pagesTotal
         })
-      : null;
+      : null
 
-  const cookieExpired =
-    cookieHealth === "expired" &&
-    Boolean(cookie?.hasCookie) &&
-    !healthDismissed;
-
-  const recheckCookie = async (): Promise<void> => {
-    setHealthDismissed(false);
-    setCookieHealth(await window.pixiv.checkCookieHealth());
-  };
+  const cookieExpired = session.cookieExpired
 
   /** 顶栏导航项统一样式 */
   const navClass = (isActive: boolean): string =>
     `flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-      isActive
-        ? "bg-primary/15 text-primary"
-        : "text-muted-foreground hover:bg-secondary/50"
-    }`;
+      isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary/50'
+    }`
 
   /**
    * 主栏目导航项：高亮底色交给 layoutId 的滑动块，这里只负责文字颜色。
@@ -1126,17 +280,17 @@ export default function App(): React.JSX.Element {
    */
   const navClassMain = (isActive: boolean): string =>
     `relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-      isActive ? "text-primary" : "text-muted-foreground hover:bg-secondary/50"
-    }`;
+      isActive ? 'text-primary' : 'text-muted-foreground hover:bg-secondary/50'
+    }`
 
   /** 主栏目高亮的滑动块：同一个 layoutId 让它从旧位置滑到新位置 */
   const navPill = (
     <motion.span
       layoutId="nav-active-pill"
       className="absolute inset-0 rounded-md bg-primary/15"
-      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
+      transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }}
     />
-  );
+  )
 
   /**
    * 工作台的入参。
@@ -1147,30 +301,30 @@ export default function App(): React.JSX.Element {
    */
   const workbench: WorkbenchPageProps = {
     config,
-    selfUser,
-    hasCookie: Boolean(cookie?.hasCookie),
+    selfUser: session.selfUser,
+    hasCookie: Boolean(session.cookie?.hasCookie),
     collecting,
-    queued: queue.length > 0,
-    selectedCount: selectedWorks.length,
+    queued: downloadEvents.queue.length > 0,
+    selectedCount: collection.selectedWorks.length,
     collectText,
     collectProgress,
     total,
     worksCount: works.length,
     onConfigChange: updateConfig,
     onCollect: () => void collect(),
-    onDownload: () => void startDownload(),
-    onClearTag: () => void collect({ tag: "", offset: 0 }),
+    onDownload: () => void queueActions.startDownload(),
+    onClearTag: () => void collect({ tag: '', offset: 0 }),
     onSwitchContent: switchContent,
     onSuggestTags: (word) => window.pixiv.suggestTags(word),
     cookieExpired,
-    loggingIn,
-    onRelogin: () => void loginPixiv(),
-    onRecheckCookie: () => void recheckCookie(),
-    onDismissCookieBanner: () => setHealthDismissed(true),
+    loggingIn: session.loggingIn,
+    onRelogin: () => void session.loginPixiv(),
+    onRecheckCookie: () => void session.recheckCookie(),
+    onDismissCookieBanner: () => session.setHealthDismissed(true),
     notice,
     error,
-    onDismissNotice: () => setNotice(""),
-    onDismissError: () => setError(""),
+    onDismissNotice: () => setNotice(''),
+    onDismissError: () => setError(''),
     tab,
     onTabChange: setTab,
     works: pagedWorks,
@@ -1178,12 +332,12 @@ export default function App(): React.JSX.Element {
     downloaded,
     downloadedCount,
     filteredTotal: filteredWorks.length,
-    filteredOut: ruleFiltered.removed,
+    filteredOut: collection.ruleRemoved,
     onlyNew,
     sort,
     activeFilterCount,
     onSortChange: changeSort,
-    onOpenFilter: () => setFilterOpen(true),
+    onOpenFilter: openFilter,
     onOpenTags: () => setTagsOpen(true),
     onExport: () => void exportWorks(),
     page: currentPage,
@@ -1194,26 +348,24 @@ export default function App(): React.JSX.Element {
     onToggleAll: toggleAll,
     onOpen: setPreview,
     onToggleOnlyNew: toggleOnlyNew,
-    queue,
-    activeCount: activeIds.size,
-    throttle,
-    batch,
+    queue: downloadEvents.queue,
+    activeCount: downloadEvents.activeIds.size,
+    throttle: downloadEvents.throttle,
+    batch: downloadEvents.batch,
     onOpenSettings: () => setSettingsOpen(true),
-    onCancelBatch: cancelBatch,
-    onResume: (id) => void resumeQueue(id),
-    onPause: (id) => void pauseQueue(id),
-    onCancel: (id) => void cancelQueue(id),
-    onRemove: (id) => void removeQueue(id),
+    onCancelBatch: queueActions.cancelBatch,
+    onResume: (id) => void queueActions.resumeQueue(id),
+    onPause: (id) => void queueActions.pauseQueue(id),
+    onCancel: (id) => void queueActions.cancelQueue(id),
+    onRemove: (id) => void queueActions.removeQueue(id),
     onLoadFailures: (id) => window.pixiv.listFailures(id),
-    onRetryFailure: retryFailure,
-    onExportFailures: (id) => void exportFailures(id),
+    onRetryFailure: queueActions.retryFailure,
+    onExportFailures: (id) => void queueActions.exportFailures(id),
     onOpenDir: (dir) =>
-      void window.pixiv
-        .openDir(dir)
-        .catch((reason: unknown) => setError(messageOf(reason))),
-    items,
-    running,
-  };
+      void window.pixiv.openDir(dir).catch((reason: unknown) => setError(messageOf(reason))),
+    items: downloadEvents.items,
+    running: downloadEvents.running
+  }
 
   return (
     <I18nProvider locale={config.locale}>
@@ -1231,75 +383,69 @@ export default function App(): React.JSX.Element {
 
             {/* 插画 / 漫画 / 小说 / 用户：切换栏目时保留搜索框里的关键词 */}
             <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
-              <NavLink
-                to="/recommend"
-                className={({ isActive }) => navClassMain(isActive)}
-              >
+              <NavLink to="/recommend" className={({ isActive }) => navClassMain(isActive)}>
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <Compass className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.recommend")}</span>
+                    <span className="relative">{t('nav.recommend')}</span>
                   </>
                 )}
               </NavLink>
-              <NavLink
-                to="/ranking"
-                className={({ isActive }) => navClassMain(isActive)}
-              >
+              <NavLink to="/ranking" className={({ isActive }) => navClassMain(isActive)}>
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <Trophy className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.ranking")}</span>
+                    <span className="relative">{t('nav.ranking')}</span>
                   </>
                 )}
               </NavLink>
               <NavLink
-                to={linkWithWord("/illust")}
+                to={linkWithWord('/illust')}
                 className={({ isActive }) => navClassMain(isActive)}
               >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <Images className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.illust")}</span>
+                    <span className="relative">{t('nav.illust')}</span>
                   </>
                 )}
               </NavLink>
               <NavLink
-                to={linkWithWord("/manga")}
+                to={linkWithWord('/manga')}
                 className={({ isActive }) => navClassMain(isActive)}
               >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <BookOpen className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.manga")}</span>
+                    <span className="relative">{t('nav.manga')}</span>
                   </>
                 )}
               </NavLink>
               <NavLink
-                to={linkWithWord("/novel")}
+                to={linkWithWord('/novel')}
                 className={({ isActive }) => navClassMain(isActive)}
               >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <ScrollText className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.novel")}</span>
+                    <span className="relative">{t('nav.novel')}</span>
                   </>
                 )}
               </NavLink>
               <NavLink
-                to={linkWithWord("/users")}
+                to={linkWithWord('/users')}
                 className={({ isActive }) => navClassMain(isActive)}
               >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
                     <Users className="relative h-4 w-4" />
-                    <span className="relative">{t("nav.users")}</span>
+                    <span className="relative">{t('nav.users')}</span>
                   </>
                 )}
               </NavLink>
@@ -1309,21 +455,21 @@ export default function App(): React.JSX.Element {
             <nav className="flex shrink-0 items-center gap-0.5">
               <NavLink
                 to="/workbench"
-                title={t("nav.workbench")}
+                title={t('nav.workbench')}
                 className={({ isActive }) => navClass(isActive)}
               >
                 <Download className="h-4 w-4" />
               </NavLink>
               <NavLink
                 to="/gallery"
-                title={t("nav.gallery")}
+                title={t('nav.gallery')}
                 className={({ isActive }) => navClass(isActive)}
               >
                 <Library className="h-4 w-4" />
               </NavLink>
               <NavLink
                 to="/watch-later"
-                title={t("nav.watchLater")}
+                title={t('nav.watchLater')}
                 className={({ isActive }) => navClass(isActive)}
               >
                 <Clock3 className="h-4 w-4" />
@@ -1335,18 +481,18 @@ export default function App(): React.JSX.Element {
               value={keyword}
               onChange={setKeyword}
               onSubmit={submitSearch}
-              placeholder={t("app.searchPlaceholder")}
+              placeholder={t('app.searchPlaceholder')}
             />
 
             <div className="flex shrink-0 items-center gap-1.5">
               <AccountMenu
-                selfUser={selfUser}
-                hasCookie={Boolean(cookie?.hasCookie)}
-                loggingIn={loggingIn}
-                onLogin={() => void loginPixiv()}
-                onOpenFollowing={() => navigate("/users/following")}
-                onOpenFavorites={() => navigate("/favorites")}
-                onOpenHistory={() => navigate("/history")}
+                selfUser={session.selfUser}
+                hasCookie={Boolean(session.cookie?.hasCookie)}
+                loggingIn={session.loggingIn}
+                onLogin={() => void session.loginPixiv()}
+                onOpenFollowing={() => navigate('/users/following')}
+                onOpenFavorites={() => navigate('/favorites')}
+                onOpenHistory={() => navigate('/history')}
                 onOpenSettings={() => setSettingsOpen(true)}
               />
               {/* 过滤规则是全局的：顶栏一个入口，所有列表页共用同一份规则 */}
@@ -1354,8 +500,8 @@ export default function App(): React.JSX.Element {
                 variant="outline"
                 size="sm"
                 data-tour="filter-button"
-                title={t("filter.button")}
-                onClick={() => setFilterOpen(true)}
+                title={t('filter.button')}
+                onClick={openFilter}
                 className="relative"
               >
                 <Filter className="h-4 w-4" />
@@ -1365,27 +511,17 @@ export default function App(): React.JSX.Element {
                   </span>
                 ) : null}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                title={t("app.openDir")}
-                onClick={openDir}
-              >
+              <Button variant="outline" size="sm" title={t('app.openDir')} onClick={openDir}>
                 <FolderOpen className="h-4 w-4" />
               </Button>
               {/* 产品引导：第一次启动自动播放，看过之后从这里可以随时重看 */}
-              <Button
-                variant="outline"
-                size="sm"
-                title={t("tour.replay")}
-                onClick={startTour}
-              >
+              <Button variant="outline" size="sm" title={t('tour.replay')} onClick={startTour}>
                 <CircleHelp className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                title={t("app.settings")}
+                title={t('app.settings')}
                 onClick={() => setSettingsOpen(true)}
               >
                 <Settings className="h-4 w-4" />
@@ -1395,56 +531,49 @@ export default function App(): React.JSX.Element {
 
           {/* 路由缓存宿主：命中 KEEP_ALIVE_ROUTES 的页面缓存，其余随路由挂载 / 卸载 */}
           {/* 过滤规则的上下文：顶栏按钮打开同一个弹窗，各页面列表就地按规则过滤 */}
-          <FilterProvider config={config} onOpenFilter={() => setFilterOpen(true)}>
-            <Routes>
-              <Route element={<KeepAliveOutlet />}>
-                {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
-              <Route
-                path="/workbench"
-                element={<WorkbenchPage {...workbench} />}
-              />
-              <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
-              <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
-              <Route path="/novel" element={<NovelSearchPage />} />
-              <Route
-                path="/novel/series/:seriesId"
-                element={<NovelSeriesPage />}
-              />
-              <Route path="/novel/local" element={<NovelLocalReaderPage />} />
-              <Route path="/series/:seriesId" element={<SeriesPage oauth={oauth} />} />
-              <Route path="/users" element={<UsersPage />} />
-              <Route path="/users/following" element={<UsersFollowingPage />} />
-              <Route
-                path="/user/:userId"
-                element={
-                  <UserDetailPage
-                    oauth={oauth}
-                    onDownloadAuthor={openAuthorDownload}
+          <ErrorBoundary>
+            <FilterProvider config={config} onOpenFilter={openFilter}>
+              <Routes>
+                <Route element={<KeepAliveOutlet />}>
+                  {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
+                  <Route path="/workbench" element={<WorkbenchPage {...workbench} />} />
+                  <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
+                  <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
+                  <Route path="/novel" element={<NovelSearchPage />} />
+                  <Route path="/novel/series/:seriesId" element={<NovelSeriesPage />} />
+                  <Route path="/novel/local" element={<NovelLocalReaderPage />} />
+                  <Route path="/series/:seriesId" element={<SeriesPage oauth={session.oauth} />} />
+                  <Route path="/users" element={<UsersPage />} />
+                  <Route path="/users/following" element={<UsersFollowingPage />} />
+                  <Route
+                    path="/user/:userId"
+                    element={
+                      <UserDetailPage oauth={session.oauth} onDownloadAuthor={openAuthorDownload} />
+                    }
                   />
-                }
-              />
-              <Route path="/favorites" element={<FavoritesPage />} />
-              <Route path="/ranking" element={<RankingPage />} />
-              <Route path="/recommend" element={<RecommendPage oauth={oauth} />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/watch-later" element={<WatchLaterPage />} />
-              {/* 本地图库独立成页，不再塞在插画的标签里 */}
-              <Route
-                path="/gallery"
-                element={
-                  <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
-                    <LibraryPanel />
-                  </main>
-                }
-              />
-              {/* 旧书库页并入图库：小说现在是作者页下的第三个栏目，老链接直接转过去 */}
-              <Route path="/library" element={<Navigate to="/gallery" replace />} />
-              <Route path="/novel/:novelId" element={<NovelReaderPage />} />
-              {/* 未匹配的路由，重定向到推荐页 */}
-              <Route path="*" element={<Navigate to="/recommend" replace />} />
-              </Route>
-            </Routes>
-          </FilterProvider>
+                  <Route path="/favorites" element={<FavoritesPage />} />
+                  <Route path="/ranking" element={<RankingPage />} />
+                  <Route path="/recommend" element={<RecommendPage oauth={session.oauth} />} />
+                  <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/watch-later" element={<WatchLaterPage />} />
+                  {/* 本地图库独立成页，不再塞在插画的标签里 */}
+                  <Route
+                    path="/gallery"
+                    element={
+                      <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
+                        <LibraryPanel />
+                      </main>
+                    }
+                  />
+                  {/* 旧书库页并入图库：小说现在是作者页下的第三个栏目，老链接直接转过去 */}
+                  <Route path="/library" element={<Navigate to="/gallery" replace />} />
+                  <Route path="/novel/:novelId" element={<NovelReaderPage />} />
+                  {/* 未匹配的路由，重定向到推荐页 */}
+                  <Route path="*" element={<Navigate to="/recommend" replace />} />
+                </Route>
+              </Routes>
+            </FilterProvider>
+          </ErrorBoundary>
 
           {preview ? (
             <WorkDetailDialog
@@ -1459,17 +588,17 @@ export default function App(): React.JSX.Element {
           {tagsOpen ? (
             <UserTagDialog
               userId={config.userId}
-              content={config.contentKind ?? "all"}
+              content={config.contentKind ?? 'all'}
               activeTag={config.tag}
               busy={collecting}
               onClose={() => setTagsOpen(false)}
               onSelect={(tag) => {
-                setTagsOpen(false);
-                const next = tag ?? "";
+                setTagsOpen(false)
+                const next = tag ?? ''
                 // 选的是同一个标签且本来就在第一页：没必要再打一轮全量请求
-                if (next === config.tag && config.offset === 0) return;
+                if (next === config.tag && config.offset === 0) return
                 // 换标签等于换一次查询：回到第一页重新抓取
-                void collect({ tag: next, offset: 0 });
+                void collect({ tag: next, offset: 0 })
               }}
             />
           ) : null}
@@ -1479,58 +608,49 @@ export default function App(): React.JSX.Element {
               config={config}
               onConfigChange={updateConfig}
               onClose={() => {
-                setFilterOpen(false);
-                persistConfig();
+                setFilterOpen(false)
+                persistConfig()
               }}
             />
           ) : null}
 
           {updateOpen && updateStatus ? (
-            <UpdateDialog
-              status={updateStatus}
-              onClose={() => setUpdateOpen(false)}
-            />
+            <UpdateDialog status={updateStatus} onClose={() => setUpdateOpen(false)} />
           ) : null}
 
           {settingsOpen ? (
             <SettingsDialog
               config={config}
-              cookie={cookie}
-              selfUser={selfUser}
+              cookie={session.cookie}
+              selfUser={session.selfUser}
               proxy={proxy}
               onConfigChange={updateConfig}
               onTrayChange={(patch) => void saveTrayConfig(patch)}
               onChangeLocale={(next) => void changeLocale(next)}
               onSaveProxy={saveProxy}
               onTestProxy={testProxy}
-              onSaveCookie={saveCookie}
-              onLogin={loginPixiv}
-              onClearCookie={clearCookie}
-              oauth={oauth}
-              onSaveOAuth={saveOAuthCredentials}
-              onLoginOAuth={loginOAuth}
-              onClearOAuth={clearOAuth}
+              onSaveCookie={session.saveCookie}
+              onLogin={session.loginPixiv}
+              onClearCookie={session.clearCookie}
+              oauth={session.oauth}
+              onSaveOAuth={session.saveOAuthCredentials}
+              onLoginOAuth={session.loginOAuth}
+              onClearOAuth={session.clearOAuth}
               onPickDir={() => void pickDir()}
               onOpenDir={openDir}
               onClose={() => {
-                setSettingsOpen(false);
-                persistConfig();
+                setSettingsOpen(false)
+                persistConfig()
               }}
             />
           ) : null}
         </div>
         <TourProvider
-          blocked={
-            settingsOpen ||
-            filterOpen ||
-            tagsOpen ||
-            updateOpen ||
-            Boolean(preview)
-          }
+          blocked={settingsOpen || filterOpen || tagsOpen || updateOpen || Boolean(preview)}
           onAction={prepareTourWorks}
         />
         <Toaster />
       </ImagePreviewProvider>
     </I18nProvider>
-  );
+  )
 }

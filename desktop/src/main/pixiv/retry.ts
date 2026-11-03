@@ -52,7 +52,7 @@ const TASK_BACKOFF_MS = [2_000, 5_000]
 export function taskBackoffMs(attempt: number, hint: ErrorHint): number {
   if (hint.waitMs > 0) return hint.waitMs
   const index = Math.min(Math.max(attempt, 1), TASK_BACKOFF_MS.length) - 1
-  return TASK_BACKOFF_MS[index]
+  return TASK_BACKOFF_MS[index] ?? 5_000
 }
 
 /** 可重试错误只值得再试一次，不重试的错误直接放弃 */

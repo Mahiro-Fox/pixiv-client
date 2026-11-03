@@ -3,6 +3,7 @@ import { appApiGet, appApiPost, ensureAppConnected, explainAppError } from './ap
 import { getOAuthStatus } from './oauth'
 import { fetchJson } from './http'
 import { appEndpoints, webEndpoints } from './endpoints'
+import { UNTITLED } from './workFields'
 
 /** `/v1/illust/series` 的作品条目，只需要列表展示用到的字段 */
 interface RawAppIllust {
@@ -73,7 +74,7 @@ function toEpisode(raw: RawAppIllust, order: number): SeriesEpisode | null {
   if (!id) return null
   return {
     id,
-    title: raw.title || '无题',
+    title: raw.title || UNTITLED,
     order,
     thumbnail: raw.image_urls?.medium || raw.image_urls?.px_128x128 || '',
     userId: String(raw.user?.id ?? '').trim(),
@@ -117,7 +118,7 @@ async function fetchAppSeries(seriesId: string): Promise<SeriesDetail> {
 
   return {
     id: String(detail.id ?? seriesId),
-    title: detail.title || '无题',
+    title: detail.title || UNTITLED,
     caption: detail.caption || '',
     userId: String(detail.user?.id ?? '').trim(),
     userName: detail.user?.name || '',
@@ -154,7 +155,7 @@ async function fetchWebSeries(seriesId: string, workId: string, cookie: string):
   const order = Math.max(1, Number(nav.order || 1))
   return {
     id: seriesId,
-    title: nav.title || nav.seriesTitle || body.title || '无题',
+    title: nav.title || nav.seriesTitle || body.title || UNTITLED,
     caption: body.description || '',
     userId: String(body.userId ?? '').trim(),
     userName: body.userName || '',
@@ -167,7 +168,7 @@ async function fetchWebSeries(seriesId: string, workId: string, cookie: string):
     episodes: [
       {
         id: String(body.id ?? workId).trim(),
-        title: body.title || '无题',
+        title: body.title || UNTITLED,
         order,
         thumbnail: body.url || '',
         userId: String(body.userId ?? '').trim(),

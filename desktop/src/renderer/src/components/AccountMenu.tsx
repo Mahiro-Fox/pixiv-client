@@ -122,6 +122,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
           <img
             src={user.avatar}
             alt=""
+            decoding="async"
             className="h-6 w-6 rounded-full bg-secondary object-cover"
           />
         ) : (
@@ -144,6 +145,7 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
               <img
                 src={user.avatar}
                 alt=""
+                decoding="async"
                 className="h-11 w-11 rounded-full border border-border/60 bg-secondary object-cover"
               />
             ) : (

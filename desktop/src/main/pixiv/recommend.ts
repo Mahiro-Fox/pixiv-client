@@ -11,6 +11,7 @@ import { fetchJson } from './http'
 import { appEndpoints, webEndpoints } from './endpoints'
 import { appApiGet } from './appApi'
 import { getOAuthStatus } from './oauth'
+import { searchWorkBase } from './workFields'
 
 /** App API 的插画结构（只取本项目用到的字段） */
 interface AppImageUrls {
@@ -85,43 +86,43 @@ interface DiscoveryResponse {
 
 function toSearchWork(raw: AppIllust): SearchWork {
   const images = raw.image_urls || {}
-  return {
-    id: String(raw.id ?? '').trim(),
-    title: raw.title || '无题',
-    userId: String(raw.user?.id ?? '').trim(),
-    userName: raw.user?.name || '未知作者',
-    thumbnail: images.medium || images.large || images.square_medium || '',
-    profileImageUrl: raw.user?.profile_image_urls?.px_50x50 || '',
-    pageCount: Number(raw.page_count || 0),
-    width: Number(raw.width || 0),
-    height: Number(raw.height || 0),
-    xRestrict: Number(raw.x_restrict || 0),
-    illustType: Number(raw.type || 0),
-    tags: (raw.tags || []).map((tag) => String(tag?.name || '').trim()).filter(Boolean),
-    createDate: raw.create_date || '',
-    bookmarkCount: Number(raw.total_bookmarks ?? raw.bookmark_count ?? 0),
-    aiType: Number(raw.illust_ai_type || 0)
-  }
+  return searchWorkBase({
+    id: raw.id,
+    title: raw.title,
+    userId: raw.user?.id,
+    userName: raw.user?.name,
+    thumbnail: images.medium || images.large || images.square_medium,
+    profileImageUrl: raw.user?.profile_image_urls?.px_50x50,
+    pageCount: raw.page_count,
+    width: raw.width,
+    height: raw.height,
+    xRestrict: raw.x_restrict,
+    illustType: raw.type,
+    tags: raw.tags,
+    createDate: raw.create_date,
+    bookmarkCount: raw.total_bookmarks ?? raw.bookmark_count,
+    aiType: raw.illust_ai_type
+  })
 }
 
 function toDiscoveryWork(raw: RawDiscoveryWork): SearchWork {
-  return {
-    id: String(raw.id ?? '').trim(),
-    title: raw.title || '无题',
-    userId: String(raw.userId ?? '').trim(),
-    userName: raw.userName || '未知作者',
-    thumbnail: raw.url || '',
-    profileImageUrl: raw.profileImageUrl || '',
-    pageCount: Number(raw.pageCount || 0),
-    width: Number(raw.width || 0),
-    height: Number(raw.height || 0),
-    xRestrict: Number(raw.xRestrict || 0),
-    illustType: Number(raw.illustType || 0),
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    createDate: raw.createDate || '',
+  return searchWorkBase({
+    id: raw.id,
+    title: raw.title,
+    userId: raw.userId,
+    userName: raw.userName,
+    thumbnail: raw.url,
+    profileImageUrl: raw.profileImageUrl,
+    pageCount: raw.pageCount,
+    width: raw.width,
+    height: raw.height,
+    xRestrict: raw.xRestrict,
+    illustType: raw.illustType,
+    tags: raw.tags,
+    createDate: raw.createDate,
     bookmarkCount: 0,
-    aiType: Number(raw.aiType || 0)
-  }
+    aiType: raw.aiType
+  })
 }
 
 function toUserCard(preview: AppUserPreview): UserSearchItem | null {

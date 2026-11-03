@@ -154,6 +154,7 @@ export function AuthorPopover(props: AuthorPopoverProps): React.JSX.Element {
             src={props.avatar}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-4 w-4 shrink-0 rounded-full border border-border/60 object-cover"
             onError={(event) => {
               event.currentTarget.style.visibility = 'hidden'
@@ -185,6 +186,7 @@ export function AuthorPopover(props: AuthorPopoverProps): React.JSX.Element {
                   <img
                     src={profile?.avatar || props.avatar}
                     alt=""
+                    decoding="async"
                     className="h-9 w-9 shrink-0 rounded-full border border-border/60 bg-secondary object-cover"
                   />
                 ) : (

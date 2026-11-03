@@ -396,6 +396,12 @@ export interface DownloadProgress {
 }
 
 export interface DownloadItemEvent {
+  /**
+   * 单调递增序号，由主进程分配。
+   * 日志列表是「新条目插到最前面」，用数组下标当 key 会让所有旧行整体错位、
+   * React 把整个列表卸载重建；有了序号才能做到只挂载新增那一行。
+   */
+  seq: number
   /** 所属队列任务 ID，便于并行下载时把条目归到对应任务 */
   jobId?: string
   status: 'ok' | 'exists' | 'replaced' | 'failed'
@@ -657,23 +663,38 @@ export interface LibraryFile {
   ext: string
 }
 
-/** 本地图库中的一个图片作品（按「作者目录 + 内容类型 + 作品 ID」聚合） */
-export interface LibraryWork {
+/** 定位一个本地作品所需的最小信息，用于按需拉取文件列表 */
+export interface LibraryWorkKey {
   id: string
-  title: string
-  userId: string
-  userName: string
-  /** 作品落在哪个内容目录：illustration / manga */
   content: ImageContent
   /** 作者目录绝对路径，图库按它把插画 / 漫画 / 小说归到同一位作者下 */
   authorPath: string
+}
+
+/** 按需返回的作品文件：列表接口不再下发全部路径，打开预览/删除时再取 */
+export interface LibraryWorkFiles extends LibraryWorkKey {
+  files: LibraryFile[]
+}
+
+/** 本地图库中的一个图片作品（按「作者目录 + 内容类型 + 作品 ID」聚合） */
+export interface LibraryWork extends LibraryWorkKey {
+  title: string
+  userId: string
+  userName: string
   /** 实际存在的页数（按文件名页码去重后统计） */
   pageCount: number
-  files: LibraryFile[]
+  /** 文件总数（含原图同页多份），列表只给计数，不传路径 */
+  fileCount: number
+  /** 可直接预览的图片数 */
+  imageCount: number
   totalBytes: number
   updatedAt: number
   /** 封面文件绝对路径 */
   cover: string
+  /** 动图成品（zip / mp4 / gif）绝对路径，没有则为空 */
+  ugoiraPath: string
+  /** 作品所在的内容目录绝对路径 */
+  dir: string
   ugoira: boolean
   /** 是否命中下载历史索引（否则标题/作者为推断值） */
   hasHistory: boolean
@@ -1215,6 +1236,8 @@ export interface PixivApi {
   openLibraryDir: (dir: string) => Promise<void>
   /** 删除本地图库文件（仅限保存目录内），返回重新扫描后的图库 */
   deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>
+  /** 按需读取若干作品的文件列表（列表接口不带绝对路径） */
+  getLibraryFiles: (keys: LibraryWorkKey[]) => Promise<LibraryWorkFiles[]>
   /** 浏览记录：按最近浏览时间倒序，同一作品只保留最后一条 */
   listViewHistory: () => Promise<ViewHistoryEntry[]>
   /** 记录一次作品浏览；只有作品 ID 与作者齐全时才写入 */

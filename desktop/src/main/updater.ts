@@ -57,7 +57,8 @@ function setStatus(next: UpdateStatus): void {
 function isNewer(candidate: string, current: string): boolean {
   const parse = (value: string): number[] | null => {
     const match = /^v?(\d+(?:\.\d+)*)/.exec(String(value).trim())
-    return match ? match[1].split('.').map((part) => Number(part) || 0) : null
+    const version = match?.[1]
+    return version ? version.split('.').map((part) => Number(part) || 0) : null
   }
   const next = parse(candidate)
   const now = parse(current)

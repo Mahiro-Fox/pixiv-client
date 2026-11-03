@@ -25,7 +25,8 @@ let current = 'zh'
 export function localeToPixivLang(locale: string | null | undefined): string {
   const key = String(locale || '').trim()
   if (!key) return 'zh'
-  return PIXIV_LANGS[key] ?? PIXIV_LANGS[key.split('-')[0].toLowerCase()] ?? 'zh'
+  const short = key.split('-')[0]?.toLowerCase() ?? ''
+  return PIXIV_LANGS[key] ?? PIXIV_LANGS[short] ?? 'zh'
 }
 
 /** 由主进程在启动读到配置、以及保存配置（语言可能刚改）时调用 */
@@ -49,7 +50,7 @@ const ACCEPT_LANGUAGE: Record<string, string> = {
 }
 
 export function pixivAcceptLanguage(): string {
-  return ACCEPT_LANGUAGE[current] ?? ACCEPT_LANGUAGE.zh
+  return ACCEPT_LANGUAGE[current] ?? 'zh-CN,zh;q=0.9'
 }
 
 /**

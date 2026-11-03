@@ -37,6 +37,17 @@ import {
   taskBackoffMs
 } from './retry'
 
+/**
+ * 日志条目的单调序号：界面的日志列表靠它当 React key。
+ * 只在内存里有效，重启后从头开始 —— 列表本身也不跨会话保存。
+ */
+let itemSeq = 0
+
+function nextItemSeq(): number {
+  itemSeq += 1
+  return itemSeq
+}
+
 export interface DownloadJobOptions extends DownloadParams {
   cookie: string
   signal: AbortSignal
@@ -226,8 +237,11 @@ export function artistOf(works: PixivWork[]): { artistId?: string; artistLabel: 
     if (!authors.has(id)) authors.set(id, work.userName || id)
   }
   if (authors.size === 1) {
-    const [id, name] = [...authors.entries()][0]
-    return { artistId: id, artistLabel: `${id}-${name}` }
+    const entry = [...authors.entries()][0]
+    if (entry) {
+      const [id, name] = entry
+      return { artistId: id, artistLabel: `${id}-${name}` }
+    }
   }
   return { artistLabel: `${authors.size} 位作者` }
 }
@@ -467,6 +481,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
             ]
             markFailure(breaker, error)
             options.onItem({
+              seq: nextItemSeq(),
               status: 'failed',
               label: `${illustId || '未知作品'} 解析失败`,
               bytes: 0,
@@ -587,6 +602,7 @@ export async function runDownloadJob(options: DownloadJobOptions): Promise<Downl
         persist()
 
         options.onItem({
+          seq: nextItemSeq(),
           jobId: job.id,
           status:
             task.status === 'ok' && replaced
