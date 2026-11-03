@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   Cookie,
   Download,
   FileArchive,
@@ -64,6 +65,8 @@ interface SettingsDialogProps {
   /** 代理配置与生效状态；密码本身不会传给渲染层 */
   proxy: ProxyState | null
   onConfigChange: (patch: Partial<AppConfig>) => void
+  /** 托盘设置改完要立刻生效（图标出现 / 消失不该等到关弹窗），由上层即时落盘 */
+  onTrayChange: (patch: Partial<AppConfig>) => void
   /** 切换界面语言：落盘后整页刷新，交由上层处理，弹窗只负责触发 */
   onChangeLocale: (locale: Locale) => void
   /** 保存并立即应用代理；password 传 undefined 表示保持原密码，空串表示清除 */
@@ -141,6 +144,45 @@ function OptionCard(props: {
         <span className="text-[10px] leading-4 text-muted-foreground">{props.hint}</span>
       ) : null}
     </button>
+  )
+}
+
+/** 开关行：设置里的布尔项（托盘、提醒等）共用，右侧拨动开关 */
+function SwitchRow(props: {
+  label: string
+  hint: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (next: boolean) => void
+}): React.JSX.Element {
+  return (
+    <div
+      className={`flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/60 px-2.5 py-2 ${
+        props.disabled ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-xs font-medium">{props.label}</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground/70">{props.hint}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={props.checked}
+        aria-label={props.label}
+        disabled={props.disabled}
+        onClick={() => props.onChange(!props.checked)}
+        className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed ${
+          props.checked ? 'bg-primary' : 'bg-border'
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow-sm transition-transform ${
+            props.checked ? 'translate-x-4' : ''
+          }`}
+        />
+      </button>
+    </div>
   )
 }
 
@@ -567,6 +609,47 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             <p className="text-[11px] leading-4 text-muted-foreground/70">
               {t('settings.appearance.languageHint')}
             </p>
+          </div>
+        </section>
+
+        <section className="space-y-2 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <AppWindow className="h-4 w-4 text-primary" />
+              {t('settings.tray.title')}
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.tray.summary')}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            <SwitchRow
+              label={t('settings.tray.enable')}
+              hint={t('settings.tray.enableHint')}
+              checked={config.trayEnabled}
+              onChange={(next) => props.onTrayChange({ trayEnabled: next })}
+            />
+            <SwitchRow
+              label={t('settings.tray.closeToTray')}
+              hint={t('settings.tray.closeToTrayHint')}
+              checked={config.closeToTray}
+              disabled={!config.trayEnabled}
+              onChange={(next) => props.onTrayChange({ closeToTray: next })}
+            />
+            <SwitchRow
+              label={t('settings.tray.minimizeToTray')}
+              hint={t('settings.tray.minimizeToTrayHint')}
+              checked={config.minimizeToTray}
+              disabled={!config.trayEnabled}
+              onChange={(next) => props.onTrayChange({ minimizeToTray: next })}
+            />
+            <SwitchRow
+              label={t('settings.tray.notify')}
+              hint={t('settings.tray.notifyHint')}
+              checked={config.trayNotify}
+              disabled={!config.trayEnabled}
+              onChange={(next) => props.onTrayChange({ trayNotify: next })}
+            />
           </div>
         </section>
 

@@ -20,6 +20,17 @@ const zhCN = {
   'settings.appearance.languageHint': '切换后界面会重新加载，已抓取的列表需要重新获取',
   'settings.appearance.languageSuccess': '语言切换成功, 即将自动刷新页面...',
 
+  'settings.tray.title': '托盘与后台',
+  'settings.tray.summary': '关闭窗口后继续下载',
+  'settings.tray.enable': '显示托盘图标',
+  'settings.tray.enableHint': '关掉后关闭窗口会直接退出应用，下载随之中断',
+  'settings.tray.closeToTray': '关闭窗口时收进托盘',
+  'settings.tray.closeToTrayHint': '点关闭只隐藏窗口，下载继续跑；彻底退出请用托盘菜单',
+  'settings.tray.minimizeToTray': '最小化时收进托盘',
+  'settings.tray.minimizeToTrayHint': '点最小化直接隐藏到托盘，不占任务栏',
+  'settings.tray.notify': '后台下载结束时提醒',
+  'settings.tray.notifyHint': '窗口不在前台时，用托盘气泡提示成功与失败数量',
+
   'settings.quality.title': '下载质量',
   'settings.quality.hint': '下载前也可在左栏快速切换',
   'settings.quality.regular': '常规图',
@@ -409,7 +420,6 @@ const zhCN = {
     '未连接 App API 凭据，只显示当前作品。连接凭据后可浏览完整目录并追更。',
   'series.empty': '这个系列还没有可见的作品',
   'series.episodeOrder': '第 {order} 话',
-  'series.pageCount': '{count} 张',
   'watchLater.title': '稍后看',
   'watchLater.hint': '在作品详情里点「稍后看」加入，只保存在本地，不会同步到 pixiv 收藏',
   'watchLater.searchPlaceholder': '搜索标题 / 作者 / ID',
@@ -862,6 +872,20 @@ const en: Record<MessageKey, string> = {
     'Switching reloads the interface; fetched lists will be requested again',
   'settings.appearance.languageSuccess': 'Language switched, page will reload in a moment',
 
+  'settings.tray.title': 'Tray & background',
+  'settings.tray.summary': 'Keep downloading after closing',
+  'settings.tray.enable': 'Show tray icon',
+  'settings.tray.enableHint':
+    'With this off, closing the window quits the app and interrupts downloads',
+  'settings.tray.closeToTray': 'Close to tray',
+  'settings.tray.closeToTrayHint':
+    'The close button only hides the window; downloads keep running. Quit from the tray menu',
+  'settings.tray.minimizeToTray': 'Minimize to tray',
+  'settings.tray.minimizeToTrayHint': 'Minimizing hides the window from the taskbar',
+  'settings.tray.notify': 'Notify when background downloads finish',
+  'settings.tray.notifyHint':
+    'When the window is not in front, show a tray balloon with the success / failure counts',
+
   'settings.quality.title': 'Download quality',
   'settings.quality.hint': 'You can also switch quickly in the left panel before downloading',
   'settings.quality.regular': 'Standard',
@@ -1264,7 +1288,6 @@ const en: Record<MessageKey, string> = {
     'App API credentials are not connected, so only the current work is shown. Connect them to browse the full contents and follow the series.',
   'series.empty': 'No visible works in this series',
   'series.episodeOrder': 'Episode {order}',
-  'series.pageCount': '{count} pages',
   'watchLater.title': 'Watch later',
   'watchLater.hint':
     'Add works from the detail dialog. Saved locally only — not synced to pixiv bookmarks',
@@ -1731,6 +1754,20 @@ const ja: Record<MessageKey, string> = {
     '切り替えると画面を再読み込みします。取得済みの一覧は再取得が必要です',
   'settings.appearance.languageSuccess': '言語を切り替えた。画面を再読み込み中です',
 
+  'settings.tray.title': 'トレイとバックグラウンド',
+  'settings.tray.summary': '閉じてもダウンロードを続ける',
+  'settings.tray.enable': 'トレイアイコンを表示',
+  'settings.tray.enableHint':
+    'オフにするとウィンドウを閉じた時点で終了し、ダウンロードも停止します',
+  'settings.tray.closeToTray': '閉じるときはトレイに格納',
+  'settings.tray.closeToTrayHint':
+    '閉じるボタンはウィンドウを隠すだけで、ダウンロードは継続します。終了はトレイメニューから',
+  'settings.tray.minimizeToTray': '最小化時にトレイへ格納',
+  'settings.tray.minimizeToTrayHint': '最小化でタスクバーから隠し、トレイだけに残します',
+  'settings.tray.notify': 'バックグラウンド完了時に通知',
+  'settings.tray.notifyHint':
+    'ウィンドウが前面にないとき、成功・失敗件数をトレイのバルーンで知らせます',
+
   'settings.quality.title': 'ダウンロード画質',
   'settings.quality.hint': 'ダウンロード前に左パネルからも切り替えられます',
   'settings.quality.regular': '標準画質',
@@ -2132,7 +2169,6 @@ const ja: Record<MessageKey, string> = {
     'App API の認証情報が未接続のため、現在の作品のみ表示しています。接続すると全話の閲覧とフォローができます。',
   'series.empty': 'このシリーズに表示できる作品はありません',
   'series.episodeOrder': '第 {order} 話',
-  'series.pageCount': '{count} ページ',
   'watchLater.title': 'あとで見る',
   'watchLater.hint':
     '作品詳細の「あとで見る」から追加できます。ローカルにのみ保存され、pixiv のブックマークとは同期しません',

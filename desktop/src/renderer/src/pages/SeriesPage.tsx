@@ -15,6 +15,7 @@ import { useI18n } from '@renderer/i18n'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
+import { WorkCard } from '@renderer/components/WorkCard'
 
 interface SeriesPageProps {
   /** App API 凭据状态；追更按钮依赖它 */
@@ -230,40 +231,23 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
         {episodes.length === 0 ? (
           <p className="py-10 text-center text-xs text-muted-foreground">{t('series.empty')}</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {episodes.map((episode) => (
-              <button
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {episodes.map((episode, index) => (
+              <WorkCard
                 key={episode.id}
-                type="button"
-                onClick={() => openPreview(toSearchWork(detail, episode))}
-                className="group overflow-hidden rounded-lg border border-border/60 bg-secondary/40 text-left transition-colors hover:border-border hover:bg-secondary/70"
-              >
-                <span className="relative block aspect-[3/4] bg-secondary/60">
-                  {episode.thumbnail ? (
-                    <img
-                      src={episode.thumbnail}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-                      <ImageOff className="h-5 w-5" />
-                    </span>
-                  )}
-                  <span className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white backdrop-blur">
+                work={toSearchWork(detail, episode)}
+                index={index}
+                aspect="poster"
+                showAuthor={false}
+                onOpen={() => openPreview(toSearchWork(detail, episode))}
+                badge={
+                  <span className="rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white backdrop-blur">
                     {t('series.episodeOrder', { order: episode.order })}
                   </span>
-                </span>
-                <span className="block px-2 py-1.5">
-                  <span className="block truncate text-[11px] text-foreground">{episode.title}</span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {t('series.pageCount', { count: episode.pageCount })}
-                  </span>
-                </span>
-              </button>
+                }
+              />
             ))}
-          </div>
+          </ul>
         )}
       </section>
 

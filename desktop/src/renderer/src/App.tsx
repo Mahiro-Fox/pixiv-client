@@ -570,6 +570,20 @@ export default function App(): React.JSX.Element {
   const testProxy: () => Promise<ProxyTestResult> = () =>
     window.pixiv.testProxy();
 
+  /**
+   * 托盘设置改完立刻落盘，不等到关闭设置弹窗：
+   * 托盘图标要马上出现 / 消失，「关闭窗口收进托盘」也必须在用户点关闭之前就生效。
+   * 只提交这一个 patch —— 不能把整份本地配置写回去，否则会盖掉主进程刚规范化的值。
+   */
+  const saveTrayConfig = async (patch: Partial<AppConfig>): Promise<void> => {
+    updateConfig(patch);
+    try {
+      await window.pixiv.setConfig(patch);
+    } catch (reason) {
+      setError(messageOf(reason));
+    }
+  };
+
   // 主题与语言：配置变化时立即生效；跟随系统时监听系统配色变化
   const themeMode = config?.theme;
   const locale = config?.locale;
@@ -1485,6 +1499,7 @@ export default function App(): React.JSX.Element {
               selfUser={selfUser}
               proxy={proxy}
               onConfigChange={updateConfig}
+              onTrayChange={(patch) => void saveTrayConfig(patch)}
               onChangeLocale={(next) => void changeLocale(next)}
               onSaveProxy={saveProxy}
               onTestProxy={testProxy}

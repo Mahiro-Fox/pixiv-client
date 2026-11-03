@@ -97,12 +97,14 @@ export async function recordView(input: ViewRecordInput): Promise<void> {
   if (!id || !userId) return
 
   const store = await loadStore()
+  const previous = store.entries.find((item) => item.id === id)
   const entry = normalize({
     id,
     title: input.title,
     userId,
     userName: String(input.userName || ''),
-    thumbnail: input.url,
+    // 新一次观看没带缩略图时保留旧图，别把已经记好的封面冲成空串
+    thumbnail: toThumb(String(input.url || '')) || previous?.thumbnail || '',
     pageCount: Number(input.pageCount) || 1,
     xRestrict: Number(input.xRestrict) || 0,
     illustType: Number(input.illustType) || 0,

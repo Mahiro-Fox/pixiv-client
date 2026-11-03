@@ -325,6 +325,17 @@ async function requestPage(
 /** 详情接口给的标签结构与搜索结果不同（tags.tags 里是 { tag, translation }） */
 type RawWorkDetail = Omit<RawSearchWork, 'tags'> & {
   tags?: { tags?: { tag?: string }[] }
+  /**
+   * 作品详情接口不返回 `url`，缩略图只在 `urls` 里（thumb / mini / small…）。
+   * 少了这一层，从用户列表四图打开的详情会带着空缩略图，进而写进浏览记录。
+   */
+  urls?: {
+    mini?: string
+    thumb?: string
+    small?: string
+    regular?: string
+    original?: string
+  }
 }
 
 function detailTags(body: RawWorkDetail): string[] {
@@ -353,7 +364,12 @@ export async function fetchWorkDetail(
   if (data.error || !data.body) return null
 
   const raw = data.body
-  return toSearchWork({ ...raw, tags: detailTags(raw) })
+  return toSearchWork({
+    ...raw,
+    // 详情接口只有 urls，按卡片需要的尺寸取一张，避免落到空缩略图
+    url: raw.url || raw.urls?.thumb || raw.urls?.small || raw.urls?.mini || '',
+    tags: detailTags(raw)
+  })
 }
 
 /**

@@ -123,6 +123,7 @@ import {
   initUpdater,
   installUpdate
 } from './updater'
+import { applyTrayConfig, notifyDownloadDone, refreshTray } from './tray'
 
 interface ActiveRun {
   controller: AbortController
@@ -306,6 +307,70 @@ function broadcast(channel: string, payload: unknown, sender?: WebContents): voi
 
 async function pushQueue(sender?: WebContents): Promise<void> {
   broadcast('queue:changed', listSummaries(), sender)
+  // 托盘菜单的进度与「全部暂停 / 继续」跟着队列走；窗口关进托盘后这是唯一的进度来源
+  refreshTray()
+}
+
+/** 下载结束时同时做两件事：通知界面刷新，以及在窗口不在前台时发托盘提醒 */
+function announceDone(send: (channel: string, payload: unknown) => void, summary: DownloadSummary): void {
+  send('download:done', summary)
+  notifyDownloadDone(summary)
+}
+
+/** 暂停单个任务：运行中只中止它自己的 controller，排队中直接记为未完成 */
+async function pauseJobById(id: string): Promise<boolean> {
+  const job = findJob(id)
+  if (!job) return false
+
+  const run = activeRuns.get(id)
+  if (run) {
+    run.controller.abort('pause')
+  } else {
+    // 还没启动的排队任务没有 controller，直接把快照落成未完成
+    upsertJob({
+      ...job,
+      status: 'paused',
+      progress: { ...job.progress, phase: 'paused', finishedAt: Date.now() }
+    })
+  }
+  return true
+}
+
+/** 继续单个任务：放回队列，由调度器在额度允许时自动启动 */
+async function resumeJobById(id: string): Promise<'ok' | 'missing' | 'running'> {
+  const job = findJob(id)
+  if (!job) return 'missing'
+  if (activeRuns.has(id)) return 'running'
+  // 整体继续时应重新尝试全部失败项，不能沿用之前「只重试一条」的范围
+  upsertJob({
+    ...job,
+    status: 'queued',
+    retry: undefined,
+    error: undefined,
+    progress: { ...job.progress, phase: 'idle', finishedAt: undefined }
+  })
+  return 'ok'
+}
+
+/** 托盘「全部暂停」：运行中与排队中的任务一起停下 */
+export async function pauseAllJobs(): Promise<void> {
+  await loadStore()
+  const targets = listSummaries().filter(
+    (job) => job.status === 'queued' || job.status === 'resolving' || job.status === 'downloading'
+  )
+  for (const job of targets) await pauseJobById(job.id)
+  await pushQueue()
+}
+
+/** 托盘「全部继续」：暂停 / 失败 / 取消过的任务一起重新入队 */
+export async function resumeAllJobs(): Promise<void> {
+  await loadStore()
+  const targets = listSummaries().filter(
+    (job) => job.status === 'paused' || job.status === 'error' || job.status === 'cancelled'
+  )
+  for (const job of targets) await resumeJobById(job.id)
+  await pushQueue()
+  void pumpQueue()
 }
 
 async function executeJob(
@@ -375,7 +440,7 @@ async function executeJob(
 
   try {
     const summary = await promise
-    send('download:done', summary)
+    announceDone(send, summary)
     await pushQueue()
     libraryCache = null
     return summary
@@ -589,7 +654,7 @@ async function executeBatch(
       }
     }
 
-    if (lastSummary && !controller.signal.aborted) send('download:done', lastSummary)
+    if (lastSummary && !controller.signal.aborted) announceDone(send, lastSummary)
     await pushQueue()
     libraryCache = null
 
@@ -658,6 +723,8 @@ export function registerIpcHandlers(): void {
     watchLibraryDir(config.outDir)
     // 并行任务数调大时，排队中的任务可以立刻补位
     void pumpQueue()
+    // 托盘开关 / 关窗行为 / 提醒开关都在这份配置里，改完立即生效
+    applyTrayConfig(config)
     return config
   })
 
@@ -1229,18 +1296,10 @@ export function registerIpcHandlers(): void {
   })
 
   // 继续任务：重新放回队列，由调度器在额度允许时自动启动
-  ipcMain.handle('queue:resume', async (event, id: string) => {
-    const job = findJob(id)
-    if (!job) throw new Error('任务不存在或已完成')
-    if (activeRuns.has(id)) throw new Error('该任务正在下载中')
-    // 整体继续时应重新尝试全部失败项，不能沿用之前「只重试一条」的范围
-    upsertJob({
-      ...job,
-      status: 'queued',
-      retry: undefined,
-      error: undefined,
-      progress: { ...job.progress, phase: 'idle', finishedAt: undefined }
-    })
+  ipcMain.handle('queue:resume', async (_event, id: string) => {
+    const result = await resumeJobById(id)
+    if (result === 'missing') throw new Error('任务不存在或已完成')
+    if (result === 'running') throw new Error('该任务正在下载中')
     await pushQueue()
     void pumpQueue()
     return listSummaries()
@@ -1248,21 +1307,7 @@ export function registerIpcHandlers(): void {
 
   // 暂停单个任务：运行中只中止它自己的 controller，排队中直接转为未完成
   ipcMain.handle('queue:pause', async (_event, id: string) => {
-    const job = findJob(id)
-    if (!job) throw new Error('任务不存在或已完成')
-
-    const run = activeRuns.get(id)
-    if (run) {
-      run.controller.abort('pause')
-    } else {
-      // 还没启动的排队任务没有 controller，直接把快照落成未完成
-      upsertJob({
-        ...job,
-        status: 'paused',
-        progress: { ...job.progress, phase: 'paused', finishedAt: Date.now() }
-      })
-    }
-
+    if (!(await pauseJobById(id))) throw new Error('任务不存在或已完成')
     await pushQueue()
     return listSummaries()
   })

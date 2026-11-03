@@ -1,6 +1,6 @@
 import { Bookmark, BookmarkCheck, Check, Clock3, ExternalLink, Gem, Image as ImageIcon, ImageOff, Layers, Loader2, Plus, X } from 'lucide-react'
 import { useI18n } from '@renderer/i18n'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type * as React from 'react'
 import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage, WorkSeriesNav } from '@shared/types'
@@ -161,22 +161,31 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
     setQuality(props.quality)
   }, [props.quality, work.id])
 
-  // 打开详情即写入浏览记录；同一作品重复打开只更新时间，不产生多条
+  // 打开详情即写入浏览记录；同一作品重复打开只更新时间，不产生多条。
+  // 列表数据偶尔没有缩略图（作品详情接口只给 urls），这时等第一张分页图出来再落一条，
+  // 避免历史里出现 thumbnail 为空、卡片只剩占位底色的条目。
+  const recordedCover = useRef('')
   useEffect(() => {
     if (!work.userId) return
+    const cover = work.url || pages[0]?.regular || pages[0]?.url || ''
+    const key = `${work.id}|${cover}`
+    if (recordedCover.current === key) return
+    // 还没有封面且分页在加载：等拿到第一张图再写，历史条目一次就是完整的
+    if (!cover && loading) return
+    recordedCover.current = key
     void window.pixiv
       .recordView({
         id: work.id,
         title: work.title,
         userId: work.userId,
         userName: work.userName,
-        url: work.url,
+        url: cover,
         pageCount: work.pageCount,
         xRestrict: work.xRestrict,
         illustType: work.illustType
       })
       .catch(() => undefined)
-  }, [work])
+  }, [work, pages, loading])
 
   const srcOf = (page: WorkPage): string => {
     if (quality === 'original') return page.original || page.regular || page.url

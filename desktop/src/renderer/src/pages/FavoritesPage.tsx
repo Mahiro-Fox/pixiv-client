@@ -27,7 +27,6 @@ export function FavoritesPage(): React.JSX.Element {
   const [cookieReady, setCookieReady] = useState(false)
   /** 输入框单独维护，回车/点搜索才提交到 URL，避免逐字符请求 */
   const [input, setInput] = useState(params.get('userId') || '')
-  const [tagInput, setTagInput] = useState(params.get('tag') || '')
 
   const userId = (params.get('userId') || '').trim()
   const rest: BookmarkRest = params.get('rest') === 'hide' ? 'hide' : 'show'
@@ -91,10 +90,6 @@ export function FavoritesPage(): React.JSX.Element {
     apply({ userId: input.trim(), page: '' })
   }
 
-  const submitTag = (): void => {
-    apply({ tag: tagInput.trim(), page: '' })
-  }
-
   const total = content?.total || 0
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -122,7 +117,7 @@ export function FavoritesPage(): React.JSX.Element {
           />
         </div>
         <Button size="sm" className="h-8 text-xs" onClick={submitUser}>
-          <Search />
+          <Search className="h-4 w-4" />
           {t('favorites.load')}
         </Button>
         {self ? (
@@ -156,37 +151,8 @@ export function FavoritesPage(): React.JSX.Element {
               </button>
             ))}
           </div>
-
-          <Input
-            value={tagInput}
-            placeholder={t('favorites.tagPlaceholder')}
-            onChange={(event) => setTagInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') submitTag()
-            }}
-            className="h-8 w-46 text-xs"
-          />
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={submitTag}>
-            {t('favorites.filterTag')}
-          </Button>
         </div>
       </div>
-
-      {tag ? (
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span>{t('favorites.currentTag', { tag })}</span>
-          <button
-            type="button"
-            className="text-primary hover:underline"
-            onClick={() => {
-              setTagInput('')
-              apply({ tag: '', page: '' })
-            }}
-          >
-            {t('favorites.clearTag')}
-          </button>
-        </div>
-      ) : null}
 
       {!cookieReady ? null : !userId ? (
         <div className="flex h-42 flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 text-center">

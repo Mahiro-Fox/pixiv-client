@@ -1,39 +1,19 @@
 import { Clock3, Loader2, Search, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
-import type { SearchWork, ViewHistoryEntry } from '@shared/types'
+import type { ViewHistoryEntry } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
+import { WorkCard } from '@renderer/components/WorkCard'
 import { messageOf } from '@renderer/lib/errors'
 import { useWorkContextMenu } from '@renderer/lib/cardMenu'
 import { useLocalPage } from '@renderer/lib/usePagedQuery'
+import { recordToSearchWork } from '@renderer/lib/workRecords'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 24
-
-/** 浏览记录只有展示信息，预览弹窗仍需要 SearchWork 结构 */
-function toSearchWork(entry: ViewHistoryEntry): SearchWork {
-  return {
-    id: entry.id,
-    title: entry.title,
-    userId: entry.userId,
-    userName: entry.userName,
-    thumbnail: entry.thumbnail,
-    profileImageUrl: '',
-    pageCount: entry.pageCount,
-    width: 0,
-    height: 0,
-    xRestrict: entry.xRestrict,
-    illustType: entry.illustType,
-    tags: [],
-    createDate: '',
-    bookmarkCount: 0,
-    aiType: 0
-  }
-}
 
 /**
  * 浏览记录页：打开过作品详情就自动记一条，仅保存在本地。
@@ -205,47 +185,20 @@ export function HistoryPage(): React.JSX.Element {
             {t('history.noMatch')}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-            {pageItems.map((entry) => (
-              <button
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+            {pageItems.map((entry, index) => (
+              <WorkCard
                 key={entry.id}
-                type="button"
-                title={entry.title}
-                onClick={() => openPreview(toSearchWork(entry))}
-                onContextMenu={(event) => menu.onContextMenu(event, toSearchWork(entry))}
-                className="group flex cursor-zoom-in flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 text-left transition-colors hover:border-primary/50"
-              >
-                <div className="relative aspect-square overflow-hidden bg-secondary/60">
-                  {entry.thumbnail ? (
-                    <img
-                      src={entry.thumbnail}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                      onError={(event) => {
-                        event.currentTarget.style.visibility = 'hidden'
-                      }}
-                    />
-                  ) : null}
-                  {entry.xRestrict >= 1 ? (
-                    <Badge
-                      variant="destructive"
-                      className="absolute left-1 top-1 bg-red-500/85 px-1 py-0 text-[10px] text-white"
-                    >
-                      R-18
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="flex min-w-0 flex-col gap-0.5 px-2.5 py-2">
-                  <p className="line-clamp-2 text-xs font-medium leading-4">{entry.title}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {entry.userName || entry.userId}
-                  </p>
+                work={entry}
+                index={index}
+                onOpen={() => openPreview(recordToSearchWork(entry))}
+                onContextMenu={(event) => menu.onContextMenu(event, recordToSearchWork(entry))}
+                meta={
                   <p className="text-[10px] text-muted-foreground/70">{timeText(entry.at)}</p>
-                </div>
-              </button>
+                }
+              />
             ))}
-          </div>
+          </ul>
         )}
       </div>
 

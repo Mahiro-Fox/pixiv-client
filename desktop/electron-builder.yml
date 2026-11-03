@@ -9,6 +9,11 @@ files:
   - out/**/*
   - package.json
 
+# 托盘图标要在运行时按 process.resourcesPath 读取，asar 内的路径 Tray 读不到
+extraResources:
+  - from: build/tray.ico
+    to: tray.ico
+
 # ffmpeg 是随包的可执行文件，必须解包到 asar 外才能运行。
 # spawn 一个 asar 内的文件在 Windows 上会直接失败（无真实路径）。
 asarUnpack:

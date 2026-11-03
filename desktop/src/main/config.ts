@@ -80,6 +80,11 @@ export function defaultConfig(): AppConfig {
     // 现有界面一直是暗色，首次升级保持原样，用户可自行切换
     theme: 'dark',
     locale: 'zh-CN',
+    // 默认常驻托盘：关窗口不打断下载，最小化仍留在任务栏
+    trayEnabled: true,
+    closeToTray: true,
+    minimizeToTray: false,
+    trayNotify: true,
     proxy: normalizeProxy({ bypassRules: '<local>' })
   }
 }

@@ -1,39 +1,19 @@
 import { Bookmark, Loader2, Search, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
-import type { SearchWork, WatchLaterEntry } from '@shared/types'
+import type { WatchLaterEntry } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pagination } from '@renderer/components/ui/pagination'
+import { WorkCard } from '@renderer/components/WorkCard'
 import { messageOf } from '@renderer/lib/errors'
 import { useWorkContextMenu } from '@renderer/lib/cardMenu'
 import { useLocalPage } from '@renderer/lib/usePagedQuery'
+import { recordToSearchWork } from '@renderer/lib/workRecords'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 const PAGE_SIZE = 24
-
-/** 稍后看只存展示信息，预览弹窗需要 SearchWork 结构 */
-function toSearchWork(entry: WatchLaterEntry): SearchWork {
-  return {
-    id: entry.id,
-    title: entry.title,
-    userId: entry.userId,
-    userName: entry.userName,
-    thumbnail: entry.thumbnail,
-    profileImageUrl: '',
-    pageCount: entry.pageCount,
-    width: 0,
-    height: 0,
-    xRestrict: entry.xRestrict,
-    illustType: entry.illustType,
-    tags: [],
-    createDate: '',
-    bookmarkCount: 0,
-    aiType: 0
-  }
-}
 
 /**
  * 稍后看：在作品详情里手动加入的待看列表，只存本地。
@@ -216,60 +196,34 @@ export function WatchLaterPage(): React.JSX.Element {
             {t('watchLater.noMatch')}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-            {pageItems.map((entry) => (
-              <div
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+            {pageItems.map((entry, index) => (
+              <WorkCard
                 key={entry.id}
-                onContextMenu={(event) => menu.onContextMenu(event, toSearchWork(entry))}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-colors hover:border-primary/50"
-              >
-                <button
-                  type="button"
-                  title={entry.title}
-                  onClick={() => openPreview(toSearchWork(entry))}
-                  className="flex cursor-zoom-in flex-col text-left"
-                >
-                  <div className="relative aspect-square overflow-hidden bg-secondary/60">
-                    {entry.thumbnail ? (
-                      <img
-                        src={entry.thumbnail}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                        onError={(event) => {
-                          event.currentTarget.style.visibility = 'hidden'
-                        }}
-                      />
-                    ) : null}
-                    {entry.xRestrict >= 1 ? (
-                      <Badge
-                        variant="destructive"
-                        className="absolute left-1 top-1 bg-red-500/85 px-1 py-0 text-[10px] text-white"
-                      >
-                        R-18
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div className="flex min-w-0 flex-col gap-0.5 px-2.5 py-2">
-                    <p className="line-clamp-2 text-xs font-medium leading-4">{entry.title}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {entry.userName || entry.userId}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70">{timeText(entry.at)}</p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  title={t('watchLater.remove')}
-                  aria-label={t('watchLater.remove')}
-                  onClick={() => remove(entry.id)}
-                  className="absolute right-1.5 top-1.5 rounded bg-black/55 p-1 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/85 focus:opacity-100 group-hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                work={entry}
+                index={index}
+                onOpen={() => openPreview(recordToSearchWork(entry))}
+                onContextMenu={(event) => menu.onContextMenu(event, recordToSearchWork(entry))}
+                action={
+                  <button
+                    type="button"
+                    title={t('watchLater.remove')}
+                    aria-label={t('watchLater.remove')}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      remove(entry.id)
+                    }}
+                    className="rounded bg-black/55 p-1 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/85 focus:opacity-100 group-hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                }
+                meta={
+                  <p className="text-[10px] text-muted-foreground/70">{timeText(entry.at)}</p>
+                }
+              />
             ))}
-          </div>
+          </ul>
         )}
       </div>
 

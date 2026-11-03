@@ -1,10 +1,8 @@
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   FileDown,
   Filter,
-  ImageOff,
   Images,
   Tags,
   X
@@ -14,122 +12,8 @@ import type * as React from 'react'
 import type { PixivWork, WorkSort } from '@shared/types'
 import { cn } from '@renderer/lib/utils'
 import { useI18n } from '@renderer/i18n'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-
-interface WorkCardProps {
-  work: PixivWork
-  selected: boolean
-  downloaded: boolean
-  onToggle: (id: string) => void
-  onOpen: (work: PixivWork) => void
-}
-
-export function WorkCard({
-  work,
-  selected,
-  downloaded,
-  onToggle,
-  onOpen
-}: WorkCardProps): React.JSX.Element {
-  const { t } = useI18n()
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onToggle(work.id)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onToggle(work.id)
-        }
-      }}
-      className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-xl border bg-card/60 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        selected
-          ? 'border-primary/70 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]'
-          : 'border-border/60 hover:border-border'
-      )}
-    >
-      <div className="relative aspect-square overflow-hidden bg-secondary/60">
-        {work.url ? (
-          <img
-            src={work.url}
-            alt={work.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-            onError={(event) => {
-              event.currentTarget.style.visibility = 'hidden'
-            }}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-            <ImageOff className="h-6 w-6" />
-          </div>
-        )}
-
-        <button
-          type="button"
-          aria-label={selected ? t('works.deselect') : t('works.select')}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggle(work.id)
-          }}
-          className={cn(
-            'absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-md border transition-colors',
-            selected
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-white/40 bg-black/35 text-transparent backdrop-blur hover:border-white/70'
-          )}
-        >
-          <Check className="h-4 w-4" />
-        </button>
-
-        <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
-          {work.pageCount > 1 ? (
-            <Badge variant="outline" className="bg-black/45 backdrop-blur text-white">
-              {t('works.pageCount', { count: work.pageCount })}
-            </Badge>
-          ) : null}
-          {Number(work.illustType) === 2 ? (
-            <Badge className="bg-amber-500/80 text-white backdrop-blur">{t('works.ugoira')}</Badge>
-          ) : null}
-          {Number(work.xRestrict || 0) >= 1 ? (
-            <Badge variant="destructive" className="bg-red-500/80 text-white backdrop-blur">
-              R-18
-            </Badge>
-          ) : null}
-          {Number(work.aiType || 0) === 2 ? (
-            <Badge className="bg-violet-500/80 text-white backdrop-blur">AI</Badge>
-          ) : null}
-        </div>
-
-        {downloaded ? (
-          <Badge variant="success" className="absolute bottom-2 left-2 bg-black/45 backdrop-blur">
-            {t('works.downloaded')}
-          </Badge>
-        ) : null}
-      </div>
-
-      <div className="space-y-1 p-2.5">
-        <p className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-4">{work.title}</p>
-        <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-[11px] text-muted-foreground">{work.userName}</p>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onOpen(work)
-            }}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/10"
-          >
-            {t('works.detail')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { WorkCard } from './WorkCard'
 
 interface WorksGridProps {
   works: PixivWork[]
@@ -355,18 +239,30 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
       </div>
 
       <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-2">
-        <div className="grid grid-cols-2 gap-3 pb-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {props.works.map((work) => (
+        <ul className="grid grid-cols-2 gap-3 pb-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {props.works.map((item, index) => (
             <WorkCard
-              key={work.id}
-              work={work}
-              selected={props.selected.has(work.id)}
-              downloaded={props.downloaded.has(work.id)}
-              onToggle={props.onToggle}
-              onOpen={props.onOpen}
+              key={item.id}
+              work={item}
+              index={index}
+              selected={props.selected.has(item.id)}
+              downloaded={props.downloaded.has(item.id)}
+              onToggle={() => props.onToggle(item.id)}
+              footerAction={
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    props.onOpen(item)
+                  }}
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/10"
+                >
+                  {t('works.detail')}
+                </button>
+              }
             />
           ))}
-        </div>
+        </ul>
       </div>
 
       <footer className="flex shrink-0 items-center justify-center gap-1 border-t border-border/60 py-3">

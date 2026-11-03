@@ -100,12 +100,15 @@ export async function isWatchLater(id: string): Promise<boolean> {
 
 /** 加入稍后看：已存在时只更新时间并置顶，返回最新列表 */
 export async function addWatchLater(input: ViewRecordInput): Promise<WatchLaterEntry[]> {
+  const store = await loadStore()
+  const previous = store.entries.find((item) => item.id === String(input?.id || '').trim())
   const entry = normalize({
     id: input?.id,
     title: input?.title,
     userId: input?.userId,
     userName: input?.userName,
-    thumbnail: input?.url,
+    // 调用方没带缩略图时沿用旧图，避免把已有封面冲成空串
+    thumbnail: input?.url || previous?.thumbnail,
     pageCount: input?.pageCount,
     xRestrict: input?.xRestrict,
     illustType: input?.illustType,
@@ -113,7 +116,6 @@ export async function addWatchLater(input: ViewRecordInput): Promise<WatchLaterE
   })
   if (!entry) return listWatchLater()
 
-  const store = await loadStore()
   store.entries = [entry, ...store.entries.filter((item) => item.id !== entry.id)].slice(
     0,
     MAX_ENTRIES

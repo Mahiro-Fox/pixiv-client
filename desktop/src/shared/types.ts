@@ -145,6 +145,14 @@ export interface AppConfig {
   theme: ThemeMode
   /** 界面语言 */
   locale: Locale
+  /** 托盘：显示托盘图标；关掉后关闭窗口即退出应用 */
+  trayEnabled: boolean
+  /** 托盘：点关闭按钮时收进托盘而不是退出 */
+  closeToTray: boolean
+  /** 托盘：点最小化按钮时收进托盘 */
+  minimizeToTray: boolean
+  /** 托盘：窗口不在前台时，下载结束发系统提醒 */
+  trayNotify: boolean
   /** 应用内网络代理 */
   proxy: ProxyConfig
 }
