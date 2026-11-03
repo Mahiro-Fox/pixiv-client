@@ -117,13 +117,13 @@ export const TOUR_STEPS: TourStep[] = [
     titleKey: 'tour.collect.title',
     bodyKey: 'tour.collect.body'
   },
-  {
-    anchor: 'works-toolbar',
-    fallback: 'works-panel',
-    route: '/workbench',
-    titleKey: 'tour.toolbar.title',
-    bodyKey: 'tour.toolbar.body'
-  },
+  // {
+  //   anchor: 'works-toolbar',
+  //   fallback: 'works-panel',
+  //   route: '/workbench',
+  //   titleKey: 'tour.toolbar.title',
+  //   bodyKey: 'tour.toolbar.body'
+  // },
   {
     anchor: 'workbench-tabs',
     route: '/workbench',

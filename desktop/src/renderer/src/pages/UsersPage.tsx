@@ -1,19 +1,22 @@
 import { Loader2, Search, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { UserSearchResult } from '@shared/types'
+import type { CookieStatus, UserSearchResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Pagination } from '@renderer/components/ui/pagination'
 import { UserCard } from '@renderer/components/UserCard'
 import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
 import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
 import { usePagedQuery } from '@renderer/lib/usePagedQuery'
+import { toast } from '@renderer/lib/toast'
 import { useWorkPreview } from '@renderer/lib/workPreview'
 
 /** 用户搜索页：关键词来自顶栏搜索框，筛选「只看投稿过作品的用户」 */
-export function UsersPage(): React.JSX.Element {
+export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JSX.Element {
   const { t } = useI18n()
+  /** Cookie 状态还没读回来时按「未判定」处理，避免启动时误报未登录 */
+  const loggedOut = cookie !== null && !cookie.hasCookie
   const [params, setParams] = useSearchParams()
   /** 用户卡片右侧的四张作品缩略图共用同一套应用内预览 */
   const { openPreview, previewNode } = useWorkPreview()
@@ -30,10 +33,14 @@ export function UsersPage(): React.JSX.Element {
   /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLDivElement>('users')
 
-  const { data: result, loading, error } = usePagedQuery<UserSearchResult>({
+  const {
+    data: result,
+    loading,
+    error
+  } = usePagedQuery<UserSearchResult>({
     page,
     signature: [word, postedOnly ? 1 : 0, submitVersion].join('|'),
-    skip: !word,
+    skip: !word || loggedOut,
     scroll,
     query: (next) => window.pixiv.searchUsers({ word, page: next, postedOnly }),
     onData: (data) => {
@@ -41,6 +48,17 @@ export function UsersPage(): React.JSX.Element {
       if (page === 1 && data.users.length > 0) setPageSize(data.users.length)
     }
   })
+
+  // 用户搜索在未登录时会直接失败：跳过请求，改用「需要登录」的轻提示；
+  // 把提交序号带进依赖，同一个关键词再提交一次也能重新提示
+  useEffect(() => {
+    if (word && loggedOut) toast.error(t('app.needLogin'))
+  }, [word, loggedOut, submitVersion])
+
+  useEffect(() => {
+    if (!error) return
+    toast.error(error)
+  }, [error])
 
   const apply = (patch: Record<string, string>): void => {
     const next = new URLSearchParams(params)
@@ -81,13 +99,13 @@ export function UsersPage(): React.JSX.Element {
         ) : null}
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
+      {loggedOut ? (
+        // 未登录时搜索接口必然失败，直接在这里说明原因，不再把原始 4xx 摆到页面上
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+          <Users className="h-10 w-10 opacity-40" />
+          <p className="text-sm">{t('app.needLogin')}</p>
         </div>
-      ) : null}
-
-      {!word ? (
+      ) : !word ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
           <Users className="h-10 w-10 opacity-40" />
           <p className="text-sm">{t('users.empty')}</p>

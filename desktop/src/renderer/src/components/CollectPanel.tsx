@@ -636,16 +636,6 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           {props.collecting ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           {props.collecting ? t('collect.collectingWorks') : t('collect.collectWorks')}
         </Button>
-        {isBookmarks && !hasCookie && !config.userId.trim() ? (
-          <p className="text-[11px] leading-4 text-muted-foreground/70">
-            {t('collect.bookmarkLoginHint')}
-          </p>
-        ) : null}
-        {!isBookmarks && !hasCookie ? (
-          <p className="text-[11px] leading-4 text-muted-foreground/70">
-            {t('collect.followingLoginHint')}
-          </p>
-        ) : null}
 
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/10 p-2">
           <div className="flex items-center justify-between gap-2">

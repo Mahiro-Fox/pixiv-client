@@ -8,7 +8,6 @@ import type {
   DownloadItemEvent,
   DownloadProgress,
   PixivWork,
-  SelfUser,
   WorkContent,
   WorkSort
 } from '@shared/types'
@@ -16,8 +15,10 @@ import { applyWorkFilters } from './filters'
 import { worksTag } from './files'
 import { CONFIG_CHANGED_EVENT } from './workActions'
 import { messageOf } from './errors'
+import { toast } from './toast'
 import { translate } from '../i18n'
 import type { Translate } from '../i18n'
+import type { CookieSessionState } from './useCookieSession'
 import { TOUR_DEMO_AUTHOR, type TourAction } from './tour/steps'
 
 /** 结果排序；'default' 保留接口原始顺序 */
@@ -47,8 +48,8 @@ export interface UseWorkCollectionOptions {
   /** 当前是否有下载 / 批量任务在跑：抓取时据此决定是否清空日志 */
   running: boolean
   download: DownloadProgress | null
-  /** 收藏栏留空时要用当前登录账号，所以栏目切换是否「条件齐全」取决于它 */
-  selfUser: SelfUser | null
+  /** 当前登录会话：收藏夹在未登录时必然失败，抓取前要先看它 */
+  session: CookieSessionState
 }
 
 export interface WorkCollectionState {
@@ -113,7 +114,7 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
     setPreview,
     running,
     download,
-    selfUser
+    session
   } = options
 
   const [config, setConfig] = useState<AppConfig | null>(null)
@@ -261,6 +262,14 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
     const cfg: AppConfig = { ...config, ...patch }
     if (patch) setConfig(cfg)
 
+    // 未登录时收藏夹接口必然回 400（pixiv 不给出可读原因），
+    // 在入口就拦下换成轻提示，不把原始错误甩进页面错误条；
+    // Cookie 尚未加载完时不做判断，避免启动时误报
+    if (cfg.contentKind === 'bookmarks' && session.cookie && !session.cookie.hasCookie) {
+      toast.error(t('app.needLogin'))
+      return
+    }
+
     setCollecting(true)
     setError('')
     setCollectProgress(null)
@@ -343,7 +352,8 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
 
     updateConfig({ contentKind: next, tag: nextTag })
     // 收藏栏留空会用当前登录账号，所以登录状态已知时也算条件齐全
-    const ready = config.userId.trim() !== '' || (next === 'bookmarks' && Boolean(selfUser?.id))
+    const ready =
+      config.userId.trim() !== '' || (next === 'bookmarks' && Boolean(session.selfUser?.id))
     if (ready) {
       void collect({ contentKind: next, tag: nextTag, offset: 0 }, { quietEmpty: true })
     }

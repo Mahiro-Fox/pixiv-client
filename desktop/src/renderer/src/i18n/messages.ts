@@ -241,6 +241,7 @@ const zhCN = {
   'app.enqueued': '{count} 个作品已加入下载队列',
   'app.noWorksBookmarks': '收藏夹里没有作品，请检查用户 ID、收藏类型或登录状态',
   'app.noWorks': '没有取到作品，请检查用户 ID、标签或登录状态',
+  'app.needLogin': '该操作需要先登录 pixiv：请在设置里登录后再试',
   'app.partialFail': '{count} 个分页抓取失败，列表可能不完整',
   'collect.tagSuggest': '标签建议',
   'collect.removeTag': '移除 {tag}',
@@ -273,9 +274,9 @@ const zhCN = {
   'collect.delay': '请求间隔（秒）',
   'collect.collectingWorks': '正在抓取作品列表…',
   'collect.collectWorks': '抓取作品列表',
-  'collect.bookmarkLoginHint': '收藏栏目需要先登录（用户 ID 留空时用当前登录账号），或直接填写用户 ID',
+  'collect.bookmarkLoginHint':
+    '收藏栏目需要先登录（用户 ID 留空时用当前登录账号），或直接填写用户 ID',
   'collect.fromFollowing': '从关注列表选择画师',
-  'collect.followingLoginHint': '读取关注列表需要先登录',
   'collect.quality': '下载质量',
   'collect.qualityRegular': '常规图',
   'collect.qualityOriginal': '高清原图',
@@ -310,7 +311,8 @@ const zhCN = {
   'works.tagFilterHint': '按该作者的作品标签筛选（同 pixiv 高级搜索）',
   'works.tagClear': '清除标签筛选，重新抓取全部作品',
   'tags.title': '按标签筛选作品',
-  'tags.description': '列出该作者全部作品用过的标签，选中后按该标签重新抓取；与顶栏的过滤规则相互独立。',
+  'tags.description':
+    '列出该作者全部作品用过的标签，选中后按该标签重新抓取；与顶栏的过滤规则相互独立。',
   'tags.search': '搜索标签',
   'tags.loading': '正在读取标签…',
   'tags.total': '共 {count} 个标签',
@@ -421,8 +423,7 @@ const zhCN = {
   'series.watch': '追更',
   'series.watching': '已追更',
   'series.openWeb': '在 pixiv 查看系列',
-  'series.webLimited':
-    '未连接 App API 凭据，只显示当前作品。连接凭据后可浏览完整目录并追更。',
+  'series.webLimited': '未连接 App API 凭据，只显示当前作品。连接凭据后可浏览完整目录并追更。',
   'series.empty': '这个系列还没有可见的作品',
   'series.episodeOrder': '第 {order} 话',
   'watchLater.title': '稍后看',
@@ -540,8 +541,7 @@ const zhCN = {
   'filter.excludeTags': '排除标签',
   'filter.excludeTagsHint': '匹配作品标签，同时兜底匹配标题与作者名',
   'filter.excludeTagsPlaceholder': '例如：漫画, アニメ',
-  'filter.blockHint':
-    '以下屏蔽规则全局生效：搜索结果、用户主页、收藏与下载都不会再出现这些作品',
+  'filter.blockHint': '以下屏蔽规则全局生效：搜索结果、用户主页、收藏与下载都不会再出现这些作品',
   'filter.blockTags': '屏蔽标签',
   'filter.blockTagsHint': '逗号或空格分隔，整标签匹配',
   'filter.blockTagsPlaceholder': '例如：AI生成, グロ',
@@ -551,8 +551,7 @@ const zhCN = {
   'filter.manageBlocks': '管理屏蔽名单',
   'filter.manageBlocksCount': '用户 {users} · 标签 {tags}',
   'block.title': '屏蔽管理',
-  'block.description':
-    '本客户端内的本地屏蔽：命中作者或标签的作品不再显示，也不会进入下载队列',
+  'block.description': '本客户端内的本地屏蔽：命中作者或标签的作品不再显示，也不会进入下载队列',
   'block.users': '屏蔽的用户',
   'block.tags': '屏蔽的标签',
   'block.byId': '用户 ID · 精确匹配',
@@ -565,8 +564,7 @@ const zhCN = {
   'block.clear': '清空',
   'block.clearConfirm': '确认清空',
   'block.openProfile': '在 pixiv 打开主页',
-  'block.note':
-    '仅在本客户端生效，不改变 pixiv 账号的屏蔽状态；取消后需要刷新列表才会重新出现。',
+  'block.note': '仅在本客户端生效，不改变 pixiv 账号的屏蔽状态；取消后需要刷新列表才会重新出现。',
 
   'nav.illust': '插画',
   'nav.manga': '漫画',
@@ -850,8 +848,7 @@ const zhCN = {
   'tour.collect.body':
     '列表还是空的话，这一步会自动填一个示例作者并抓一页，后面的步骤才有东西可指。作品列表上方的栏目条可以切全部 / 插画 / 漫画 / 收藏；「收藏」取的就是这个用户 ID 的收藏夹（留空则用当前登录账号）。多个标签用空格隔开，按「与」组合。',
   'tour.toolbar.title': '作品工具栏',
-  'tour.toolbar.body':
-    '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
+  'tour.toolbar.body': '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
   'tour.tabs.title': '三个标签',
   'tour.tabs.body':
     '作品列表、下载任务、下载日志各自独立。任务支持断点续传，失败的条目可以在任务标签里重试或取消。'
@@ -1024,7 +1021,8 @@ const en: Record<MessageKey, string> = {
   'settings.cookie.clearOk': 'Clear',
   'settings.cookie.clearCancel': 'Cancel',
   'settings.cookie.orManual': 'or paste manually',
-  'cookie.expired': 'Your session has expired. Login-only content such as bookmarks will fail to load. Please sign in again',
+  'cookie.expired':
+    'Your session has expired. Login-only content such as bookmarks will fail to load. Please sign in again',
   'cookie.relogin': 'Sign in again',
   'cookie.recheck': 'Check again',
   'cookie.dismiss': 'Dismiss',
@@ -1040,10 +1038,12 @@ const en: Record<MessageKey, string> = {
   'log.statusFailed': 'Failed',
   'log.running': 'Continuing…',
   'follow.title': 'Following',
-  'follow.hint': 'Click any artist to collect their works by user ID, or open their pixiv page first',
+  'follow.hint':
+    'Click any artist to collect their works by user ID, or open their pixiv page first',
   'follow.close': 'Close',
   'follow.loading': 'Loading your following list…',
-  'follow.empty': 'No followed artists were returned. Please check whether your session is still valid',
+  'follow.empty':
+    'No followed artists were returned. Please check whether your session is still valid',
   'follow.noComment': 'This artist has no bio yet',
   'follow.pick': 'Click to collect works →',
   'follow.count': '{from}–{to} of {total}',
@@ -1107,6 +1107,7 @@ const en: Record<MessageKey, string> = {
   'app.noWorksBookmarks':
     'No works in the bookmarks. Check the bookmark user, bookmark type or sign-in status',
   'app.noWorks': 'No works were returned. Check the user ID, tags or sign-in status',
+  'app.needLogin': 'This action requires signing in to pixiv. Sign in from Settings and try again',
   'app.partialFail': '{count} pages failed to load; the list may be incomplete',
   'collect.tagSuggest': 'Tag suggestions',
   'collect.removeTag': 'Remove {tag}',
@@ -1127,8 +1128,7 @@ const en: Record<MessageKey, string> = {
   'collect.tagExtra': 'Additional include tags',
   'collect.tagExtraHintBookmark':
     'When the bookmark tag is empty, all bookmarks are fetched first, then filtered by tag',
-  'collect.tagExtraHintAnd':
-    'Works must contain both the main tag and these tags',
+  'collect.tagExtraHintAnd': 'Works must contain both the main tag and these tags',
   'collect.tagExtraHintOr':
     'Works containing any of these tags match; each tag is fetched separately, so more tags means more requests',
   'collect.tagExtraPlaceholder': 'Press Enter to add, e.g. オリジナル',
@@ -1146,7 +1146,6 @@ const en: Record<MessageKey, string> = {
   'collect.bookmarkLoginHint':
     'The bookmarks column needs a signed-in session (empty ID uses it) or an explicit user ID',
   'collect.fromFollowing': 'Pick an artist from following',
-  'collect.followingLoginHint': 'Loading the following list requires signing in',
   'collect.quality': 'Download quality',
   'collect.qualityRegular': 'Standard',
   'collect.qualityOriginal': 'Original',
@@ -1167,8 +1166,7 @@ const en: Record<MessageKey, string> = {
     'All current results are already downloaded; turn off the filter to see everything',
   'works.emptyFilteredHint':
     '{count} works were removed by filter rules; adjust the rules to see them',
-  'works.emptyHint':
-    'Enter a user ID and tag on the left, then click "Collect works" to start',
+  'works.emptyHint': 'Enter a user ID and tag on the left, then click "Collect works" to start',
   'works.adjustFilter': 'Adjust filter rules',
   'works.viewAll': 'View all works',
   'works.totalPrefix': 'Total ',
@@ -1184,7 +1182,8 @@ const en: Record<MessageKey, string> = {
   'works.tagFilterHint': 'Filter works by tag (same as pixiv advanced search)',
   'works.tagClear': 'Clear the tag filter and refetch all works',
   'tags.title': 'Filter works by tag',
-  'tags.description': 'Every tag used by this author. Picking one refetches with that tag; independent of the filter rules in the top bar.',
+  'tags.description':
+    'Every tag used by this author. Picking one refetches with that tag; independent of the filter rules in the top bar.',
   'tags.search': 'Search tags',
   'tags.loading': 'Loading tags…',
   'tags.total': '{count} tags',
@@ -1319,8 +1318,7 @@ const en: Record<MessageKey, string> = {
   'progress.phaseDone': 'Done',
   'progress.kindApi': 'API',
   'progress.kindCdn': 'Image',
-  'progress.throttleCooldown':
-    '{kind} rate-limit cooldown {seconds}s (concurrency {concurrency})',
+  'progress.throttleCooldown': '{kind} rate-limit cooldown {seconds}s (concurrency {concurrency})',
   'progress.throttleSlowed': 'Slowed down: {kind} concurrency {concurrency}',
   'progress.notStarted': 'Download not started yet',
   'progress.notStartedHint':
@@ -1371,10 +1369,8 @@ const en: Record<MessageKey, string> = {
   'queue.remove': 'Remove',
   'queue.openDir': 'Open folder',
   'queue.loadingFailures': 'Loading the failure list…',
-  'queue.noFailures':
-    'No failed items (works that failed to resolve are re-resolved on retry)',
-  'queue.failuresCount':
-    '{count} items in total; only these are retried',
+  'queue.noFailures': 'No failed items (works that failed to resolve are re-resolved on retry)',
+  'queue.failuresCount': '{count} items in total; only these are retried',
   'queue.kindResolve': 'Resolve',
   'queue.kindDownload': 'Download',
   'preview.dialogLabel': 'Image preview',
@@ -1409,18 +1405,17 @@ const en: Record<MessageKey, string> = {
   'filter.minHeightHint': 'Original height; 0 means no limit',
   'filter.r18': 'Content rating',
   'filter.r18Any': 'All',
-  'filter.r18Only': 'R-18 only (does not apply to the recommendation page, as it lacks an R-18 classification)',
+  'filter.r18Only':
+    'R-18 only (does not apply to the recommendation page, as it lacks an R-18 classification)',
   'filter.r18Exclude': 'Exclude R-18',
   'filter.r18Unsupported':
     'Recommendations come from the App API, where rating is decided by your account settings and the endpoint — this option has no effect here, and applies again on search pages',
   'filter.excludeAi': 'Exclude AI works',
   'filter.excludeKeywords': 'Exclude keywords',
-  'filter.excludeKeywordsHint':
-    'Matches title and artist name; separate by comma or space',
+  'filter.excludeKeywordsHint': 'Matches title and artist name; separate by comma or space',
   'filter.excludeKeywordsPlaceholder': 'e.g. AI, 漫画, まとめ',
   'filter.excludeTags': 'Exclude tags',
-  'filter.excludeTagsHint':
-    'Matches work tags, and also falls back to title and artist name',
+  'filter.excludeTagsHint': 'Matches work tags, and also falls back to title and artist name',
   'filter.excludeTagsPlaceholder': 'e.g. 漫画, アニメ',
   'filter.blockHint':
     'Block rules apply globally: matching works disappear from search, user pages, bookmarks and downloads',
@@ -1708,7 +1703,8 @@ const en: Record<MessageKey, string> = {
     'Updates are disabled in development builds; the installed app checks on launch',
 
   'update.readyTitle': 'Version v{version} is ready',
-  'update.readyHint': 'The package finished downloading in the background — restart to start using it',
+  'update.readyHint':
+    'The package finished downloading in the background — restart to start using it',
   'update.laterHint':
     'Cancel skips installing; this version keeps working. The next launch asks again and reuses the downloaded package instead of fetching it twice',
   'update.restart': 'Restart and install',
@@ -1846,7 +1842,8 @@ const ja: Record<MessageKey, string> = {
   'settings.proxy.applyError': '適用に失敗しました：{message}',
 
   'settings.outDir.title': '保存先',
-  'settings.outDir.hint': '「作者 / 種類」の二階層で保存：{作者ID}_{作者名}/illustration・manga・novel',
+  'settings.outDir.hint':
+    '「作者 / 種類」の二階層で保存：{作者ID}_{作者名}/illustration・manga・novel',
   'settings.outDir.pick': 'フォルダーを選択',
   'settings.outDir.open': 'フォルダーを開く',
 
@@ -1912,9 +1909,11 @@ const ja: Record<MessageKey, string> = {
     'アプリ内で pixiv のログインページを開き、ログイン後にセッション Cookie を自動取得します。手動でのコピーは不要です。pixiv のメールアドレスまたは ID のパスワードでログインしてください',
   'settings.cookie.captchaLoop':
     '認証が繰り返しループする場合（特に画像を 9 分割したパズル形式）は、右下の再読み込みアイコンで別の問題に切り替えてください。それでも解決しない場合はアプリを再起動し、ログインウィンドウを開き直してください',
-  'settings.cookie.loginCancelled': 'ログインが完了しませんでした。保存済みの Cookie は変更されていません',
+  'settings.cookie.loginCancelled':
+    'ログインが完了しませんでした。保存済みの Cookie は変更されていません',
   'settings.cookie.orManual': 'または手動で貼り付け',
-  'cookie.expired': 'ログイン状態が無効になりました。ブックマークなどログインが必要なコンテンツの取得に失敗します。再度ログインしてください',
+  'cookie.expired':
+    'ログイン状態が無効になりました。ブックマークなどログインが必要なコンテンツの取得に失敗します。再度ログインしてください',
   'cookie.relogin': '再ログイン',
   'cookie.recheck': '再確認',
   'cookie.dismiss': '通知を閉じる',
@@ -1930,10 +1929,12 @@ const ja: Record<MessageKey, string> = {
   'log.statusFailed': '失敗',
   'log.running': '続行中…',
   'follow.title': 'フォロー中のユーザー',
-  'follow.hint': '任意の絵師をクリックすると、そのユーザー ID で作品を取得できます。「pixiv」から先にページを見ることもできます',
+  'follow.hint':
+    '任意の絵師をクリックすると、そのユーザー ID で作品を取得できます。「pixiv」から先にページを見ることもできます',
   'follow.close': '閉じる',
   'follow.loading': 'フォローリストを読み込み中…',
-  'follow.empty': 'フォロー中のユーザーを取得できませんでした。ログイン状態が有効か確認してください',
+  'follow.empty':
+    'フォロー中のユーザーを取得できませんでした。ログイン状態が有効か確認してください',
   'follow.noComment': 'この絵師はまだプロフィールを書いていません',
   'follow.pick': 'クリックして作品を取得 →',
   'follow.count': '{from}–{to} / 全 {total} 人',
@@ -1995,6 +1996,8 @@ const ja: Record<MessageKey, string> = {
   'app.noWorksBookmarks':
     'ブックマークに作品がありません。ブックマークしたユーザー、種類、ログイン状態を確認してください',
   'app.noWorks': '作品を取得できませんでした。ユーザー ID、タグ、ログイン状態を確認してください',
+  'app.needLogin':
+    'この操作には pixiv へのログインが必要です。設定からログインしてから再試行してください',
   'app.partialFail': '{count} ページの取得に失敗しました。一覧が不完全な可能性があります',
   'collect.tagSuggest': 'タグ候補',
   'collect.removeTag': '{tag} を削除',
@@ -2033,7 +2036,6 @@ const ja: Record<MessageKey, string> = {
   'collect.bookmarkLoginHint':
     'ブックマーク欄はログインが必要です（ID が空欄ならログイン中のアカウントを使用）。またはユーザー ID を入力してください',
   'collect.fromFollowing': 'フォローリストから絵師を選択',
-  'collect.followingLoginHint': 'フォローリストの取得にはログインが必要です',
   'collect.quality': 'ダウンロード画質',
   'collect.qualityRegular': '標準画質',
   'collect.qualityOriginal': '原寸画像',
@@ -2071,7 +2073,8 @@ const ja: Record<MessageKey, string> = {
   'works.tagFilterHint': 'この作者の作品をタグで絞り込む（pixiv の高度な検索と同じ）',
   'works.tagClear': 'タグ絞り込みを解除して全作品を取得',
   'tags.title': 'タグで作品を絞り込む',
-  'tags.description': 'この作者の全作品で使われたタグの一覧です。選ぶとそのタグで取り直します。上部のフィルター規則とは独立しています。',
+  'tags.description':
+    'この作者の全作品で使われたタグの一覧です。選ぶとそのタグで取り直します。上部のフィルター規則とは独立しています。',
   'tags.search': 'タグを検索',
   'tags.loading': 'タグを読み込み中…',
   'tags.total': '全 {count} タグ',
@@ -2258,8 +2261,7 @@ const ja: Record<MessageKey, string> = {
   'queue.remove': '削除',
   'queue.openDir': 'フォルダーを開く',
   'queue.loadingFailures': '失敗リストを読み込み中…',
-  'queue.noFailures':
-    '失敗項目はありません（解析に失敗した作品は再試行時に再解析されます）',
+  'queue.noFailures': '失敗項目はありません（解析に失敗した作品は再試行時に再解析されます）',
   'queue.failuresCount': '合計 {count} 件。再試行時はこれらだけを処理します',
   'queue.kindResolve': '解析',
   'queue.kindDownload': 'ダウンロード',
@@ -2304,8 +2306,7 @@ const ja: Record<MessageKey, string> = {
   'filter.excludeKeywordsHint': 'タイトルと作者名に一致。カンマまたはスペース区切り',
   'filter.excludeKeywordsPlaceholder': '例：AI, 漫画, まとめ',
   'filter.excludeTags': '除外タグ',
-  'filter.excludeTagsHint':
-    '作品タグに一致。タイトルと作者名にもフォールバック一致します',
+  'filter.excludeTagsHint': '作品タグに一致。タイトルと作者名にもフォールバック一致します',
   'filter.excludeTagsPlaceholder': '例：漫画, アニメ',
   'filter.blockHint':
     '以下のブロックは全体に適用されます：検索・ユーザーページ・ブックマーク・ダウンロードから除外されます',
@@ -2588,7 +2589,8 @@ const ja: Record<MessageKey, string> = {
   'settings.update.install': '再起動してインストール',
   'settings.update.upToDate': '最新バージョンです',
   'settings.update.error': 'アップデート確認に失敗：{message}',
-  'settings.update.unsupported': '開発版では更新を確認しません。インストール版は起動時に自動確認します',
+  'settings.update.unsupported':
+    '開発版では更新を確認しません。インストール版は起動時に自動確認します',
 
   'update.readyTitle': 'バージョン v{version} の準備ができました',
   'update.readyHint':

@@ -175,7 +175,7 @@ export default function App(): React.JSX.Element {
     setPreview,
     running: downloadEvents.running,
     download: downloadEvents.download,
-    selfUser: session.selfUser
+    session
   })
   /** 下载队列操作 */
   const queueActions = useQueueActions({
@@ -543,7 +543,7 @@ export default function App(): React.JSX.Element {
                   <Route path="/novel/series/:seriesId" element={<NovelSeriesPage />} />
                   <Route path="/novel/local" element={<NovelLocalReaderPage />} />
                   <Route path="/series/:seriesId" element={<SeriesPage oauth={session.oauth} />} />
-                  <Route path="/users" element={<UsersPage />} />
+                  <Route path="/users" element={<UsersPage cookie={session.cookie} />} />
                   <Route path="/users/following" element={<UsersFollowingPage />} />
                   <Route
                     path="/user/:userId"
