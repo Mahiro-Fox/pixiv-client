@@ -1,6 +1,6 @@
-import { fetchJsonWithHeaders, postFormWithHeaders } from './http'
-import { pixivAcceptLanguage } from './lang'
-import { getAccessToken, getOAuthStatus } from './oauth'
+import { fetchJsonWithHeaders, postFormWithHeaders } from './http';
+import { pixivAcceptLanguage } from './lang';
+import { getAccessToken, getOAuthStatus } from './oauth';
 
 /**
  * pixiv App API 通道。
@@ -9,10 +9,10 @@ import { getAccessToken, getOAuthStatus } from './oauth'
  * 与读取用的 `www.pixiv.net` + Cookie 是两套体系。
  * 这里只做「带上凭据发 GET」，限流复用 http.ts 的全局 API 闸门。
  */
-export const APP_BASE = 'https://app-api.pixiv.net'
+export const APP_BASE = 'https://app-api.pixiv.net';
 
 /** App API 要求客户端 UA；与 oauth.ts 刷新 token 时保持一致 */
-const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)'
+const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)';
 
 function appHeaders(): Record<string, string> {
   return {
@@ -22,8 +22,8 @@ function appHeaders(): Record<string, string> {
     'App-Version': '6.140.2',
     // 网页接口靠 `lang` 参数，App API 没有这个参数，只能由请求头决定译文
     'Accept-Language': pixivAcceptLanguage(),
-    Referer: `${APP_BASE}/`
-  }
+    Referer: `${APP_BASE}/`,
+  };
 }
 
 /**
@@ -31,26 +31,29 @@ function appHeaders(): Record<string, string> {
  * 只放行 app-api.pixiv.net，避免把任意地址交给主进程去请求。
  */
 export function resolveAppUrl(pathOrUrl: string): string {
-  const value = String(pathOrUrl || '').trim()
-  if (!value) return APP_BASE
+  const value = String(pathOrUrl || '').trim();
+  if (!value) return APP_BASE;
   if (!/^https?:\/\//i.test(value)) {
-    return `${APP_BASE}${value.startsWith('/') ? '' : '/'}${value}`
+    return `${APP_BASE}${value.startsWith('/') ? '' : '/'}${value}`;
   }
-  const url = new URL(value)
+  const url = new URL(value);
   if (url.hostname !== 'app-api.pixiv.net') {
-    throw new Error('拒绝访问非 App API 地址')
+    throw new Error('拒绝访问非 App API 地址');
   }
-  return url.toString()
+  return url.toString();
 }
 
 /** App API GET：自动取 token（过期前续期）并补全客户端请求头 */
-export async function appApiGet<T>(pathOrUrl: string, signal?: AbortSignal): Promise<T> {
-  const token = await getAccessToken()
+export async function appApiGet<T>(
+  pathOrUrl: string,
+  signal?: AbortSignal
+): Promise<T> {
+  const token = await getAccessToken();
   return fetchJsonWithHeaders<T>(
     resolveAppUrl(pathOrUrl),
     { ...appHeaders(), Authorization: `Bearer ${token}` },
     signal
-  )
+  );
 }
 
 /**
@@ -62,29 +65,34 @@ export async function appApiPost<T>(
   form: Record<string, string>,
   signal?: AbortSignal
 ): Promise<T> {
-  const token = await getAccessToken()
-  return postFormWithHeaders<T>(resolveAppUrl(path), form, {
-    ...appHeaders(),
-    Authorization: `Bearer ${token}`
-  }, signal)
+  const token = await getAccessToken();
+  return postFormWithHeaders<T>(
+    resolveAppUrl(path),
+    form,
+    {
+      ...appHeaders(),
+      Authorization: `Bearer ${token}`,
+    },
+    signal
+  );
 }
 
 /** 写操作前置检查：没有凭据时给出可执行的提示，而不是直接抛 401 */
 export async function ensureAppConnected(): Promise<void> {
-  const status = await getOAuthStatus()
+  const status = await getOAuthStatus();
   if (!status.connected) {
-    throw new Error('写操作需要先连接 App API 凭据（设置 → App API 凭据）')
+    throw new Error('写操作需要先连接 App API 凭据（设置 → App API 凭据）');
   }
 }
 
 /** 把 App API 的 401 / 403 翻成能看懂的提示，避免界面层暴露 `HTTP 401` */
 export function explainAppError(error: unknown): Error {
-  const text = error instanceof Error ? error.message : String(error)
+  const text = error instanceof Error ? error.message : String(error);
   if (/HTTP 401/.test(text)) {
-    return new Error('App API 凭据已失效，请在设置中重新连接')
+    return new Error('App API 凭据已失效，请在设置中重新连接');
   }
   if (/HTTP 403/.test(text)) {
-    return new Error('没有权限执行该操作，请确认账号状态')
+    return new Error('没有权限执行该操作，请确认账号状态');
   }
-  return error instanceof Error ? error : new Error(text)
+  return error instanceof Error ? error : new Error(text);
 }

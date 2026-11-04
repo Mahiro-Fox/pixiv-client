@@ -1,17 +1,20 @@
-import * as ProgressPrimitive from '@radix-ui/react-progress'
-import * as React from 'react'
-import { cn } from '@renderer/utils/ui'
+import * as ProgressPrimitive from '@radix-ui/react-progress';
+import { cn } from '@renderer/utils/ui';
+import * as React from 'react';
 
 const Progress = React.forwardRef<
   React.ComponentRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
 >(({ className, value, ...props }, ref) => {
-  const percent = Math.min(100, Math.max(0, Number(value) || 0))
+  const percent = Math.min(100, Math.max(0, Number(value) || 0));
 
   return (
     <ProgressPrimitive.Root
       ref={ref}
-      className={cn('relative h-2 w-full overflow-hidden rounded-full bg-primary/20', className)}
+      className={cn(
+        'relative h-2 w-full overflow-hidden rounded-full bg-primary/20',
+        className
+      )}
       {...props}
     >
       <ProgressPrimitive.Indicator
@@ -19,8 +22,8 @@ const Progress = React.forwardRef<
         style={{ transform: `translateX(-${100 - percent}%)` }}
       />
     </ProgressPrimitive.Root>
-  )
-})
-Progress.displayName = ProgressPrimitive.Root.displayName
+  );
+});
+Progress.displayName = ProgressPrimitive.Root.displayName;
 
-export { Progress }
+export { Progress };

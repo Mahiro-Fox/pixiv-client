@@ -1,5 +1,5 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useLayoutEffectOnActive } from 'keepalive-for-react'
+import { useLayoutEffectOnActive } from 'keepalive-for-react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * 滚动位置记忆。
@@ -11,29 +11,29 @@ import { useLayoutEffectOnActive } from 'keepalive-for-react'
  * 数据按 key 存在内存里（最多 60 条），重启应用即失效。
  */
 
-const store = new Map<string, number>()
+const store = new Map<string, number>();
 
-const MAX_ENTRIES = 60
+const MAX_ENTRIES = 60;
 
 export function readPageScroll(key: string): number {
-  return store.get(key) ?? 0
+  return store.get(key) ?? 0;
 }
 
 function remember(key: string, top: number): void {
-  if (!key || !Number.isFinite(top)) return
-  store.set(key, Math.max(0, Math.round(top)))
+  if (!key || !Number.isFinite(top)) return;
+  store.set(key, Math.max(0, Math.round(top)));
   while (store.size > MAX_ENTRIES) {
-    const oldest = store.keys().next().value
-    if (oldest === undefined) break
-    store.delete(oldest)
+    const oldest = store.keys().next().value;
+    if (oldest === undefined) break;
+    store.delete(oldest);
   }
 }
 
 export interface ScrollMemory<T extends HTMLElement> {
   /** 挂到滚动容器上（用回调 ref，元素挂载 / 重新挂载时都能触发还原） */
-  ref: (node: T | null) => void
+  ref: (node: T | null) => void;
   /** 整批数据重置时把位置归零（同时清掉记忆，避免下次挂载又跳回去） */
-  reset: () => void
+  reset: () => void;
 }
 
 /**
@@ -50,43 +50,45 @@ export interface ScrollMemory<T extends HTMLElement> {
 function useScrollCore<T extends HTMLElement>(
   key: string
 ): ScrollMemory<T> & { nodeRef: React.RefObject<T | null>; attached: number } {
-  const nodeRef = useRef<T | null>(null)
-  const [attached, setAttached] = useState(0)
+  const nodeRef = useRef<T | null>(null);
+  const [attached, setAttached] = useState(0);
   /** 当前生效的键：滚动监听始终写到这里 */
-  const keyRef = useRef(key)
+  const keyRef = useRef(key);
 
   const ref = useCallback((node: T | null) => {
-    nodeRef.current = node
+    nodeRef.current = node;
     // 每次挂载 / 卸载都递增，驱动下面的 layout effect 重新执行
-    setAttached((value) => value + 1)
-  }, [])
+    setAttached((value) => value + 1);
+  }, []);
 
   useLayoutEffect(() => {
-    const node = nodeRef.current
-    keyRef.current = key
-    if (!node) return
+    const node = nodeRef.current;
+    keyRef.current = key;
+    if (!node) return;
 
-    node.scrollTop = readPageScroll(key)
+    node.scrollTop = readPageScroll(key);
 
-    const onScroll = (): void => remember(keyRef.current, node.scrollTop)
-    node.addEventListener('scroll', onScroll, { passive: true })
-    return () => node.removeEventListener('scroll', onScroll)
-  }, [key, attached])
+    const onScroll = (): void => remember(keyRef.current, node.scrollTop);
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => node.removeEventListener('scroll', onScroll);
+  }, [key, attached]);
 
   const reset = useCallback(() => {
-    remember(key, 0)
-    const node = nodeRef.current
-    if (node) node.scrollTop = 0
-  }, [key])
+    remember(key, 0);
+    const node = nodeRef.current;
+    if (node) node.scrollTop = 0;
+  }, [key]);
 
-  return { ref, reset, nodeRef, attached }
+  return { ref, reset, nodeRef, attached };
 }
 
 /** 普通页面（不进 keep-alive）用：挂载时还原，卸载时归档 */
-export function useScrollMemory<T extends HTMLElement>(key: string): ScrollMemory<T> {
-  const { ref, reset } = useScrollCore<T>(key)
+export function useScrollMemory<T extends HTMLElement>(
+  key: string
+): ScrollMemory<T> {
+  const { ref, reset } = useScrollCore<T>(key);
   // 返回稳定对象，方便直接放进 effect 依赖
-  return useMemo(() => ({ ref, reset }), [ref, reset])
+  return useMemo(() => ({ ref, reset }), [ref, reset]);
 }
 
 /**
@@ -95,23 +97,25 @@ export function useScrollMemory<T extends HTMLElement>(key: string): ScrollMemor
  * 组件不会因路由离开而卸载，但缓存节点离开时会脱离 DOM，滚动位置随之丢失；
  * 所以除了挂载时还原，还要在「重新激活」时再拨一次（rAF 兜底，防止节点还没挂回）。
  */
-export function useKeepAliveScroll<T extends HTMLElement>(key: string): ScrollMemory<T> {
-  const { ref, reset, nodeRef, attached } = useScrollCore<T>(key)
+export function useKeepAliveScroll<T extends HTMLElement>(
+  key: string
+): ScrollMemory<T> {
+  const { ref, reset, nodeRef, attached } = useScrollCore<T>(key);
 
   useLayoutEffectOnActive(
     () => {
       const apply = (): void => {
-        const node = nodeRef.current
-        if (node) node.scrollTop = readPageScroll(key)
-      }
-      apply()
-      const id = requestAnimationFrame(apply)
-      return () => cancelAnimationFrame(id)
+        const node = nodeRef.current;
+        if (node) node.scrollTop = readPageScroll(key);
+      };
+      apply();
+      const id = requestAnimationFrame(apply);
+      return () => cancelAnimationFrame(id);
     },
     [key, attached],
     true
-  )
+  );
 
   // 返回稳定对象（ref / reset 都是 useCallback 常量），可直接放进 effect 依赖
-  return useMemo(() => ({ ref, reset }), [ref, reset])
+  return useMemo(() => ({ ref, reset }), [ref, reset]);
 }

@@ -1,3 +1,13 @@
+import { Badge } from '@renderer/components/ui/badge';
+import { Button } from '@renderer/components/ui/button';
+import { useI18n } from '@renderer/i18n';
+import {
+  loadReadNovels,
+  loadSeriesPosition,
+  readingMinutes,
+} from '@renderer/utils/novel';
+import { toast } from '@renderer/utils/toast';
+import type { NovelDownloadProgress, NovelSeriesDetail } from '@shared/types';
 import {
   ArrowLeft,
   Bell,
@@ -9,129 +19,129 @@ import {
   Loader2,
   Play,
   Timer,
-  User
-} from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import type * as React from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import type { NovelDownloadProgress, NovelSeriesDetail } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { loadReadNovels, loadSeriesPosition, readingMinutes } from '@renderer/utils/novel'
-import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
+  User,
+} from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import type * as React from 'react';
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 function dirOf(file: string): string {
-  const index = Math.max(file.lastIndexOf('\\'), file.lastIndexOf('/'))
-  return index > 0 ? file.slice(0, index) : file
+  const index = Math.max(file.lastIndexOf('\\'), file.lastIndexOf('/'));
+  return index > 0 ? file.slice(0, index) : file;
 }
 
 export function NovelSeriesPage(): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const { seriesId = '' } = useParams()
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { seriesId = '' } = useParams();
 
-  const [detail, setDetail] = useState<NovelSeriesDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [downloading, setDownloading] = useState(false)
-  const [progress, setProgress] = useState<NovelDownloadProgress | null>(null)
-  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadNovels())
-  const [watching, setWatching] = useState(false)
-  const [watchBusy, setWatchBusy] = useState(false)
-  const [oauthConnected, setOauthConnected] = useState(false)
+  const [detail, setDetail] = useState<NovelSeriesDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = useState<NovelDownloadProgress | null>(null);
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadNovels());
+  const [watching, setWatching] = useState(false);
+  const [watchBusy, setWatchBusy] = useState(false);
+  const [oauthConnected, setOauthConnected] = useState(false);
 
   useEffect(() => {
-    if (!seriesId) return
-    let alive = true
-    setLoading(true)
-    setDetail(null)
+    if (!seriesId) return;
+    let alive = true;
+    setLoading(true);
+    setDetail(null);
     void window.pixiv
       .getNovelSeries(seriesId)
       .then((data) => {
-        if (alive) setDetail(data)
+        if (alive) setDetail(data);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [seriesId])
+      alive = false;
+    };
+  }, [seriesId]);
 
-  useEffect(() => window.pixiv.onNovelDownloadProgress((item) => setProgress(item)), [])
+  useEffect(
+    () => window.pixiv.onNovelDownloadProgress((item) => setProgress(item)),
+    []
+  );
 
   // 追更按钮依赖 App API 凭据；网页接口不返回追更状态，单独读一次
   useEffect(() => {
-    if (!seriesId) return
-    let alive = true
-    setWatching(false)
+    if (!seriesId) return;
+    let alive = true;
+    setWatching(false);
     void (async () => {
       try {
-        const status = await window.pixiv.getOAuthStatus()
-        if (!alive) return
-        setOauthConnected(Boolean(status.connected))
-        if (!status.connected) return
-        const state = await window.pixiv.getNovelSeriesWatchState(seriesId)
-        if (alive) setWatching(state)
+        const status = await window.pixiv.getOAuthStatus();
+        if (!alive) return;
+        setOauthConnected(Boolean(status.connected));
+        if (!status.connected) return;
+        const state = await window.pixiv.getNovelSeriesWatchState(seriesId);
+        if (alive) setWatching(state);
       } catch {
         // 状态读不到时按「未追更」处理，按钮仍可点击
       }
-    })()
+    })();
     return () => {
-      alive = false
-    }
-  }, [seriesId])
+      alive = false;
+    };
+  }, [seriesId]);
 
   const toggleWatch = async (): Promise<void> => {
-    if (!detail || watchBusy) return
-    setWatchBusy(true)
+    if (!detail || watchBusy) return;
+    setWatchBusy(true);
     try {
-      const next = !watching
-      await window.pixiv.setNovelSeriesWatch(detail.series.id, next)
-      setWatching(next)
+      const next = !watching;
+      await window.pixiv.setNovelSeriesWatch(detail.series.id, next);
+      setWatching(next);
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setWatchBusy(false)
+      setWatchBusy(false);
     }
-  }
+  };
 
   // 从阅读页返回时重新读取已读标记
   useEffect(() => {
-    setReadIds(loadReadNovels())
-  }, [seriesId])
+    setReadIds(loadReadNovels());
+  }, [seriesId]);
 
-  const position = useMemo(() => loadSeriesPosition(seriesId), [seriesId, readIds])
-  const episodes = detail?.episodes || []
-  const firstEpisode = episodes[0]
+  const position = useMemo(
+    () => loadSeriesPosition(seriesId),
+    [seriesId, readIds]
+  );
+  const episodes = detail?.episodes || [];
+  const firstEpisode = episodes[0];
 
   const download = async (): Promise<void> => {
-    if (downloading) return
-    setDownloading(true)
-    setProgress(null)
+    if (downloading) return;
+    setDownloading(true);
+    setProgress(null);
     try {
-      const result = await window.pixiv.downloadNovel({ seriesId })
+      const result = await window.pixiv.downloadNovel({ seriesId });
       toast.success(t('novel.saved', { path: result.path }), {
         action: {
           label: t('novel.openDir'),
-          onClick: () => void window.pixiv.openDir(dirOf(result.path))
-        }
-      })
+          onClick: () => void window.pixiv.openDir(dirOf(result.path)),
+        },
+      });
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setDownloading(false)
-      setProgress(null)
+      setDownloading(false);
+      setProgress(null);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -139,7 +149,7 @@ export function NovelSeriesPage(): React.JSX.Element {
         <Loader2 className="h-4 w-4 animate-spin" />
         {t('novel.loading')}
       </main>
-    )
+    );
   }
 
   if (!detail) {
@@ -150,7 +160,7 @@ export function NovelSeriesPage(): React.JSX.Element {
           {t('novel.back')}
         </Button>
       </main>
-    )
+    );
   }
 
   return (
@@ -163,7 +173,7 @@ export function NovelSeriesPage(): React.JSX.Element {
       </div>
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
-        <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+        <div className="w-42 relative h-44 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.series.cover ? (
             <img
               src={detail.series.cover}
@@ -180,13 +190,17 @@ export function NovelSeriesPage(): React.JSX.Element {
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start gap-2">
-            <h1 className="flex-1 text-lg font-semibold leading-7">{detail.series.title}</h1>
+            <h1 className="flex-1 text-lg font-semibold leading-7">
+              {detail.series.title}
+            </h1>
             {detail.series.isConcluded ? (
               <Badge variant="outline">{t('novel.concluded')}</Badge>
             ) : (
               <Badge variant="success">{t('novel.serializing')}</Badge>
             )}
-            {detail.series.xRestrict >= 1 ? <Badge variant="destructive">R-18</Badge> : null}
+            {detail.series.xRestrict >= 1 ? (
+              <Badge variant="destructive">R-18</Badge>
+            ) : null}
           </div>
 
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -195,11 +209,21 @@ export function NovelSeriesPage(): React.JSX.Element {
           </p>
 
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span>{t('novel.episodes', { count: detail.series.publishedContentCount })}</span>
-            <span>{t('novel.chars', { count: detail.series.publishedTotalCharacterCount })}</span>
+            <span>
+              {t('novel.episodes', {
+                count: detail.series.publishedContentCount,
+              })}
+            </span>
+            <span>
+              {t('novel.chars', {
+                count: detail.series.publishedTotalCharacterCount,
+              })}
+            </span>
             <span className="flex items-center gap-1">
               <Timer className="h-4 w-4" />
-              {t('novel.readTime', { minutes: readingMinutes(detail.series.publishedReadingTime) })}
+              {t('novel.readTime', {
+                minutes: readingMinutes(detail.series.publishedReadingTime),
+              })}
             </span>
           </div>
 
@@ -224,8 +248,8 @@ export function NovelSeriesPage(): React.JSX.Element {
             <Button
               size="sm"
               onClick={() => {
-                const target = position || firstEpisode?.id
-                if (target) navigate(`/novel/${target}`)
+                const target = position || firstEpisode?.id;
+                if (target) navigate(`/novel/${target}`);
               }}
               disabled={!firstEpisode}
             >
@@ -238,7 +262,11 @@ export function NovelSeriesPage(): React.JSX.Element {
               disabled={downloading || !firstEpisode}
               onClick={() => void download()}
             >
-              {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
+              {downloading ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <FileDown />
+              )}
               {downloading ? t('novel.downloading') : t('novel.downloadSeries')}
             </Button>
             {oauthConnected ? (
@@ -262,14 +290,20 @@ export function NovelSeriesPage(): React.JSX.Element {
               variant="ghost"
               size="sm"
               onClick={() =>
-                window.open(`https://www.pixiv.net/novel/series/${detail.series.id}`, '_blank')
+                window.open(
+                  `https://www.pixiv.net/novel/series/${detail.series.id}`,
+                  '_blank'
+                )
               }
             >
               {t('novel.openWeb')}
             </Button>
             {progress ? (
               <span className="text-[11px] text-muted-foreground">
-                {t('novel.downloadProgress', { done: progress.done, total: progress.total })}
+                {t('novel.downloadProgress', {
+                  done: progress.done,
+                  total: progress.total,
+                })}
               </span>
             ) : null}
           </div>
@@ -283,8 +317,8 @@ export function NovelSeriesPage(): React.JSX.Element {
         </p>
         <div className="space-y-1">
           {episodes.map((episode) => {
-            const isRead = readIds.has(episode.id)
-            const isPosition = position === episode.id
+            const isRead = readIds.has(episode.id);
+            const isPosition = position === episode.id;
             return (
               <button
                 key={episode.id}
@@ -295,7 +329,9 @@ export function NovelSeriesPage(): React.JSX.Element {
                 <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
                   {episode.order}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-xs">{episode.title}</span>
+                <span className="min-w-0 flex-1 truncate text-xs">
+                  {episode.title}
+                </span>
                 <span className="shrink-0 text-[10px] text-muted-foreground">
                   {t('novel.chars', { count: episode.textCount })}
                 </span>
@@ -311,10 +347,10 @@ export function NovelSeriesPage(): React.JSX.Element {
                   </span>
                 ) : null}
               </button>
-            )
+            );
           })}
         </div>
       </section>
     </main>
-  )
+  );
 }

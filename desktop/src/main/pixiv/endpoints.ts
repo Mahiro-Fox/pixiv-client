@@ -18,35 +18,47 @@
  * - 这里只描述「地址长什么样」，不放翻页、合并、重试等逻辑：小说系列目录逐页累加、
  *   系列聚合的多页拉取、动图转码、OAuth 与登录窗口都留在各自模块里。
  */
-import { BASE } from './http'
+import type {
+  AppRankingFilter,
+  AppRankingMode,
+  AuthorContent,
+  BookmarkRest,
+  NovelSearchParams,
+  RankingMode,
+  WorkSearchKind,
+  WorkSearchMode,
+  WorkSearchOrder,
+  WorkSearchScope,
+} from '../../shared/types';
+import { BASE } from './http';
 
-type Param = string | number | boolean | null | undefined
+type Param = string | number | boolean | null | undefined;
 
 /** 路径片段编码；与原先逐处 encodeURIComponent 的行为一致 */
 function seg(value: string): string {
-  return encodeURIComponent(value)
+  return encodeURIComponent(value);
 }
 
 /** 丢掉 undefined / null，其余交给 URLSearchParams：编码与 `ratio=` 这类空值都由它处理 */
 function queryOf(params: Record<string, Param>): string {
-  const search = new URLSearchParams()
+  const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null) continue
-    search.set(key, String(value))
+    if (value === undefined || value === null) continue;
+    search.set(key, String(value));
   }
-  return search.toString()
+  return search.toString();
 }
 
 /** 网页接口完整地址；`lang` 固定排在最后，占位符由 http.ts 统一替换 */
 function web(path: string, params: Record<string, Param> = {}): string {
-  const head = queryOf(params)
-  return `${BASE}${path}?${head ? `${head}&` : ''}lang={lang}`
+  const head = queryOf(params);
+  return `${BASE}${path}?${head ? `${head}&` : ''}lang={lang}`;
 }
 
 /** App API 相对地址（可能带查询串），域名由 appApi.ts 补全 */
 function app(path: string, params: Record<string, Param> = {}): string {
-  const qs = queryOf(params)
-  return qs ? `${path}?${qs}` : path
+  const qs = queryOf(params);
+  return qs ? `${path}?${qs}` : path;
 }
 
 /**
@@ -55,10 +67,8 @@ function app(path: string, params: Record<string, Param> = {}): string {
  * 所以这两处保持原来的字面写法。
  */
 function idsQuery(ids: string[]): string {
-  return ids.map((id) => `ids[]=${seg(id)}`).join('&')
+  return ids.map((id) => `ids[]=${seg(id)}`).join('&');
 }
-
-type IllustKind = 'illust' | 'manga'
 
 export const webEndpoints = {
   // ---- 作品列表 / 关注 / 收藏 -------------------------------------------------
@@ -72,16 +82,20 @@ export const webEndpoints = {
    */
   userTagWorks(
     userId: string,
-    params: { tag: string; offset: number; limit: number; kind?: 'all' | 'illust' | 'manga' }
+    params: { tag: string; offset: number; limit: number; kind?: AuthorContent }
   ): string {
     const category =
-      params.kind === 'illust' ? 'illusts' : params.kind === 'manga' ? 'manga' : 'illustmanga'
+      params.kind === 'illust'
+        ? 'illusts'
+        : params.kind === 'manga'
+          ? 'manga'
+          : 'illustmanga';
     return web(`/ajax/user/${seg(userId)}/${category}/tag`, {
       tag: params.tag,
       offset: params.offset,
       limit: params.limit,
-      sensitiveFilterMode: 'userSetting'
-    })
+      sensitiveFilterMode: 'userSetting',
+    });
   },
 
   /**
@@ -92,18 +106,21 @@ export const webEndpoints = {
    */
   userBookmarks(
     userId: string,
-    params: { tag: string; offset: number; limit: number; rest: string }
+    params: { tag: string; offset: number; limit: number; rest: BookmarkRest }
   ): string {
     return web(`/ajax/user/${seg(userId)}/illusts/bookmarks`, {
       ...params,
       order: 'desc',
-      mode: 'all'
-    })
+      mode: 'all',
+    });
   },
 
   /** 关注列表：返回画师与其最近作品缩略图 */
   following(userId: string, params: { offset: number; limit: number }): string {
-    return web(`/ajax/user/${seg(userId)}/following`, { ...params, rest: 'show' })
+    return web(`/ajax/user/${seg(userId)}/following`, {
+      ...params,
+      rest: 'show',
+    });
   },
 
   // ---- 当前登录账号 -----------------------------------------------------------
@@ -112,27 +129,27 @@ export const webEndpoints = {
    * 这两个接口不接受 `lang`，保持原先的裸地址。
    */
   self(): string {
-    return `${BASE}/ajax/user/self`
+    return `${BASE}/ajax/user/self`;
   },
 
   selfAlt(): string {
-    return `${BASE}/ajax/user/extra`
+    return `${BASE}/ajax/user/extra`;
   },
 
   // ---- 作品详情 ---------------------------------------------------------------
   /** 作品分页（多页作品的每页地址） */
   illustPages(illustId: string): string {
-    return web(`/ajax/illust/${seg(illustId)}/pages`)
+    return web(`/ajax/illust/${seg(illustId)}/pages`);
   },
 
   /** 动图元信息：zip 地址与每帧延迟 */
   ugoiraMeta(illustId: string): string {
-    return web(`/ajax/illust/${seg(illustId)}/ugoira_meta`)
+    return web(`/ajax/illust/${seg(illustId)}/ugoira_meta`);
   },
 
   /** 作品详情；搜索结果与系列网页兜底共用 */
   workDetail(illustId: string): string {
-    return web(`/ajax/illust/${seg(illustId)}`)
+    return web(`/ajax/illust/${seg(illustId)}`);
   },
 
   // ---- 搜索 -------------------------------------------------------------------
@@ -141,7 +158,7 @@ export const webEndpoints = {
    * 比 `/ajax/search/tags/{word}` 只给一组面包屑更接近真实搜索的联想结果。
    */
   tagSuggest(word: string): string {
-    return web('/rpc/cps.php', { keyword: word })
+    return web('/rpc/cps.php', { keyword: word });
   },
 
   /**
@@ -149,16 +166,16 @@ export const webEndpoints = {
    * 只有 illust 带 `type=illust_and_ugoira`，`blt` 仅在有值时出现。
    */
   searchWorks(params: {
-    kind: IllustKind
-    word: string
-    order: string
-    mode: string
-    page: number
-    csw: boolean
-    blt: number
-    scope: 'tag' | 'tag_tc'
+    kind: WorkSearchKind;
+    word: string;
+    order: WorkSearchOrder;
+    mode: WorkSearchMode;
+    page: number;
+    csw: boolean;
+    blt: number;
+    scope: WorkSearchScope;
   }): string {
-    const path = params.kind === 'illust' ? 'illustrations' : 'manga'
+    const path = params.kind === 'illust' ? 'illustrations' : 'manga';
     return web(`/ajax/search/${path}/${seg(params.word)}`, {
       order: params.order,
       mode: params.mode,
@@ -168,33 +185,37 @@ export const webEndpoints = {
       s_mode: params.scope === 'tag_tc' ? 's_tag_tc' : 's_tag',
       ratio: '',
       blt: params.blt > 0 ? params.blt : undefined,
-      type: params.kind === 'illust' ? 'illust_and_ugoira' : undefined
-    })
+      type: params.kind === 'illust' ? 'illust_and_ugoira' : undefined,
+    });
   },
 
   /** 发现（首页推荐）作品；未连接 App API 时的网页兜底 */
-  discovery(mode: string): string {
-    return web('/ajax/illust/discovery', { mode })
+  discovery(mode: WorkSearchMode): string {
+    return web('/ajax/illust/discovery', { mode });
   },
 
   /** 用户搜索；postedOnly 对应 i=1（只搜投稿过的用户） */
-  userSearch(params: { word: string; page: number; postedOnly: boolean }): string {
+  userSearch(params: {
+    word: string;
+    page: number;
+    postedOnly: boolean;
+  }): string {
     return web('/ajax/search/users', {
       nick: params.word,
       s_mode: 's_usr',
       p: params.page,
-      i: params.postedOnly ? 1 : 0
-    })
+      i: params.postedOnly ? 1 : 0,
+    });
   },
 
   // ---- 用户主页 ---------------------------------------------------------------
   userInfo(userId: string): string {
-    return web(`/ajax/user/${seg(userId)}`, { full: 1 })
+    return web(`/ajax/user/${seg(userId)}`, { full: 1 });
   },
 
   /** 该用户全部作品 id（插画 / 漫画 / 小说三组），用于分页取子集 */
   userProfileAll(userId: string): string {
-    return web(`/ajax/user/${seg(userId)}/profile/all`)
+    return web(`/ajax/user/${seg(userId)}/profile/all`);
   },
 
   /**
@@ -202,74 +223,77 @@ export const webEndpoints = {
    * pixiv 把插画与漫画分成两套标签，抓「全部作品」时两边都要读。
    */
   userIllustTags(userId: string): string {
-    return web(`/ajax/user/${seg(userId)}/illusts/tags`, { all: 1 })
+    return web(`/ajax/user/${seg(userId)}/illusts/tags`, { all: 1 });
   },
 
   userMangaTags(userId: string): string {
-    return web(`/ajax/user/${seg(userId)}/manga/tags`, { all: 1 })
+    return web(`/ajax/user/${seg(userId)}/manga/tags`, { all: 1 });
   },
 
   userProfileIllusts(userId: string, ids: string[]): string {
     return (
       `${BASE}/ajax/user/${seg(userId)}/profile/illusts?${idsQuery(ids)}` +
       `&work_category=illustManga&is_first_page=1&lang={lang}`
-    )
+    );
   },
 
   userProfileNovels(userId: string, ids: string[]): string {
     return (
       `${BASE}/ajax/user/${seg(userId)}/profile/novels?${idsQuery(ids)}` +
       `&work_category=novel&is_first_page=1&lang={lang}`
-    )
+    );
   },
 
   // ---- 小说 -------------------------------------------------------------------
-  novelSearch(params: {
-    word: string
-    order: string
-    mode: string
-    target: string
-    page: number
-  }): string {
+  novelSearch(params: NovelSearchParams): string {
     return web(`/ajax/search/novels/${seg(params.word)}`, {
       word: params.word,
       order: params.order,
       mode: params.mode,
       s_mode: params.target,
       p: params.page,
-      gs: 0
-    })
+      gs: 0,
+    });
   },
 
   novelDetail(novelId: string): string {
-    return web(`/ajax/novel/${seg(novelId)}`)
+    return web(`/ajax/novel/${seg(novelId)}`);
   },
 
   novelSeries(seriesId: string): string {
-    return web(`/ajax/novel/series/${seg(seriesId)}`)
+    return web(`/ajax/novel/series/${seg(seriesId)}`);
   },
 
   /** 小说系列目录；limit 超过 30 会直接返回 HTTP 400 */
-  novelSeriesContent(seriesId: string, lastOrder: number, limit: number): string {
+  novelSeriesContent(
+    seriesId: string,
+    lastOrder: number,
+    limit: number
+  ): string {
     return web(`/ajax/novel/series_content/${seg(seriesId)}`, {
       limit,
       last_order: lastOrder,
-      order_by: 'asc'
-    })
+      order_by: 'asc',
+    });
   },
 
   // ---- 排行榜 -----------------------------------------------------------------
   /** 排行榜走网页 ranking.php 的 JSON 输出；date 仅接受 YYYYMMDD */
-  ranking(params: { mode: string; content: string; page: number; date?: string }): string {
+  ranking(params: {
+    mode: RankingMode;
+    content: WorkSearchKind;
+    page: number;
+    date?: string;
+  }): string {
     return web('/ranking.php', {
       mode: params.mode,
       content: params.content,
       p: params.page,
       format: 'json',
-      date: params.date || undefined
-    })
-  }
-}
+      date: params.date || undefined,
+    });
+  },
+};
 
 /**
  * App API 端点。
@@ -279,62 +303,89 @@ export const webEndpoints = {
 export const appEndpoints = {
   // ---- 推荐 -------------------------------------------------------------------
   /** 个性化推荐作品；content_type 决定插画还是漫画 */
-  recommendedIllusts(contentType: IllustKind): string {
+  recommendedIllusts(contentType: WorkSearchKind): string {
     return app('/v1/illust/recommended', {
       filter: 'for_android',
       include_ranking_illusts: true,
       include_privacy_policy: true,
-      content_type: contentType
-    })
+      content_type: contentType,
+    });
   },
 
   recommendedUsers(): string {
-    return app('/v1/user/recommended', { filter: 'for_android' })
+    return app('/v1/user/recommended', { filter: 'for_android' });
+  },
+
+  /**
+   * App 排行榜；网页 ranking.php 的 original / male / female 已经 404，
+   * 这三个榜单与 R-18、漫画榜都改由这里取。
+   * date 要 YYYY-MM-DD（网页端是 YYYYMMDD，由调用方转换），offset 用于翻页。
+   */
+  rankingIllusts(params: {
+    mode: AppRankingMode;
+    filter: AppRankingFilter;
+    date?: string;
+    offset?: number;
+  }): string {
+    return app('/v1/illust/ranking', {
+      mode: params.mode,
+      filter: params.filter,
+      date: params.date || undefined,
+      offset: params.offset,
+    });
   },
 
   // ---- 系列 -------------------------------------------------------------------
   /** 插画 / 漫画系列的作品列表（分页靠响应里的 next_url） */
   illustSeries(seriesId: string): string {
-    return app('/v1/illust/series', { illust_series_id: seriesId, filter: 'for_android' })
+    return app('/v1/illust/series', {
+      illust_series_id: seriesId,
+      filter: 'for_android',
+    });
   },
 
   novelSeries(seriesId: string): string {
-    return app('/v1/novel/series', { series_id: seriesId, filter: 'for_android' })
+    return app('/v1/novel/series', {
+      series_id: seriesId,
+      filter: 'for_android',
+    });
   },
 
   /** 系列追更；kind 选漫画或小说，watch 选加入或退出 */
   seriesWatchlist(kind: 'manga' | 'novel', watch: boolean): string {
-    return `/v1/watchlist/${kind}/${watch ? 'add' : 'delete'}`
+    return `/v1/watchlist/${kind}/${watch ? 'add' : 'delete'}`;
   },
 
   // ---- 收藏 / 关注状态 ---------------------------------------------------------
   illustBookmarkDetail(illustId: string): string {
-    return app('/v2/illust/bookmark/detail', { illust_id: illustId })
+    return app('/v2/illust/bookmark/detail', { illust_id: illustId });
   },
 
   novelBookmarkDetail(novelId: string): string {
-    return app('/v2/novel/bookmark/detail', { novel_id: novelId })
+    return app('/v2/novel/bookmark/detail', { novel_id: novelId });
   },
 
   /** 小说详情；`v2/novel/bookmark/detail` 不可用时从这里的 is_bookmarked 兜底 */
   novelDetail(novelId: string): string {
-    return app('/v1/novel/detail', { novel_id: novelId })
+    return app('/v1/novel/detail', { novel_id: novelId });
   },
 
   userDetail(userId: string): string {
-    return app('/v1/user/detail', { user_id: userId })
+    return app('/v1/user/detail', { user_id: userId });
   },
 
   // ---- 写操作（参数走表单） ----------------------------------------------------
   illustBookmark(bookmarked: boolean): string {
-    return bookmarked ? '/v2/illust/bookmark/add' : '/v1/illust/bookmark/delete'
+    return bookmarked
+      ? '/v2/illust/bookmark/add'
+      : '/v1/illust/bookmark/delete';
   },
 
   novelBookmark(bookmarked: boolean): string {
-    return bookmarked ? '/v2/novel/bookmark/add' : '/v1/novel/bookmark/delete'
+    return bookmarked ? '/v2/novel/bookmark/add' : '/v1/novel/bookmark/delete';
   },
 
   follow(followed: boolean): string {
-    return followed ? '/v1/user/follow/add' : '/v1/user/follow/delete'
-  }
-}
+    return followed ? '/v1/user/follow/add' : '/v1/user/follow/delete';
+  },
+};

@@ -1,11 +1,16 @@
-import { Menu, Notification, Tray, app, nativeImage, shell } from 'electron'
-import type { MenuItemConstructorOptions } from 'electron'
-import { existsSync } from 'node:fs'
-import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import type { AppConfig, DownloadSummary, Locale, QueueSummary } from '../shared/types'
-import { loadConfig } from './config'
-import { listSummaries } from './queue'
+import { existsSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { app, Menu, nativeImage, Notification, shell, Tray } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
+import type {
+  AppConfig,
+  DownloadSummary,
+  Locale,
+  QueueSummary,
+} from '../shared/types';
+import { loadConfig } from './config';
+import { listSummaries } from './queue';
 
 /**
  * 托盘常驻：图标、右键菜单、关闭/最小化到托盘，以及后台下载完成提醒。
@@ -17,27 +22,35 @@ import { listSummaries } from './queue'
  */
 
 /** 仍在流程中的任务：排队中还没开始，但也算「未结束」 */
-const ACTIVE_STATUS: QueueSummary['status'][] = ['queued', 'resolving', 'downloading']
+const ACTIVE_STATUS: QueueSummary['status'][] = [
+  'queued',
+  'resolving',
+  'downloading',
+];
 
 /** 可以「继续」的任务：暂停、失败、取消都能重新入队 */
-const RESUMABLE_STATUS: QueueSummary['status'][] = ['paused', 'error', 'cancelled']
+const RESUMABLE_STATUS: QueueSummary['status'][] = [
+  'paused',
+  'error',
+  'cancelled',
+];
 
 interface TrayText {
-  show: string
-  hide: string
-  progress: string
-  pauseAll: string
-  resumeAll: string
-  openDir: string
-  quit: string
-  tooltipProgress: string
-  tooltipPaused: string
-  hiddenTitle: string
-  hiddenBody: string
-  doneTitle: string
-  doneFailedTitle: string
-  doneBody: string
-  doneFailedBody: string
+  show: string;
+  hide: string;
+  progress: string;
+  pauseAll: string;
+  resumeAll: string;
+  openDir: string;
+  quit: string;
+  tooltipProgress: string;
+  tooltipPaused: string;
+  hiddenTitle: string;
+  hiddenBody: string;
+  doneTitle: string;
+  doneFailedTitle: string;
+  doneBody: string;
+  doneFailedBody: string;
 }
 
 /** 主进程没有 i18n 设施，托盘菜单自带一份最小文案表 */
@@ -53,11 +66,12 @@ const TEXT: Record<Locale, TrayText> = {
     tooltipProgress: 'Pixiv Client\n下载中 {jobs} 个任务 · {percent}%',
     tooltipPaused: 'Pixiv Client\n{count} 个任务已暂停',
     hiddenTitle: 'Pixiv Client 仍在后台运行',
-    hiddenBody: '窗口已收进托盘，点托盘图标可以重新打开；彻底退出请用托盘菜单。',
+    hiddenBody:
+      '窗口已收进托盘，点托盘图标可以重新打开；彻底退出请用托盘菜单。',
     doneTitle: '下载完成',
     doneFailedTitle: '下载结束，有失败项',
     doneBody: '成功 {ok} 个文件，已存在 {exists} 个',
-    doneFailedBody: '成功 {ok} 个，失败 {failed} 个，可在下载任务里重试'
+    doneFailedBody: '成功 {ok} 个，失败 {failed} 个，可在下载任务里重试',
   },
   en: {
     show: 'Show window',
@@ -70,11 +84,13 @@ const TEXT: Record<Locale, TrayText> = {
     tooltipProgress: 'Pixiv Client\nDownloading {jobs} task(s) · {percent}%',
     tooltipPaused: 'Pixiv Client\n{count} task(s) paused',
     hiddenTitle: 'Pixiv Client is still running',
-    hiddenBody: 'The window is in the tray. Click the tray icon to reopen it; use the tray menu to quit.',
+    hiddenBody:
+      'The window is in the tray. Click the tray icon to reopen it; use the tray menu to quit.',
     doneTitle: 'Download finished',
     doneFailedTitle: 'Download finished with failures',
     doneBody: '{ok} file(s) saved, {exists} already existed',
-    doneFailedBody: '{ok} succeeded, {failed} failed — retry from the task list'
+    doneFailedBody:
+      '{ok} succeeded, {failed} failed — retry from the task list',
   },
   ja: {
     show: 'メインウィンドウを表示',
@@ -87,32 +103,34 @@ const TEXT: Record<Locale, TrayText> = {
     tooltipProgress: 'Pixiv Client\nダウンロード中 {jobs} 件 · {percent}%',
     tooltipPaused: 'Pixiv Client\n{count} 件が一時停止中',
     hiddenTitle: 'Pixiv Client はバックグラウンドで動作中',
-    hiddenBody: 'ウィンドウはトレイに格納されました。トレイアイコンをクリックで再表示、終了はトレイメニューから。',
+    hiddenBody:
+      'ウィンドウはトレイに格納されました。トレイアイコンをクリックで再表示、終了はトレイメニューから。',
     doneTitle: 'ダウンロード完了',
     doneFailedTitle: 'ダウンロード終了（失敗あり）',
     doneBody: '{ok} 件保存、{exists} 件は既に存在',
-    doneFailedBody: '成功 {ok} 件、失敗 {failed} 件。タスク一覧から再試行できます'
-  }
-}
+    doneFailedBody:
+      '成功 {ok} 件、失敗 {failed} 件。タスク一覧から再試行できます',
+  },
+};
 
 export interface TrayActions {
   /** 显示并聚焦主窗口；窗口已被销毁时重建 */
-  showWindow: () => void
-  hideWindow: () => void
-  quit: () => void
+  showWindow: () => void;
+  hideWindow: () => void;
+  quit: () => void;
   /** 运行中的任务中止为「未完成」，排队中的直接标记暂停 */
-  pauseAll: () => Promise<void>
-  resumeAll: () => Promise<void>
+  pauseAll: () => Promise<void>;
+  resumeAll: () => Promise<void>;
   /** 窗口是否真的在用户眼前（可见 + 未最小化 + 有焦点），用于决定要不要弹提醒 */
-  isWindowActive: () => boolean
+  isWindowActive: () => boolean;
 }
 
 interface TrayPrefs {
-  enabled: boolean
-  closeToTray: boolean
-  minimizeToTray: boolean
-  notify: boolean
-  locale: Locale
+  enabled: boolean;
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  notify: boolean;
+  locale: Locale;
 }
 
 const prefs: TrayPrefs = {
@@ -120,32 +138,35 @@ const prefs: TrayPrefs = {
   closeToTray: true,
   minimizeToTray: false,
   notify: true,
-  locale: 'zh-CN'
-}
+  locale: 'zh-CN',
+};
 
-let tray: Tray | null = null
-let actions: TrayActions | null = null
+let tray: Tray | null = null;
+let actions: TrayActions | null = null;
 /** 托盘提示气泡只在本次运行中弹一次，避免每次都打扰 */
-let hiddenHintShown = false
+let hiddenHintShown = false;
 /** 缓存 tooltip，鼠标划过时不必每帧重设（Windows 上重设会闪） */
-let lastTooltip = ''
+let lastTooltip = '';
 
 function text(): TrayText {
-  return TEXT[prefs.locale] ?? TEXT['zh-CN']
+  return TEXT[prefs.locale] ?? TEXT['zh-CN'];
 }
 
 /** `{name}` 占位替换；主进程不引 i18n 的插值实现，保持零依赖 */
-function fill(template: string, values: Record<string, string | number>): string {
+function fill(
+  template: string,
+  values: Record<string, string | number>
+): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? String(values[key]) : match
-  )
+  );
 }
 
 function iconPath(): string {
   // 打包后走 extraResources（见 electron-builder.yml），开发时直接用仓库里的 build/
   return app.isPackaged
     ? join(process.resourcesPath, 'tray.ico')
-    : join(app.getAppPath(), 'build', 'tray.ico')
+    : join(app.getAppPath(), 'build', 'tray.ico');
 }
 
 /**
@@ -153,43 +174,46 @@ function iconPath(): string {
  * 托盘图标为空会让 Windows 显示成一块透明占位，比「不好看」更糟。
  */
 function fallbackIcon(): Electron.NativeImage {
-  const size = 16
-  const bitmap = Buffer.alloc(size * size * 4)
+  const size = 16;
+  const bitmap = Buffer.alloc(size * size * 4);
   for (let index = 0; index < size * size; index++) {
     // 内存里是 BGRA，取主题色 #3b82f6
-    bitmap[index * 4] = 0xf6
-    bitmap[index * 4 + 1] = 0x82
-    bitmap[index * 4 + 2] = 0x3b
-    bitmap[index * 4 + 3] = 0xff
+    bitmap[index * 4] = 0xf6;
+    bitmap[index * 4 + 1] = 0x82;
+    bitmap[index * 4 + 2] = 0x3b;
+    bitmap[index * 4 + 3] = 0xff;
   }
-  return nativeImage.createFromBitmap(bitmap, { width: size, height: size })
+  return nativeImage.createFromBitmap(bitmap, { width: size, height: size });
 }
 
 function aggregatePercent(jobs: QueueSummary[]): number {
-  const total = jobs.reduce((sum, job) => sum + job.total, 0)
-  if (total <= 0) return 0
-  const settled = jobs.reduce((sum, job) => sum + job.ok + job.exists + job.failed, 0)
-  return Math.max(0, Math.min(100, Math.round((settled / total) * 100)))
+  const total = jobs.reduce((sum, job) => sum + job.total, 0);
+  if (total <= 0) return 0;
+  const settled = jobs.reduce(
+    (sum, job) => sum + job.ok + job.exists + job.failed,
+    0
+  );
+  return Math.max(0, Math.min(100, Math.round((settled / total) * 100)));
 }
 
 function tooltipOf(jobs: QueueSummary[]): string {
-  const active = jobs.filter((job) => ACTIVE_STATUS.includes(job.status))
+  const active = jobs.filter((job) => ACTIVE_STATUS.includes(job.status));
   if (active.length > 0) {
     return fill(text().tooltipProgress, {
       jobs: active.length,
-      percent: aggregatePercent(active)
-    })
+      percent: aggregatePercent(active),
+    });
   }
-  const paused = jobs.filter((job) => job.status === 'paused').length
-  if (paused > 0) return fill(text().tooltipPaused, { count: paused })
-  return 'Pixiv Client'
+  const paused = jobs.filter((job) => job.status === 'paused').length;
+  if (paused > 0) return fill(text().tooltipPaused, { count: paused });
+  return 'Pixiv Client';
 }
 
 function menuOf(jobs: QueueSummary[]): Menu {
-  const strings = text()
-  const active = jobs.filter((job) => ACTIVE_STATUS.includes(job.status))
-  const resumable = jobs.filter((job) => RESUMABLE_STATUS.includes(job.status))
-  const windowVisible = actions?.isWindowActive() ?? false
+  const strings = text();
+  const active = jobs.filter((job) => ACTIVE_STATUS.includes(job.status));
+  const resumable = jobs.filter((job) => RESUMABLE_STATUS.includes(job.status));
+  const windowVisible = actions?.isWindowActive() ?? false;
 
   const items: MenuItemConstructorOptions[] = [
     // 版本号放在只读首项：用户反馈问题时一眼能看到自己跑的是哪个版本
@@ -197,37 +221,38 @@ function menuOf(jobs: QueueSummary[]): Menu {
     { type: 'separator' },
     {
       label: windowVisible ? strings.hide : strings.show,
-      click: () => (windowVisible ? actions?.hideWindow() : actions?.showWindow())
-    }
-  ]
+      click: () =>
+        windowVisible ? actions?.hideWindow() : actions?.showWindow(),
+    },
+  ];
 
   if (jobs.length > 0) {
-    items.push({ type: 'separator' })
+    items.push({ type: 'separator' });
     if (active.length > 0) {
-      const total = active.reduce((sum, job) => sum + job.total, 0)
+      const total = active.reduce((sum, job) => sum + job.total, 0);
       const settled = active.reduce(
         (sum, job) => sum + job.ok + job.exists + job.failed,
         0
-      )
+      );
       items.push({
         label: fill(strings.progress, {
           jobs: active.length,
           percent: aggregatePercent(active),
           done: settled,
-          total
+          total,
         }),
-        enabled: false
-      })
+        enabled: false,
+      });
       items.push({
         label: strings.pauseAll,
-        click: () => void actions?.pauseAll().catch(() => undefined)
-      })
+        click: () => void actions?.pauseAll().catch(() => undefined),
+      });
     }
     if (resumable.length > 0) {
       items.push({
         label: strings.resumeAll,
-        click: () => void actions?.resumeAll().catch(() => undefined)
-      })
+        click: () => void actions?.resumeAll().catch(() => undefined),
+      });
     }
   }
 
@@ -236,19 +261,19 @@ function menuOf(jobs: QueueSummary[]): Menu {
     { label: strings.openDir, click: () => void openDownloadDir() },
     { type: 'separator' },
     { label: strings.quit, click: () => actions?.quit() }
-  )
+  );
 
-  return Menu.buildFromTemplate(items)
+  return Menu.buildFromTemplate(items);
 }
 
 async function openDownloadDir(): Promise<void> {
   try {
-    const config = await loadConfig()
-    const dir = (config.outDir || '').trim()
-    if (!dir) return
+    const config = await loadConfig();
+    const dir = (config.outDir || '').trim();
+    if (!dir) return;
     // 目录可能被用户删掉了，先确保存在再打开，否则 Shell 只会静默失败
-    await mkdir(dir, { recursive: true })
-    await shell.openPath(dir)
+    await mkdir(dir, { recursive: true });
+    await shell.openPath(dir);
   } catch {
     // 打开目录失败不需要打扰用户
   }
@@ -260,87 +285,90 @@ async function openDownloadDir(): Promise<void> {
  */
 function notify(title: string, body: string): void {
   if (process.platform === 'win32' && tray) {
-    tray.displayBalloon({ title, content: body, iconType: 'info' })
-    return
+    tray.displayBalloon({ title, content: body, iconType: 'info' });
+    return;
   }
-  if (!Notification.isSupported()) return
-  new Notification({ title, body }).show()
+  if (!Notification.isSupported()) return;
+  new Notification({ title, body }).show();
 }
 
 function createTray(): void {
-  if (tray) return
-  const file = iconPath()
+  if (tray) return;
+  const file = iconPath();
   // 直接把路径交给 Tray：Windows 会从多尺寸 ICO 里挑当前 DPI 最合适的一张。
   // 先用 nativeImage 转一道只会拿到单张位图，缩放到托盘尺寸就糊了。
-  tray = new Tray(existsSync(file) ? file : fallbackIcon())
-  tray.setToolTip('Pixiv Client')
+  tray = new Tray(existsSync(file) ? file : fallbackIcon());
+  tray.setToolTip('Pixiv Client');
   // macOS 上设了右键菜单后左键也会弹菜单，再切窗口会变成两次操作，只保留 Windows 的左键切换。
   // 只监听 click：Windows 双击会先派发两次 click 再派发 double-click，两者都绑会先隐藏再显示，反而闪。
   if (process.platform !== 'darwin') {
     tray.on('click', () => {
-      if (actions?.isWindowActive()) actions.hideWindow()
-      else actions?.showWindow()
-    })
+      if (actions?.isWindowActive()) actions.hideWindow();
+      else actions?.showWindow();
+    });
   }
-  refreshTray()
+  refreshTray();
 }
 
 function destroyTray(): void {
-  if (!tray) return
-  tray.destroy()
-  tray = null
-  lastTooltip = ''
+  if (!tray) return;
+  tray.destroy();
+  tray = null;
+  lastTooltip = '';
 }
 
 /**
  * 配置变化时同步托盘：开关图标、更新文案语言与关闭 / 最小化行为。
  * `nextActions` 只在启动时传一次，之后仅同步配置。
  */
-export function applyTrayConfig(config: AppConfig, nextActions?: TrayActions): void {
-  prefs.enabled = config.trayEnabled !== false
-  prefs.closeToTray = config.closeToTray !== false
-  prefs.minimizeToTray = config.minimizeToTray === true
-  prefs.notify = config.trayNotify !== false
-  prefs.locale = config.locale
-  if (nextActions) actions = nextActions
+export function applyTrayConfig(
+  config: AppConfig,
+  nextActions?: TrayActions
+): void {
+  prefs.enabled = config.trayEnabled !== false;
+  prefs.closeToTray = config.closeToTray !== false;
+  prefs.minimizeToTray = config.minimizeToTray === true;
+  prefs.notify = config.trayNotify !== false;
+  prefs.locale = config.locale;
+  if (nextActions) actions = nextActions;
 
-  if (prefs.enabled) createTray()
-  else destroyTray()
-  refreshTray()
+  if (prefs.enabled) createTray();
+  else destroyTray();
+  refreshTray();
 }
 
 /** 队列变化后重建菜单与 tooltip；没有托盘时直接跳过 */
 export function refreshTray(): void {
-  if (!tray) return
-  const jobs = listSummaries()
-  const tooltip = tooltipOf(jobs)
+  if (!tray) return;
+  const jobs = listSummaries();
+  const tooltip = tooltipOf(jobs);
   if (tooltip !== lastTooltip) {
-    tray.setToolTip(tooltip)
-    lastTooltip = tooltip
+    tray.setToolTip(tooltip);
+    lastTooltip = tooltip;
   }
-  tray.setContextMenu(menuOf(jobs))
+  tray.setContextMenu(menuOf(jobs));
 }
 
 /** 托盘是否真的在运行：窗口关闭 / 全关时用它决定要不要保留进程 */
 export function isTrayActive(): boolean {
-  return tray !== null && prefs.enabled
+  return tray !== null && prefs.enabled;
 }
 
 /** 关窗口是「收进托盘」还是「真退出」 */
 export function shouldCloseToTray(): boolean {
-  return isTrayActive() && prefs.closeToTray
+  return isTrayActive() && prefs.closeToTray;
 }
 
 /** 最小化是「收进托盘」还是「留在任务栏」 */
 export function shouldMinimizeToTray(): boolean {
-  return isTrayActive() && prefs.minimizeToTray
+  return isTrayActive() && prefs.minimizeToTray;
 }
 
 /** 第一次收进托盘时提示一次，避免用户以为程序被关掉了 */
 export function notifyHiddenToTray(): void {
-  if (hiddenHintShown || !isTrayActive()) return
-  hiddenHintShown = true
-  notify(text().hiddenTitle, text().hiddenBody)
+  if (hiddenHintShown || !isTrayActive()) return;
+  hiddenHintShown = true;
+  notify(text().hiddenTitle, text().hiddenBody);
 }
 
 /**
@@ -348,22 +376,22 @@ export function notifyHiddenToTray(): void {
  * 用户正盯着界面时界内已有结果，重复提醒反而烦。
  */
 export function notifyDownloadDone(summary: DownloadSummary): void {
-  if (!prefs.notify) return
-  if (summary.phase !== 'done' && summary.phase !== 'error') return
-  if (actions?.isWindowActive()) return
-  const strings = text()
+  if (!prefs.notify) return;
+  if (summary.phase !== 'done' && summary.phase !== 'error') return;
+  if (actions?.isWindowActive()) return;
+  const strings = text();
   if (summary.failed > 0 || summary.resolveFailed > 0) {
     notify(
       strings.doneFailedTitle,
       fill(strings.doneFailedBody, {
         ok: summary.ok + summary.exists,
-        failed: summary.failed + summary.resolveFailed
+        failed: summary.failed + summary.resolveFailed,
       })
-    )
-    return
+    );
+    return;
   }
   notify(
     strings.doneTitle,
     fill(strings.doneBody, { ok: summary.ok, exists: summary.exists })
-  )
+  );
 }

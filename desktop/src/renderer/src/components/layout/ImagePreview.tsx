@@ -1,3 +1,5 @@
+import { useUgoiraFrames, type UgoiraSource } from '@renderer/hooks/useUgoira';
+import { useI18n } from '@renderer/i18n';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,9 +10,10 @@ import {
   RotateCw,
   X,
   ZoomIn,
-  ZoomOut
-} from 'lucide-react'
-import { createPortal } from 'react-dom'
+  ZoomOut,
+} from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { createPortal } from 'react-dom';
 import {
   createContext,
   useCallback,
@@ -19,33 +22,30 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode
-} from 'react'
-import type * as React from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useI18n } from '@renderer/i18n'
-import { useUgoiraFrames, type UgoiraSource } from '@renderer/hooks/useUgoira'
-import { UgoiraPlayer } from '../shared/UgoiraPlayer'
+  type ReactNode,
+} from 'react';
+import type * as React from 'react';
+import { UgoiraPlayer } from '../shared/UgoiraPlayer';
 
 /* -------------------------------- 常量 / 类型 -------------------------------- */
 
-const MIN_SCALE = 0.1
-const MAX_SCALE = 10
-const ZOOM_STEP = 1.25
-const CLICK_SLOP = 6 // 判定为「点击」的最大移动距离(px)
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 10;
+const ZOOM_STEP = 1.25;
+const CLICK_SLOP = 6; // 判定为「点击」的最大移动距离(px)
 
 interface Point {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 interface ViewState {
-  x: number
-  y: number
-  scale: number
-  rotate: number
-  flipX: boolean
-  flipY: boolean
+  x: number;
+  y: number;
+  scale: number;
+  rotate: number;
+  flipX: boolean;
+  flipY: boolean;
 }
 
 const DEFAULT_VIEW: ViewState = {
@@ -54,74 +54,85 @@ const DEFAULT_VIEW: ViewState = {
   scale: 1,
   rotate: 0,
   flipX: false,
-  flipY: false
-}
+  flipY: false,
+};
 
 type Gesture =
-  | { type: 'pan'; startX: number; startY: number; startTx: number; startTy: number }
   | {
-      type: 'pinch'
-      startDist: number
-      startScale: number
-      startTx: number
-      startTy: number
-      startMid: Point
+      type: 'pan';
+      startX: number;
+      startY: number;
+      startTx: number;
+      startTy: number;
     }
+  | {
+      type: 'pinch';
+      startDist: number;
+      startScale: number;
+      startTx: number;
+      startTy: number;
+      startMid: Point;
+    };
 
 export interface PreviewImage {
-  src: string
-  alt: string
-  width?: number
-  height?: number
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
   /**
    * 动图：给来源比给地址更省事 —— 帧要现取现解，播放器自己管加载与节奏。
    * 此时 src 只当占位（首帧封面），取不到帧时仍然显示它。
    */
-  ugoira?: UgoiraSource
+  ugoira?: UgoiraSource;
   /** 本地视频（mp4 / webm）的 blob 地址，走 <video> 播放 */
-  video?: string
+  video?: string;
 }
 
 const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value))
+  Math.min(max, Math.max(min, value));
 
 /* --------------------------------- Context -------------------------------- */
 
 interface PreviewContextValue {
   /** 打开预览：可传单张或数组，index 为初始下标 */
-  open: (images: PreviewImage[], index?: number) => void
-  close: () => void
-  isOpen: boolean
+  open: (images: PreviewImage[], index?: number) => void;
+  close: () => void;
+  isOpen: boolean;
 }
 
-const PreviewContext = createContext<PreviewContextValue | null>(null)
+const PreviewContext = createContext<PreviewContextValue | null>(null);
 
 export function useImagePreview(): PreviewContextValue {
-  const context = useContext(PreviewContext)
-  if (!context) throw new Error('useImagePreview 必须在 <ImagePreviewProvider> 内使用')
-  return context
+  const context = useContext(PreviewContext);
+  if (!context)
+    throw new Error('useImagePreview 必须在 <ImagePreviewProvider> 内使用');
+  return context;
 }
 
 /* -------------------------------- Provider -------------------------------- */
 
-export function ImagePreviewProvider({ children }: { children?: ReactNode }): React.JSX.Element {
-  const [images, setImages] = useState<PreviewImage[]>([])
-  const [index, setIndex] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
+export function ImagePreviewProvider({
+  children,
+}: {
+  children?: ReactNode;
+}): React.JSX.Element {
+  const [images, setImages] = useState<PreviewImage[]>([]);
+  const [index, setIndex] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
 
   const open = useCallback((next: PreviewImage[], start?: number) => {
-    if (next.length === 0) return
-    setImages(next)
-    setIndex(start || 0)
-    setIsOpen(true)
-  }, [])
+    if (next.length === 0) return;
+    setImages(next);
+    setIndex(start || 0);
+    setIsOpen(true);
+  }, []);
 
-  const close = useCallback(() => setIsOpen(false), [])
+  const close = useCallback(() => setIsOpen(false), []);
 
   const value = useMemo<PreviewContextValue>(
     () => ({ open, close, isOpen }),
     [open, close, isOpen]
-  )
+  );
 
   return (
     <PreviewContext.Provider value={value}>
@@ -143,101 +154,106 @@ export function ImagePreviewProvider({ children }: { children?: ReactNode }): Re
           )
         : null}
     </PreviewContext.Provider>
-  )
+  );
 }
 
 /* -------------------------------- Overlay -------------------------------- */
 
 interface PreviewOverlayProps {
-  images: PreviewImage[]
-  index: number
-  onIndexChange: (index: number) => void
-  onClose: () => void
+  images: PreviewImage[];
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
 }
 
 function PreviewOverlay({
   images,
   index,
   onIndexChange,
-  onClose
+  onClose,
 }: PreviewOverlayProps): React.JSX.Element {
-  const { t } = useI18n()
-  const reduce = useReducedMotion()
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useI18n();
+  const reduce = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [view, setView] = useState<ViewState>(DEFAULT_VIEW)
-  const viewRef = useRef<ViewState>(DEFAULT_VIEW)
+  const [view, setView] = useState<ViewState>(DEFAULT_VIEW);
+  const viewRef = useRef<ViewState>(DEFAULT_VIEW);
 
-  const [animate, setAnimate] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-  const [dragging, setDragging] = useState(false)
+  const [animate, setAnimate] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  const pointersRef = useRef<Map<number, Point>>(new Map())
-  const gestureRef = useRef<Gesture | null>(null)
-  const movedRef = useRef(0)
-  const lastPointRef = useRef<Point | null>(null)
-  const downTargetRef = useRef<Element | null>(null)
+  const pointersRef = useRef<Map<number, Point>>(new Map());
+  const gestureRef = useRef<Gesture | null>(null);
+  const movedRef = useRef(0);
+  const lastPointRef = useRef<Point | null>(null);
+  const downTargetRef = useRef<Element | null>(null);
 
   // 给原生事件监听器提供最新数据
-  const latestRef = useRef({ images, index, onIndexChange, onClose })
+  const latestRef = useRef({ images, index, onIndexChange, onClose });
   useEffect(() => {
-    latestRef.current = { images, index, onIndexChange, onClose }
-  }, [images, index, onIndexChange, onClose])
+    latestRef.current = { images, index, onIndexChange, onClose };
+  }, [images, index, onIndexChange, onClose]);
 
-  const current = images[index]
+  const current = images[index];
   // 动图要现取帧；非动图传 null，hook 内部不会发请求
-  const ugoira = useUgoiraFrames(current?.ugoira ?? null)
+  const ugoira = useUgoiraFrames(current?.ugoira ?? null);
 
   /* ------------------------------ 视图更新工具 ------------------------------ */
 
   const patchView = useCallback(
-    (patch: Partial<ViewState> | ((value: ViewState) => Partial<ViewState>)) => {
-      const prev = viewRef.current
-      const next = { ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) }
-      viewRef.current = next
-      setView(next)
+    (
+      patch: Partial<ViewState> | ((value: ViewState) => Partial<ViewState>)
+    ) => {
+      const prev = viewRef.current;
+      const next = {
+        ...prev,
+        ...(typeof patch === 'function' ? patch(prev) : patch),
+      };
+      viewRef.current = next;
+      setView(next);
     },
     []
-  )
+  );
 
   /** 以 anchor(相对容器中心的坐标) 为锚点缩放到 targetScale */
   const applyZoom = useCallback(
     (targetScale: number, anchor: Point = { x: 0, y: 0 }) => {
-      const prev = viewRef.current
-      const scale = clamp(targetScale, MIN_SCALE, MAX_SCALE)
-      if (Math.abs(scale - prev.scale) < 1e-4) return
-      const ratio = scale / prev.scale
+      const prev = viewRef.current;
+      const scale = clamp(targetScale, MIN_SCALE, MAX_SCALE);
+      if (Math.abs(scale - prev.scale) < 1e-4) return;
+      const ratio = scale / prev.scale;
       patchView({
         scale,
         x: anchor.x - ratio * (anchor.x - prev.x),
-        y: anchor.y - ratio * (anchor.y - prev.y)
-      })
+        y: anchor.y - ratio * (anchor.y - prev.y),
+      });
     },
     [patchView]
-  )
+  );
 
   const resetView = useCallback(() => {
-    viewRef.current = DEFAULT_VIEW
-    setView(DEFAULT_VIEW)
-    setAnimate(true)
-  }, [])
+    viewRef.current = DEFAULT_VIEW;
+    setView(DEFAULT_VIEW);
+    setAnimate(true);
+  }, []);
 
   /* ------------------------------ 副作用：切图 / 键盘 / 滚动锁 ------------------------------ */
 
   useEffect(() => {
-    viewRef.current = DEFAULT_VIEW
-    setView(DEFAULT_VIEW)
-    setLoaded(false)
-    setAnimate(false)
-  }, [index])
+    viewRef.current = DEFAULT_VIEW;
+    setView(DEFAULT_VIEW);
+    setLoaded(false);
+    setAnimate(false);
+  }, [index]);
 
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = prevOverflow
-    }
-  }, [])
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -245,79 +261,80 @@ function PreviewOverlay({
         images: list,
         index: current,
         onIndexChange: change,
-        onClose: close
-      } = latestRef.current
+        onClose: close,
+      } = latestRef.current;
 
       switch (event.key) {
         case 'Escape':
-          close()
-          break
+          close();
+          break;
         case 'ArrowLeft':
-          if (list.length > 1) change((current - 1 + list.length) % list.length)
-          break
+          if (list.length > 1)
+            change((current - 1 + list.length) % list.length);
+          break;
         case 'ArrowRight':
-          if (list.length > 1) change((current + 1) % list.length)
-          break
+          if (list.length > 1) change((current + 1) % list.length);
+          break;
         case '+':
         case '=':
-          setAnimate(true)
-          applyZoom(viewRef.current.scale * ZOOM_STEP)
-          break
+          setAnimate(true);
+          applyZoom(viewRef.current.scale * ZOOM_STEP);
+          break;
         case '-':
         case '_':
-          setAnimate(true)
-          applyZoom(viewRef.current.scale / ZOOM_STEP)
-          break
+          setAnimate(true);
+          applyZoom(viewRef.current.scale / ZOOM_STEP);
+          break;
         case '0':
-          resetView()
-          break
+          resetView();
+          break;
         default:
-          return
+          return;
       }
-      event.preventDefault()
-      event.stopPropagation()
-    }
+      event.preventDefault();
+      event.stopPropagation();
+    };
 
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [applyZoom, resetView])
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [applyZoom, resetView]);
 
   /* ------------------------------ 手势（原生监听） ------------------------------ */
 
   useEffect(() => {
-    const element = containerRef.current
-    if (!element) return
+    const element = containerRef.current;
+    if (!element) return;
 
     const getCenter = (): Point => {
-      const rect = element.getBoundingClientRect()
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    }
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
 
     const onPointerDown = (event: PointerEvent): void => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       // 视频控件自己就要拖拽（拖进度条、拖音量），别被手势层抢走
-      if ((event.target as Element | null)?.closest('video')) return
+      if ((event.target as Element | null)?.closest('video')) return;
 
-      const pointers = pointersRef.current
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      const pointers = pointersRef.current;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
       if (pointers.size === 1) {
-        downTargetRef.current = event.target as Element
-        movedRef.current = 0
-        lastPointRef.current = { x: event.clientX, y: event.clientY }
+        downTargetRef.current = event.target as Element;
+        movedRef.current = 0;
+        lastPointRef.current = { x: event.clientX, y: event.clientY };
         gestureRef.current = {
           type: 'pan',
           startX: event.clientX,
           startY: event.clientY,
           startTx: viewRef.current.x,
-          startTy: viewRef.current.y
-        }
-        setAnimate(false)
-        setDragging(true)
+          startTy: viewRef.current.y,
+        };
+        setAnimate(false);
+        setDragging(true);
       } else if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()]
-        if (!a || !b) return
-        const center = getCenter()
+        const [a, b] = [...pointers.values()];
+        if (!a || !b) return;
+        const center = getCenter();
         gestureRef.current = {
           type: 'pinch',
           startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
@@ -326,147 +343,159 @@ function PreviewOverlay({
           startTy: viewRef.current.y,
           startMid: {
             x: (a.x + b.x) / 2 - center.x,
-            y: (a.y + b.y) / 2 - center.y
-          }
-        }
-        setAnimate(false)
-        setDragging(true)
+            y: (a.y + b.y) / 2 - center.y,
+          },
+        };
+        setAnimate(false);
+        setDragging(true);
       }
-    }
+    };
 
     const onPointerMove = (event: PointerEvent): void => {
-      const pointers = pointersRef.current
-      if (!pointers.has(event.pointerId)) return
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      const pointers = pointersRef.current;
+      if (!pointers.has(event.pointerId)) return;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
       if (lastPointRef.current) {
         movedRef.current += Math.hypot(
           event.clientX - lastPointRef.current.x,
           event.clientY - lastPointRef.current.y
-        )
+        );
       }
-      lastPointRef.current = { x: event.clientX, y: event.clientY }
+      lastPointRef.current = { x: event.clientX, y: event.clientY };
 
-      const gesture = gestureRef.current
-      if (!gesture) return
+      const gesture = gestureRef.current;
+      if (!gesture) return;
 
       if (gesture.type === 'pan' && pointers.size === 1) {
         patchView({
           x: gesture.startTx + (event.clientX - gesture.startX),
-          y: gesture.startTy + (event.clientY - gesture.startY)
-        })
-        return
+          y: gesture.startTy + (event.clientY - gesture.startY),
+        });
+        return;
       }
 
       if (gesture.type === 'pinch' && pointers.size >= 2) {
-        const [a, b] = [...pointers.values()]
-        if (!a || !b) return
-        const center = getCenter()
+        const [a, b] = [...pointers.values()];
+        if (!a || !b) return;
+        const center = getCenter();
         const mid = {
           x: (a.x + b.x) / 2 - center.x,
-          y: (a.y + b.y) / 2 - center.y
-        }
-        const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
-        const scale = clamp((gesture.startScale * dist) / gesture.startDist, MIN_SCALE, MAX_SCALE)
-        const ratio = scale / gesture.startScale
+          y: (a.y + b.y) / 2 - center.y,
+        };
+        const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        const scale = clamp(
+          (gesture.startScale * dist) / gesture.startDist,
+          MIN_SCALE,
+          MAX_SCALE
+        );
+        const ratio = scale / gesture.startScale;
         patchView({
           scale,
           x: mid.x - ratio * (gesture.startMid.x - gesture.startTx),
-          y: mid.y - ratio * (gesture.startMid.y - gesture.startTy)
-        })
+          y: mid.y - ratio * (gesture.startMid.y - gesture.startTy),
+        });
       }
-    }
+    };
 
     const onPointerUp = (event: PointerEvent): void => {
-      const pointers = pointersRef.current
-      if (!pointers.has(event.pointerId)) return
-      pointers.delete(event.pointerId)
+      const pointers = pointersRef.current;
+      if (!pointers.has(event.pointerId)) return;
+      pointers.delete(event.pointerId);
 
       if (pointers.size === 0) {
-        gestureRef.current = null
-        lastPointRef.current = null
-        setDragging(false)
+        gestureRef.current = null;
+        lastPointRef.current = null;
+        setDragging(false);
 
-        const target = downTargetRef.current
-        const isBlank = !target?.closest('[data-preview-image], [data-preview-ui]')
-        if (isBlank && movedRef.current < CLICK_SLOP) latestRef.current.onClose()
-        return
+        const target = downTargetRef.current;
+        const isBlank = !target?.closest(
+          '[data-preview-image], [data-preview-ui]'
+        );
+        if (isBlank && movedRef.current < CLICK_SLOP)
+          latestRef.current.onClose();
+        return;
       }
 
       // 双指松开一根 → 回到单指拖拽
       if (pointers.size === 1) {
-        const point = [...pointers.values()][0]
-        if (!point) return
+        const point = [...pointers.values()][0];
+        if (!point) return;
         gestureRef.current = {
           type: 'pan',
           startX: point.x,
           startY: point.y,
           startTx: viewRef.current.x,
-          startTy: viewRef.current.y
-        }
-        lastPointRef.current = point
+          startTy: viewRef.current.y,
+        };
+        lastPointRef.current = point;
       }
-    }
+    };
 
     const onWheel = (event: WheelEvent): void => {
-      event.preventDefault()
-      const center = getCenter()
-      const anchor = { x: event.clientX - center.x, y: event.clientY - center.y }
+      event.preventDefault();
+      const center = getCenter();
+      const anchor = {
+        x: event.clientX - center.x,
+        y: event.clientY - center.y,
+      };
 
       const rawDelta =
         event.deltaMode === 1
           ? event.deltaY * 16
           : event.deltaMode === 2
             ? event.deltaY * 100
-            : event.deltaY
+            : event.deltaY;
       // 触控板捏合通常带 ctrlKey，给一个更灵敏的系数
-      const intensity = event.ctrlKey ? 0.01 : 0.002
-      const factor = Math.exp(-rawDelta * intensity)
+      const intensity = event.ctrlKey ? 0.01 : 0.002;
+      const factor = Math.exp(-rawDelta * intensity);
 
-      setAnimate(false)
-      applyZoom(viewRef.current.scale * factor, anchor)
-    }
+      setAnimate(false);
+      applyZoom(viewRef.current.scale * factor, anchor);
+    };
 
-    element.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerUp)
-    element.addEventListener('wheel', onWheel, { passive: false })
+    element.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    element.addEventListener('wheel', onWheel, { passive: false });
 
     return () => {
-      element.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerUp)
-      element.removeEventListener('wheel', onWheel)
-    }
-  }, [applyZoom, patchView])
+      element.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      element.removeEventListener('wheel', onWheel);
+    };
+  }, [applyZoom, patchView]);
 
   /* --------------------------------- 操作 --------------------------------- */
 
   const zoomIn = (): void => {
-    setAnimate(true)
-    applyZoom(viewRef.current.scale * ZOOM_STEP)
-  }
+    setAnimate(true);
+    applyZoom(viewRef.current.scale * ZOOM_STEP);
+  };
 
   const zoomOut = (): void => {
-    setAnimate(true)
-    applyZoom(viewRef.current.scale / ZOOM_STEP)
-  }
+    setAnimate(true);
+    applyZoom(viewRef.current.scale / ZOOM_STEP);
+  };
 
   const rotate = (): void => {
-    setAnimate(true)
-    patchView((value) => ({ rotate: value.rotate + 90 }))
-  }
+    setAnimate(true);
+    patchView((value) => ({ rotate: value.rotate + 90 }));
+  };
 
-  const toggleFlipX = (): void => patchView((value) => ({ flipX: !value.flipX }))
-  const toggleFlipY = (): void => patchView((value) => ({ flipY: !value.flipY }))
+  const toggleFlipX = (): void =>
+    patchView((value) => ({ flipX: !value.flipX }));
+  const toggleFlipY = (): void =>
+    patchView((value) => ({ flipY: !value.flipY }));
 
   const goTo = (target: number): void => {
-    const total = latestRef.current.images.length
-    if (total <= 1) return
-    latestRef.current.onIndexChange(((target % total) + total) % total)
-  }
+    const total = latestRef.current.images.length;
+    if (total <= 1) return;
+    latestRef.current.onIndexChange(((target % total) + total) % total);
+  };
 
   /* --------------------------------- 渲染 --------------------------------- */
 
@@ -475,8 +504,10 @@ function PreviewOverlay({
     transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale}) rotate(${
       view.rotate
     }deg) scaleX(${view.flipX ? -1 : 1}) scaleY(${view.flipY ? -1 : 1})`,
-    transition: animate ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
-  }
+    transition: animate
+      ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)'
+      : 'none',
+  };
 
   return (
     <motion.div
@@ -509,7 +540,9 @@ function PreviewOverlay({
               style={transformStyle}
             />
           ) : ugoira.error ? (
-            <p className="max-w-md text-center text-xs text-white/70">{ugoira.error}</p>
+            <p className="max-w-md text-center text-xs text-white/70">
+              {ugoira.error}
+            </p>
           ) : null
         ) : current?.video ? (
           <video
@@ -607,10 +640,18 @@ function PreviewOverlay({
         <ToolButton label={t('preview.rotate')} onClick={rotate}>
           <RotateCw size={18} />
         </ToolButton>
-        <ToolButton label={t('preview.flipX')} onClick={toggleFlipX} active={view.flipX}>
+        <ToolButton
+          label={t('preview.flipX')}
+          onClick={toggleFlipX}
+          active={view.flipX}
+        >
           <FlipHorizontal size={18} />
         </ToolButton>
-        <ToolButton label={t('preview.flipY')} onClick={toggleFlipY} active={view.flipY}>
+        <ToolButton
+          label={t('preview.flipY')}
+          onClick={toggleFlipY}
+          active={view.flipY}
+        >
           <FlipVertical size={18} />
         </ToolButton>
         <ToolButton label={t('preview.fitScreen')} onClick={resetView}>
@@ -624,16 +665,16 @@ function PreviewOverlay({
         </ToolButton>
       </div>
     </motion.div>
-  )
+  );
 }
 
 /* -------------------------------- 小组件 -------------------------------- */
 
 function ToolButton(props: {
-  label: string
-  onClick: () => void
-  active?: boolean
-  children: ReactNode
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  children: ReactNode;
 }): React.JSX.Element {
   return (
     <button
@@ -642,24 +683,26 @@ function ToolButton(props: {
       aria-label={props.label}
       onClick={props.onClick}
       className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-        props.active ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/15 hover:text-white'
+        props.active
+          ? 'bg-white/20 text-white'
+          : 'text-white/80 hover:bg-white/15 hover:text-white'
       }`}
     >
       {props.children}
     </button>
-  )
+  );
 }
 
 function Divider(): React.JSX.Element {
-  return <span className="mx-1 h-5 w-px shrink-0 bg-white/15" />
+  return <span className="mx-1 h-5 w-px shrink-0 bg-white/15" />;
 }
 
 function NavButton(props: {
-  side: 'left' | 'right'
-  onClick: () => void
+  side: 'left' | 'right';
+  onClick: () => void;
 }): React.JSX.Element {
-  const { t } = useI18n()
-  const isLeft = props.side === 'left'
+  const { t } = useI18n();
+  const isLeft = props.side === 'left';
   return (
     <button
       type="button"
@@ -672,5 +715,5 @@ function NavButton(props: {
     >
       {isLeft ? <ChevronLeft size={26} /> : <ChevronRight size={26} />}
     </button>
-  )
+  );
 }

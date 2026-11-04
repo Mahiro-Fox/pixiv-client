@@ -1,3 +1,7 @@
+import { useFilteredWorks } from '@renderer/hooks/useFilterContext';
+import { useI18n } from '@renderer/i18n';
+import { cn } from '@renderer/utils/ui';
+import type { PixivWork, SearchWork, WorkSort } from '@shared/types';
 import {
   ChevronLeft,
   ChevronRight,
@@ -5,67 +9,66 @@ import {
   Filter,
   Images,
   Tags,
-  X
-} from 'lucide-react'
-import { useEffect, useRef } from 'react'
-import type * as React from 'react'
-import type { PixivWork, SearchWork, WorkSort } from '@shared/types'
-import { cn } from '@renderer/utils/ui'
-import { useI18n } from '@renderer/i18n'
-import { Button } from '../ui/button'
-import { buildPageItems } from './Pager'
-import { SearchWorkCard, WorkCard } from './WorkCard'
-import { useFilteredWorks } from '@renderer/hooks/useFilterContext'
-import { FilteredHint } from './FilteredHint'
-import { AnimatePresence } from 'motion/react'
+  X,
+} from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import { useEffect, useRef } from 'react';
+import type * as React from 'react';
+import { Button } from '../ui/button';
+import { FilteredHint } from './FilteredHint';
+import { buildPageItems } from './Pager';
+import { SearchWorkCard, WorkCard } from './WorkCard';
 
 interface WorksGridProps {
-  works: PixivWork[]
-  selected: Set<string>
-  downloaded: Set<string>
-  downloadedCount: number
-  collecting: boolean
-  loaded: number
-  total: number
-  filteredTotal: number
-  filteredOut: number
-  onlyNew: boolean
-  sort: WorkSort
+  works: PixivWork[];
+  selected: Set<string>;
+  downloaded: Set<string>;
+  downloadedCount: number;
+  collecting: boolean;
+  loaded: number;
+  total: number;
+  filteredTotal: number;
+  filteredOut: number;
+  onlyNew: boolean;
+  sort: WorkSort;
   /** 已启用的过滤规则数量，用于过滤图标徽标 */
-  activeFilterCount: number
-  onSortChange: (sort: WorkSort) => void
-  onOpenFilter: () => void
+  activeFilterCount: number;
+  onSortChange: (sort: WorkSort) => void;
+  onOpenFilter: () => void;
   /** 当前按标签筛选的标签；空串表示「全部作品」 */
-  activeTag?: string
+  activeTag?: string;
   /** 打开标签筛选弹窗；不传则不显示入口（收藏栏目列的是收藏夹标签，没有作者标签云可列） */
-  onOpenTags?: () => void
+  onOpenTags?: () => void;
   /** 清除标签筛选，回到该作者的全部作品 */
-  onClearTag?: () => void
-  onExport: () => void
-  page: number
-  pageCount: number
-  pageSize: number
-  onPageChange: (page: number) => void
-  onToggle: (id: string) => void
-  onToggleAll: () => void
-  onOpen: (work: PixivWork) => void
-  onToggleOnlyNew: () => void
+  onClearTag?: () => void;
+  onExport: () => void;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onToggle: (id: string) => void;
+  onToggleAll: () => void;
+  onOpen: (work: PixivWork) => void;
+  onToggleOnlyNew: () => void;
 }
 
 export function WorksGrid(props: WorksGridProps): React.JSX.Element {
-  const { t } = useI18n()
-  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useI18n();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // 翻页后回到列表顶部
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [props.page])
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [props.page]);
 
   if (props.collecting && props.filteredTotal === 0) {
     return (
       <div className="grid grid-cols-2 gap-3 pb-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: 10 }, (_, index) => (
-          <div key={index} className="overflow-hidden rounded-xl border border-border/60">
+          <div
+            key={index}
+            className="overflow-hidden rounded-xl border border-border/60"
+          >
             <div className="aspect-square animate-pulse bg-secondary/60" />
             <div className="space-y-2 p-2.5">
               <div className="h-4 w-4/5 animate-pulse rounded bg-secondary/60" />
@@ -74,7 +77,7 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           </div>
         ))}
       </div>
-    )
+    );
   }
 
   if (props.filteredTotal === 0) {
@@ -120,28 +123,44 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
           ) : null}
         </div>
       </div>
-    )
+    );
   }
 
   const allSelected =
-    props.works.length > 0 && props.works.every((work) => props.selected.has(work.id))
-  const selectedOnPage = props.works.filter((work) => props.selected.has(work.id)).length
-  const hasPrev = props.page > 1
-  const hasNext = props.page < props.pageCount
+    props.works.length > 0 &&
+    props.works.every((work) => props.selected.has(work.id));
+  const selectedOnPage = props.works.filter((work) =>
+    props.selected.has(work.id)
+  ).length;
+  const hasPrev = props.page > 1;
+  const hasNext = props.page < props.pageCount;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 pb-3" data-tour="works-toolbar">
+      <div
+        className="flex items-center justify-between gap-2 pb-3"
+        data-tour="works-toolbar"
+      >
         <p className="min-w-0 truncate text-xs text-muted-foreground">
           {t('works.totalPrefix')}
-          <span className="font-medium text-foreground">{props.filteredTotal}</span>
-          {props.onlyNew ? t('works.countSuffixOnlyNew') : t('works.countSuffix')}
-          {props.total > props.filteredTotal ? t('works.apiTotal', { total: props.total }) : ''}
-          {props.filteredOut > 0 ? t('works.filteredOut', { count: props.filteredOut }) : ''}
+          <span className="font-medium text-foreground">
+            {props.filteredTotal}
+          </span>
+          {props.onlyNew
+            ? t('works.countSuffixOnlyNew')
+            : t('works.countSuffix')}
+          {props.total > props.filteredTotal
+            ? t('works.apiTotal', { total: props.total })
+            : ''}
+          {props.filteredOut > 0
+            ? t('works.filteredOut', { count: props.filteredOut })
+            : ''}
           {props.downloadedCount > 0
             ? t('works.downloadedCount', { count: props.downloadedCount })
             : ''}
-          {props.selected.size > 0 ? t('works.selectedCount', { count: props.selected.size }) : ''}
+          {props.selected.size > 0
+            ? t('works.selectedCount', { count: props.selected.size })
+            : ''}
         </p>
         <div className="flex shrink-0 items-center gap-1">
           {/* 按标签筛选：换的是接口查询条件，与右边「过滤」的本地规则不是一回事 */}
@@ -178,7 +197,9 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
 
           <select
             value={props.sort}
-            onChange={(event) => props.onSortChange(event.target.value as WorkSort)}
+            onChange={(event) =>
+              props.onSortChange(event.target.value as WorkSort)
+            }
             aria-label={t('works.sortLabel')}
             className="h-6 rounded-md border border-border/60 bg-background px-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
@@ -218,7 +239,10 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
         </div>
       </div>
 
-      <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-2">
+      <div
+        ref={scrollRef}
+        className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-2"
+      >
         <ul className="grid grid-cols-2 gap-3 pb-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {props.works.map((item, index) => (
             <WorkCard
@@ -232,8 +256,8 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                 <button
                   type="button"
                   onClick={(event) => {
-                    event.stopPropagation()
-                    props.onOpen(item)
+                    event.stopPropagation();
+                    props.onOpen(item);
                   }}
                   className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/10"
                 >
@@ -258,7 +282,10 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
 
         {buildPageItems(props.page, props.pageCount).map((item, index) =>
           item === 'gap' ? (
-            <span key={`gap-${index}`} className="px-1 text-xs text-muted-foreground">
+            <span
+              key={`gap-${index}`}
+              className="px-1 text-xs text-muted-foreground"
+            >
               …
             </span>
           ) : (
@@ -296,31 +323,35 @@ export function WorksGrid(props: WorksGridProps): React.JSX.Element {
                 props.filteredTotal
               )} / ${props.filteredTotal}`
             : ''}
-          {selectedOnPage > 0 ? t('works.pageSelected', { count: selectedOnPage }) : ''}
+          {selectedOnPage > 0
+            ? t('works.pageSelected', { count: selectedOnPage })
+            : ''}
         </span>
       </footer>
     </div>
-  )
+  );
 }
 
 export function SearchWorksGrid(props: {
-  works: SearchWork[]
+  works: SearchWork[];
   /** 滚动容器末尾的附加内容（如触底加载哨兵），必须放在滚动区内才会随滚动进入视口 */
-  footer?: React.ReactNode
+  footer?: React.ReactNode;
   /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
-  ref?: React.Ref<HTMLDivElement>
+  ref?: React.Ref<HTMLDivElement>;
   /** 数据源没有分级维度时（推荐页）忽略「内容分级」规则 */
-  ignoreRating?: boolean
+  ignoreRating?: boolean;
 }): React.JSX.Element {
   // 过滤在这里统一做：搜索 / 排行 / 推荐 / 收藏 / 用户主页都用这个网格，
   // 接一次就等于全站列表都按顶栏那套规则走，页面不必各自接线
   const { items, hidden } = useFilteredWorks(props.works, {
-    ignoreRating: props.ignoreRating
-  })
+    ignoreRating: props.ignoreRating,
+  });
 
   return (
     <div className="scrollbar-thin overflow-y-auto" ref={props.ref}>
-      {hidden > 0 && items.length === 0 ? <FilteredHint count={hidden} /> : null}
+      {hidden > 0 && items.length === 0 ? (
+        <FilteredHint count={hidden} />
+      ) : null}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
         {/* 列表项自身带入场 / 退场动效，这里只管把「被过滤掉的卡片」留住播完退场动画 */}
         <AnimatePresence>
@@ -331,5 +362,5 @@ export function SearchWorksGrid(props: {
       </ul>
       {props.footer}
     </div>
-  )
+  );
 }

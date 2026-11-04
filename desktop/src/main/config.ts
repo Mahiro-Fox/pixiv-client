@@ -1,48 +1,57 @@
-import { app } from 'electron'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import type { AppConfig, CookieSource, CookieStatus, ProxyConfig, ProxyProtocol } from '../shared/types'
-import { DEFAULT_FILE_TEMPLATE } from '../shared/template'
-import { DEFAULT_THROTTLE_LIMITS } from '../shared/throttle'
-import { readSecureText, writeSecureText } from './secureFile'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { app } from 'electron';
+import { DEFAULT_FILE_TEMPLATE } from '../shared/template';
+import { DEFAULT_THROTTLE_LIMITS } from '../shared/throttle';
+import type {
+  AppConfig,
+  CookieSource,
+  CookieStatus,
+  ProxyConfig,
+  ProxyProtocol,
+} from '../shared/types';
+import { readSecureText, writeSecureText } from './secureFile';
 
 function configFile(): string {
-  return path.join(app.getPath('userData'), 'config.json')
+  return path.join(app.getPath('userData'), 'config.json');
 }
 
 function cookieFile(): string {
-  return path.join(app.getPath('userData'), 'pixiv_cookie.txt')
+  return path.join(app.getPath('userData'), 'pixiv_cookie.txt');
 }
 
 function legacyCookieFile(): string {
-  return path.resolve(app.getAppPath(), '..', 'pixiv_cookie.txt')
+  return path.resolve(app.getAppPath(), '..', 'pixiv_cookie.txt');
 }
 
 function defaultOutDir(): string {
   if (!app.isPackaged) {
-    return path.resolve(app.getAppPath(), '..', 'pixiv_downloads')
+    return path.resolve(app.getAppPath(), '..', 'pixiv_downloads');
   }
-  return path.join(app.getPath('downloads'), 'pixiv_downloads')
+  return path.join(app.getPath('downloads'), 'pixiv_downloads');
 }
 
-const PROXY_PROTOCOLS: ProxyProtocol[] = ['http', 'https', 'socks4', 'socks5']
+const PROXY_PROTOCOLS: ProxyProtocol[] = ['http', 'https', 'socks4', 'socks5'];
 
 /** 旧配置没有 proxy 字段，或字段被手改坏时，逐项补齐成可用值 */
 export function normalizeProxy(value: unknown): ProxyConfig {
-  const raw = (value || {}) as Partial<ProxyConfig>
+  const raw = (value || {}) as Partial<ProxyConfig>;
   const protocol = PROXY_PROTOCOLS.includes(raw.protocol as ProxyProtocol)
     ? (raw.protocol as ProxyProtocol)
-    : 'http'
-  const port = Number(raw.port)
+    : 'http';
+  const port = Number(raw.port);
   return {
     enabled: Boolean(raw.enabled),
     protocol,
     host: typeof raw.host === 'string' ? raw.host.trim() : '',
     // 0 表示未填写，交给界面提示；这里只挡掉非法值
-    port: Number.isFinite(port) ? Math.max(0, Math.min(65535, Math.round(port))) : 0,
+    port: Number.isFinite(port)
+      ? Math.max(0, Math.min(65535, Math.round(port)))
+      : 0,
     username: typeof raw.username === 'string' ? raw.username.trim() : '',
-    bypassRules: typeof raw.bypassRules === 'string' ? raw.bypassRules.trim() : '<local>'
-  }
+    bypassRules:
+      typeof raw.bypassRules === 'string' ? raw.bypassRules.trim() : '<local>',
+  };
 }
 
 export function defaultConfig(): AppConfig {
@@ -86,44 +95,51 @@ export function defaultConfig(): AppConfig {
     closeToTray: true,
     minimizeToTray: false,
     trayNotify: true,
-    proxy: normalizeProxy({ bypassRules: '<local>' })
-  }
+    proxy: normalizeProxy({ bypassRules: '<local>' }),
+  };
 }
 
 export async function loadConfig(): Promise<AppConfig> {
-  const defaults = defaultConfig()
+  const defaults = defaultConfig();
   try {
-    const raw = await readFile(configFile(), 'utf-8')
+    const raw = await readFile(configFile(), 'utf-8');
     /** 旧版本的字段：来源开关与收藏夹的三个独立参数，已并入 contentKind / tag */
     const parsed = JSON.parse(raw) as Partial<AppConfig> & {
-      source?: string
-      bookmarkUserId?: string
-      bookmarkTag?: string
-      bookmarkOnlyNew?: boolean
-    }
+      source?: string;
+      bookmarkUserId?: string;
+      bookmarkTag?: string;
+      bookmarkOnlyNew?: boolean;
+    };
     // 老版本用 source 区分作者 / 收藏夹：停在收藏夹的用户升级后仍停在这一栏
-    const wasBookmarks = parsed.source === 'bookmarks'
+    const wasBookmarks = parsed.source === 'bookmarks';
     // 已废弃的字段不再往配置文件里写回
-    delete parsed.source
-    delete parsed.bookmarkUserId
-    delete parsed.bookmarkTag
-    delete parsed.bookmarkOnlyNew
+    delete parsed.source;
+    delete parsed.bookmarkUserId;
+    delete parsed.bookmarkTag;
+    delete parsed.bookmarkOnlyNew;
     // 浅合并对嵌套字段无效：老配置没有 proxy，必须补默认值并逐项校正
-    const config: AppConfig = { ...defaults, ...parsed, proxy: normalizeProxy(parsed.proxy) }
-    if (wasBookmarks) config.contentKind = 'bookmarks'
-    return config
+    const config: AppConfig = {
+      ...defaults,
+      ...parsed,
+      proxy: normalizeProxy(parsed.proxy),
+    };
+    if (wasBookmarks) config.contentKind = 'bookmarks';
+    return config;
   } catch {
-    return defaults
+    return defaults;
   }
 }
 
-export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
-  const current = await loadConfig()
-  const merged = { ...current, ...patch }
-  if (patch.proxy) merged.proxy = normalizeProxy({ ...current.proxy, ...patch.proxy })
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(configFile(), JSON.stringify(merged, null, 2), 'utf-8')
-  return merged
+export async function saveConfig(
+  patch: Partial<AppConfig>
+): Promise<AppConfig> {
+  const current = await loadConfig();
+  const merged = { ...current, ...patch };
+  if (patch.proxy)
+    merged.proxy = normalizeProxy({ ...current.proxy, ...patch.proxy });
+  await mkdir(app.getPath('userData'), { recursive: true });
+  await writeFile(configFile(), JSON.stringify(merged, null, 2), 'utf-8');
+  return merged;
 }
 
 export function normalizeCookie(raw: string): string {
@@ -131,58 +147,61 @@ export function normalizeCookie(raw: string): string {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .join('; ')
-  if (!value) return ''
-  return value.includes('=') ? value : `PHPSESSID=${value}`
+    .join('; ');
+  if (!value) return '';
+  return value.includes('=') ? value : `PHPSESSID=${value}`;
 }
 
 async function readIfExists(filePath: string): Promise<string> {
   try {
-    return (await readFile(filePath, 'utf-8')).trim()
+    return (await readFile(filePath, 'utf-8')).trim();
   } catch {
-    return ''
+    return '';
   }
 }
 
-export async function resolveCookie(): Promise<{ cookie: string; source: CookieSource }> {
-  const fromEnv = (process.env.PIXIV_COOKIE || '').trim()
-  if (fromEnv) return { cookie: normalizeCookie(fromEnv), source: 'env' }
+export async function resolveCookie(): Promise<{
+  cookie: string;
+  source: CookieSource;
+}> {
+  const fromEnv = (process.env.PIXIV_COOKIE || '').trim();
+  if (fromEnv) return { cookie: normalizeCookie(fromEnv), source: 'env' };
 
-  const savedRecord = await readSecureText(cookieFile())
-  const saved = savedRecord ? savedRecord.text.trim() : ''
-  if (saved) return { cookie: normalizeCookie(saved), source: 'file' }
+  const savedRecord = await readSecureText(cookieFile());
+  const saved = savedRecord ? savedRecord.text.trim() : '';
+  if (saved) return { cookie: normalizeCookie(saved), source: 'file' };
 
   if (!app.isPackaged) {
-    const legacy = await readIfExists(legacyCookieFile())
-    if (legacy) return { cookie: normalizeCookie(legacy), source: 'file' }
+    const legacy = await readIfExists(legacyCookieFile());
+    if (legacy) return { cookie: normalizeCookie(legacy), source: 'file' };
   }
 
-  return { cookie: '', source: 'none' }
+  return { cookie: '', source: 'none' };
 }
 
 export function maskCookie(cookie: string): string {
-  if (!cookie) return ''
-  if (cookie.length < 24) return cookie
-  return `${cookie.slice(0, 12)}...${cookie.slice(-6)}`
+  if (!cookie) return '';
+  if (cookie.length < 24) return cookie;
+  return `${cookie.slice(0, 12)}...${cookie.slice(-6)}`;
 }
 
 export async function getCookieStatus(): Promise<CookieStatus> {
-  const { cookie, source } = await resolveCookie()
-  return { hasCookie: Boolean(cookie), masked: maskCookie(cookie), source }
+  const { cookie, source } = await resolveCookie();
+  return { hasCookie: Boolean(cookie), masked: maskCookie(cookie), source };
 }
 
 export async function saveCookie(raw: string): Promise<CookieStatus> {
-  const normalized = normalizeCookie(raw)
-  await writeSecureText(cookieFile(), normalized)
+  const normalized = normalizeCookie(raw);
+  await writeSecureText(cookieFile(), normalized);
   return {
     hasCookie: Boolean(normalized),
     masked: maskCookie(normalized),
-    source: normalized ? 'file' : 'none'
-  }
+    source: normalized ? 'file' : 'none',
+  };
 }
 
 /** 删除已保存的 Cookie 文件；文件不存在也视为成功 */
 export async function clearCookie(): Promise<CookieStatus> {
-  await rm(cookieFile(), { force: true })
-  return { hasCookie: false, masked: '', source: 'none' }
+  await rm(cookieFile(), { force: true });
+  return { hasCookie: false, masked: '', source: 'none' };
 }

@@ -9,12 +9,12 @@
 
 ## 1. 产物一览
 
-| 文件 | 说明 |
-| --- | --- |
-| `release/pixiv-client-{version}-setup.exe` | NSIS 安装包，唯一对外分发的产物 |
-| `release/pixiv-client-{version}-setup.exe.blockmap` | 差分更新用的块映射（自动上传） |
-| `release/latest.yml` | 版本与哈希元数据（自动上传） |
-| `release/win-unpacked/` | 免安装目录版，仅供本地调试，不发布 |
+| 文件                                                | 说明                               |
+| --------------------------------------------------- | ---------------------------------- |
+| `release/pixiv-client-{version}-setup.exe`          | NSIS 安装包，唯一对外分发的产物    |
+| `release/pixiv-client-{version}-setup.exe.blockmap` | 差分更新用的块映射（自动上传）     |
+| `release/latest.yml`                                | 版本与哈希元数据（自动上传）       |
+| `release/win-unpacked/`                             | 免安装目录版，仅供本地调试，不发布 |
 
 `release/` 已被 `.gitignore` 忽略。
 
@@ -102,12 +102,12 @@ Get-Item "$r\win-unpacked\resources\app.asar" | Select-Object @{n='MB';e={[math]
 
 ### 4.2 构建日志中的健康信号
 
-| 日志 | 含义 |
-| --- | --- |
-| `loaded configuration file=...electron-builder.yml` | 配置已加载 |
-| `signing is skipped path=...ffmpeg.exe`（路径含 `app.asar.unpacked`） | ffmpeg 已正确解包 |
-| `building target=nsis file=release\pixiv-client-0.1.0-setup.exe` | NSIS 打包开始 |
-| `building block map` | 差分更新映射生成完成 |
+| 日志                                                                  | 含义                 |
+| --------------------------------------------------------------------- | -------------------- |
+| `loaded configuration file=...electron-builder.yml`                   | 配置已加载           |
+| `signing is skipped path=...ffmpeg.exe`（路径含 `app.asar.unpacked`） | ffmpeg 已正确解包    |
+| `building target=nsis file=release\pixiv-client-0.1.0-setup.exe`      | NSIS 打包开始        |
+| `building block map`                                                  | 差分更新映射生成完成 |
 
 ---
 
@@ -172,7 +172,6 @@ gh release upload $tag pixiv-client-0.1.3-setup.exe.blockmap
 
 补完后 `https://github.com/$repo/releases/download/$tag/pixiv-client-0.1.3-setup.exe.blockmap` 应当返回 200（而不是 404）。
 
-
 ---
 
 ## 6. 手动发布（CI 不可用时的兜底）
@@ -193,7 +192,7 @@ npm run dist:publish
 
 ```yaml
 win:
-  certificateFile: build/cert.pfx        # 不要提交到仓库
+  certificateFile: build/cert.pfx # 不要提交到仓库
   certificatePassword: ${env.CSC_KEY_PASSWORD}
 ```
 
@@ -207,18 +206,18 @@ CI 中把 `CSC_LINK`（base64 的 pfx）与 `CSC_KEY_PASSWORD` 配成 secrets，
 
 ## 8. 常见问题
 
-| 现象 | 原因 / 处理 |
-| --- | --- |
-| 首次构建卡在下载 | electron-builder 在拉 NSIS / winCodeSign。国内可配 `.npmrc` 的 `electron_builder_binaries_mirror`（仓库已有），CI 上走直连 |
-| 日志出现 `default Electron icon is used` | `win.icon` 路径不对，确认 `build/icon.ico` 存在且含 256×256 |
-| 安装包体积 ~140 MB | 正常：Electron 运行时 + ffmpeg 79 MB + 渲染层产物 |
-| 动图下载后直接落 `.zip` | 运行时找不到 ffmpeg，代码会自动退回保留压缩包；检查 `asarUnpack` 与 `app.asar.unpacked` 目录 |
-| 构建报 URL/文件名为乱码 | 曾在 PowerShell 5.1 下出现过：含中文的 `.ps1` 会被按 ANSI 解码，脚本应保持纯 ASCII |
-| 上传 Release 报 403 | `permissions: contents: write` 缺失，或用了只读的 token |
-| tag 推了但没有产物 | tag 名与 package.json `version` 不一致（必须是 `v` + 完全相同的版本号） |
-| 同一个 tag 出现两条 Release | electron-builder 并发建 publisher 的竞态，见 5.2；清掉重复项，工作流已改为先建 Release |
-| 更新每次都全量下载 140MB | Release 里缺少 `xxx.exe.blockmap`（或它挂在同 tag 的另一条 Release 上），见 5.2 |
-| 日志 `Cannot download differentially, fallback to full download` | 同上；也可能是本机没有上一版安装包缓存（首次从旧版本升级时属正常，成功一次后就会有） |
+| 现象                                                             | 原因 / 处理                                                                                                                |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 首次构建卡在下载                                                 | electron-builder 在拉 NSIS / winCodeSign。国内可配 `.npmrc` 的 `electron_builder_binaries_mirror`（仓库已有），CI 上走直连 |
+| 日志出现 `default Electron icon is used`                         | `win.icon` 路径不对，确认 `build/icon.ico` 存在且含 256×256                                                                |
+| 安装包体积 ~140 MB                                               | 正常：Electron 运行时 + ffmpeg 79 MB + 渲染层产物                                                                          |
+| 动图下载后直接落 `.zip`                                          | 运行时找不到 ffmpeg，代码会自动退回保留压缩包；检查 `asarUnpack` 与 `app.asar.unpacked` 目录                               |
+| 构建报 URL/文件名为乱码                                          | 曾在 PowerShell 5.1 下出现过：含中文的 `.ps1` 会被按 ANSI 解码，脚本应保持纯 ASCII                                         |
+| 上传 Release 报 403                                              | `permissions: contents: write` 缺失，或用了只读的 token                                                                    |
+| tag 推了但没有产物                                               | tag 名与 package.json `version` 不一致（必须是 `v` + 完全相同的版本号）                                                    |
+| 同一个 tag 出现两条 Release                                      | electron-builder 并发建 publisher 的竞态，见 5.2；清掉重复项，工作流已改为先建 Release                                     |
+| 更新每次都全量下载 140MB                                         | Release 里缺少 `xxx.exe.blockmap`（或它挂在同 tag 的另一条 Release 上），见 5.2                                            |
+| 日志 `Cannot download differentially, fallback to full download` | 同上；也可能是本机没有上一版安装包缓存（首次从旧版本升级时属正常，成功一次后就会有）                                       |
 
 ---
 
@@ -232,10 +231,10 @@ CI 中把 `CSC_LINK`（base64 的 pfx）与 `CSC_KEY_PASSWORD` 配成 secrets，
 
 ## 10. 相关文件
 
-| 文件 | 作用 |
-| --- | --- |
-| `desktop/electron-builder.yml` | 打包与发布配置（图标、asarUnpack、NSIS、publish） |
-| `desktop/package.json` | `dist` / `dist:publish` 脚本、版本号、author |
-| `desktop/build/icon.ico` | 应用图标（16/24/32/48/64/128/256 七个尺寸） |
-| `.github/workflows/release.yml` | 打 tag 自动构建并发布 |
-| `desktop/src/main/pixiv/ugoira.ts` | ffmpeg 路径改写与动图转码 |
+| 文件                               | 作用                                              |
+| ---------------------------------- | ------------------------------------------------- |
+| `desktop/electron-builder.yml`     | 打包与发布配置（图标、asarUnpack、NSIS、publish） |
+| `desktop/package.json`             | `dist` / `dist:publish` 脚本、版本号、author      |
+| `desktop/build/icon.ico`           | 应用图标（16/24/32/48/64/128/256 七个尺寸）       |
+| `.github/workflows/release.yml`    | 打 tag 自动构建并发布                             |
+| `desktop/src/main/pixiv/ugoira.ts` | ffmpeg 路径改写与动图转码                         |

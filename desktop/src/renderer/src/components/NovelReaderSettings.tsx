@@ -1,49 +1,52 @@
-import { Minus, Plus, Type } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type * as React from 'react'
-import { useI18n } from '@renderer/i18n'
-import { READER_WIDTHS, type ReaderSettings } from '@renderer/utils/novel'
+import { useI18n } from '@renderer/i18n';
+import { READER_WIDTHS, type ReaderSettings } from '@renderer/utils/novel';
+import { Minus, Plus, Type } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
 
 interface NovelReaderSettingsProps {
-  settings: ReaderSettings
-  onChange: (patch: Partial<ReaderSettings>) => void
+  settings: ReaderSettings;
+  onChange: (patch: Partial<ReaderSettings>) => void;
 }
 
-const THEMES: ReaderSettings['theme'][] = ['light', 'sepia', 'dark']
+const THEMES: ReaderSettings['theme'][] = ['light', 'sepia', 'dark'];
 
 const THEME_SWATCH: Record<ReaderSettings['theme'], string> = {
   light: 'border-black/15 bg-[#fbfbfa]',
   sepia: 'border-black/15 bg-[#f4ecd8]',
-  dark: 'border-white/20 bg-[#15161a]'
-}
+  dark: 'border-white/20 bg-[#15161a]',
+};
 
 /** 在线阅读与本地阅读共用的阅读设置浮层：字号 / 行高 / 宽度 / 主题 */
 export function NovelReaderSettings({
   settings,
-  onChange
+  onChange,
 }: NovelReaderSettingsProps): React.JSX.Element {
-  const { t } = useI18n()
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement | null>(null)
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement | null>(null);
 
   // 点浮层外部关闭，避免在正文里点一下就误触
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onPointerDown = (event: MouseEvent): void => {
-      if (box.current && !box.current.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [open])
+      if (box.current && !box.current.contains(event.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [open]);
 
   const step = (key: 'fontSize' | 'lineHeight', delta: number): void => {
     if (key === 'fontSize') {
-      onChange({ fontSize: Math.max(14, Math.min(26, settings.fontSize + delta)) })
-      return
+      onChange({
+        fontSize: Math.max(14, Math.min(26, settings.fontSize + delta)),
+      });
+      return;
     }
-    const next = Math.round((settings.lineHeight + delta) * 10) / 10
-    onChange({ lineHeight: Math.max(1.4, Math.min(2.6, next)) })
-  }
+    const next = Math.round((settings.lineHeight + delta) * 10) / 10;
+    onChange({ lineHeight: Math.max(1.4, Math.min(2.6, next)) });
+  };
 
   const stepper = (
     key: 'fontSize' | 'lineHeight',
@@ -63,7 +66,9 @@ export function NovelReaderSettings({
         >
           <Minus className="h-4 w-4" />
         </button>
-        <span className="min-w-[2.2rem] text-center text-[11px] tabular-nums">{value}</span>
+        <span className="min-w-[2.2rem] text-center text-[11px] tabular-nums">
+          {value}
+        </span>
         <button
           type="button"
           aria-label={increase}
@@ -74,7 +79,7 @@ export function NovelReaderSettings({
         </button>
       </div>
     </div>
-  )
+  );
 
   return (
     <div ref={box} className="relative">
@@ -110,7 +115,9 @@ export function NovelReaderSettings({
           )}
 
           <div className="space-y-1">
-            <span className="text-[11px] text-muted-foreground">{t('novel.width')}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {t('novel.width')}
+            </span>
             <div className="flex overflow-hidden rounded-md border border-border/70">
               {READER_WIDTHS.map((width, index) => (
                 <button
@@ -123,14 +130,22 @@ export function NovelReaderSettings({
                       : 'text-muted-foreground hover:bg-secondary/50'
                   }`}
                 >
-                  {[t('novel.widthNarrow'), t('novel.widthStandard'), t('novel.widthWide')][index]}
+                  {
+                    [
+                      t('novel.widthNarrow'),
+                      t('novel.widthStandard'),
+                      t('novel.widthWide'),
+                    ][index]
+                  }
                 </button>
               ))}
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">{t('novel.theme')}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {t('novel.theme')}
+            </span>
             <div className="flex items-center gap-1">
               {THEMES.map((theme) => (
                 <button
@@ -149,5 +164,5 @@ export function NovelReaderSettings({
         </div>
       ) : null}
     </div>
-  )
+  );
 }

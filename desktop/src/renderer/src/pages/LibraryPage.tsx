@@ -1,3 +1,16 @@
+import { useI18n } from '@renderer/i18n';
+import { dirOf, formatBytes, toLocalUrl } from '@renderer/utils/files';
+import { toast } from '@renderer/utils/toast';
+import { cn } from '@renderer/utils/ui';
+import type { LocalContent } from '@shared/layout';
+import type {
+  LibraryResult,
+  LibraryWork,
+  LibraryWorkKey,
+  NovelLibraryItem,
+  NovelTextSearchResult,
+} from '@shared/types';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowLeft,
   BookOpen,
@@ -16,42 +29,29 @@ import {
   Trash2,
   Users,
   X,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type * as React from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useNavigate } from "react-router-dom";
-import type {
-  LibraryResult,
-  LibraryWork,
-  LibraryWorkKey,
-  NovelLibraryItem,
-  NovelTextSearchResult,
-} from "@shared/types";
-import type { LocalContent } from "@shared/layout";
-import { dirOf, formatBytes, toLocalUrl } from "@renderer/utils/files";
-import { cn } from "@renderer/utils/ui";
-import { useI18n } from "@renderer/i18n";
-import { toast } from "@renderer/utils/toast";
-import { useImagePreview } from "../components/layout/ImagePreview";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { SelectMenu } from "../components/shared/SelectMenu";
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
+import { useImagePreview } from '../components/layout/ImagePreview';
+import { SelectMenu } from '../components/shared/SelectMenu';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 /** 能直接交给图片预览的扩展名；动图成品另走 openUgoira */
-const PREVIEW_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp"]);
+const PREVIEW_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp']);
 function isPreviewable(ext: string): boolean {
   return PREVIEW_EXTS.has(ext.toLowerCase());
 }
 
 /** 本地动图成品：mp4 / webm 走 <video>，其余交给 <img> 或播放器 */
-const UGOIRA_VIDEO_EXTS = new Set([".mp4", ".webm"]);
+const UGOIRA_VIDEO_EXTS = new Set(['.mp4', '.webm']);
 /** 找到一件动图作品里真正能播的那个文件（路径由主进程扫描时按优先级选好） */
 function ugoiraFileOf(work: LibraryWork): { path: string; ext: string } | null {
   if (!work.ugoiraPath) return null;
-  const dot = work.ugoiraPath.lastIndexOf(".");
-  const ext = dot >= 0 ? work.ugoiraPath.slice(dot).toLowerCase() : "";
+  const dot = work.ugoiraPath.lastIndexOf('.');
+  const ext = dot >= 0 ? work.ugoiraPath.slice(dot).toLowerCase() : '';
   return { path: work.ugoiraPath, ext };
 }
 
@@ -67,7 +67,7 @@ const CARD_MIN = 168;
 /** 卡片下半部分（标题/ID/统计）的固定高度 */
 const TEXT_HEIGHT = 86;
 
-type LibrarySort = "updated" | "files" | "size" | "id";
+type LibrarySort = 'updated' | 'files' | 'size' | 'id';
 
 /** 选择键：同一作品在插画 / 漫画目录下是两条记录，必须带内容类型 */
 function keyOf(work: LibraryWork): string {
@@ -76,18 +76,18 @@ function keyOf(work: LibraryWork): string {
 
 function messageOf(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 function formatTime(value: number): string {
-  if (!value) return "—";
+  if (!value) return '—';
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "—";
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  if (!Number.isFinite(date.getTime())) return '—';
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -116,13 +116,13 @@ interface AuthorGroup {
  */
 function groupAuthors(
   works: LibraryWork[],
-  novels: NovelLibraryItem[],
+  novels: NovelLibraryItem[]
 ): AuthorGroup[] {
   const map = new Map<string, AuthorGroup>();
   const ensure = (
     key: string,
     userId: string,
-    userName: string,
+    userName: string
   ): AuthorGroup => {
     const group = map.get(key) ?? {
       key,
@@ -134,7 +134,7 @@ function groupAuthors(
       files: 0,
       bytes: 0,
       updatedAt: 0,
-      cover: "",
+      cover: '',
     };
     if (!group.userId) group.userId = userId;
     if (!group.userName) group.userName = userName;
@@ -144,7 +144,7 @@ function groupAuthors(
 
   works.forEach((work) => {
     const group = ensure(work.authorPath, work.userId, work.userName);
-    if (work.content === "manga") group.manga.push(work);
+    if (work.content === 'manga') group.manga.push(work);
     else group.illustration.push(work);
     group.files += work.fileCount;
     group.bytes += work.totalBytes;
@@ -159,7 +159,7 @@ function groupAuthors(
     group.bytes += novel.size;
     group.updatedAt = Math.max(
       group.updatedAt,
-      Date.parse(novel.updatedAt) || 0,
+      Date.parse(novel.updatedAt) || 0
     );
   });
 
@@ -175,9 +175,9 @@ function groupAuthors(
  * 取不到（成品损坏、ffmpeg 缺失）时返回空串，卡片继续显示占位图标。
  */
 function useUgoiraCover(work: LibraryWork | null): string {
-  const fallback = work?.cover || "";
+  const fallback = work?.cover || '';
   const source =
-    work && work.ugoira && !fallback ? ugoiraFileOf(work)?.path || "" : "";
+    work && work.ugoira && !fallback ? ugoiraFileOf(work)?.path || '' : '';
   const [generated, setGenerated] = useState<{
     source: string;
     path: string;
@@ -199,15 +199,15 @@ function useUgoiraCover(work: LibraryWork | null): string {
 
   // 记住了来源路径：换作品（虚拟列表复用）时不会拿上一件的图顶上
   return (
-    fallback || (generated && generated.source === source ? generated.path : "")
+    fallback || (generated && generated.source === source ? generated.path : '')
   );
 }
 
 function sortWorks(works: LibraryWork[], sort: LibrarySort): LibraryWork[] {
   const list = [...works];
-  if (sort === "files") return list.sort((a, b) => b.fileCount - a.fileCount);
-  if (sort === "size") return list.sort((a, b) => b.totalBytes - a.totalBytes);
-  if (sort === "id") return list.sort((a, b) => a.id.localeCompare(b.id));
+  if (sort === 'files') return list.sort((a, b) => b.fileCount - a.fileCount);
+  if (sort === 'size') return list.sort((a, b) => b.totalBytes - a.totalBytes);
+  if (sort === 'id') return list.sort((a, b) => a.id.localeCompare(b.id));
   return list.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
@@ -233,10 +233,10 @@ function LibraryCard({
   return (
     <div
       className={cn(
-        "group overflow-hidden rounded-xl border bg-card transition-colors",
+        'group overflow-hidden rounded-xl border bg-card transition-colors',
         selected
-          ? "border-primary ring-2 ring-primary/40"
-          : "border-border/60 hover:border-primary/40",
+          ? 'border-primary ring-2 ring-primary/40'
+          : 'border-border/60 hover:border-primary/40'
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-secondary/40">
@@ -248,10 +248,10 @@ function LibraryCard({
           className="block h-full w-full"
           title={
             work.ugoira
-              ? t("library.playUgoira")
+              ? t('library.playUgoira')
               : work.imageCount > 0
-                ? t("library.previewInApp")
-                : t("library.noPreviewUgoira")
+                ? t('library.previewInApp')
+                : t('library.noPreviewUgoira')
           }
         >
           {cover ? (
@@ -271,8 +271,8 @@ function LibraryCard({
               )}
               <span className="text-[10px]">
                 {work.ugoira
-                  ? t("library.playUgoira")
-                  : t("library.ugoiraFile")}
+                  ? t('library.playUgoira')
+                  : t('library.ugoiraFile')}
               </span>
             </span>
           )}
@@ -285,33 +285,33 @@ function LibraryCard({
             onToggleSelect(event.shiftKey);
           }}
           aria-label={
-            selected ? t("library.deselect") : t("library.selectWork")
+            selected ? t('library.deselect') : t('library.selectWork')
           }
-          title={t("library.selectHint")}
+          title={t('library.selectHint')}
           className={cn(
-            "absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded border backdrop-blur transition-colors",
+            'absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded border backdrop-blur transition-colors',
             selected
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-white/60 bg-black/40 text-transparent hover:bg-black/60",
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-white/60 bg-black/40 text-transparent hover:bg-black/60'
           )}
         >
           <Check className="h-4 w-4" />
         </button>
 
         <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] tabular-nums text-white backdrop-blur">
-          {t("library.fileCount", { count: work.fileCount })}
+          {t('library.fileCount', { count: work.fileCount })}
         </span>
         {work.ugoira ? (
           <Badge className="pointer-events-none absolute right-1.5 top-1.5 bg-amber-500/80 text-white backdrop-blur">
-            {t("library.ugoira")}
+            {t('library.ugoira')}
           </Badge>
         ) : null}
         <button
           type="button"
           onClick={() => onOpenDir(workDirOf(work))}
           className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-1 text-white/90 opacity-0 backdrop-blur transition-all hover:bg-black/80 group-hover:opacity-100"
-          title={t("library.openFolder")}
-          aria-label={t("library.openFolder")}
+          title={t('library.openFolder')}
+          aria-label={t('library.openFolder')}
         >
           <FolderOpen className="h-4 w-4" />
         </button>
@@ -329,15 +329,15 @@ function LibraryCard({
         </p>
         <div className="flex items-center justify-between pt-0.5 text-[10px] text-muted-foreground/70">
           <span className="truncate">
-            {work.content === "manga"
-              ? t("library.tabManga")
-              : t("library.tabIllustration")}
+            {work.content === 'manga'
+              ? t('library.tabManga')
+              : t('library.tabIllustration')}
           </span>
           <span className="shrink-0 tabular-nums">
             {formatBytes(work.totalBytes)}
           </span>
         </div>
-        <p className="text-[10px] text-muted-foreground/60 tabular-nums">
+        <p className="text-[10px] tabular-nums text-muted-foreground/60">
           {formatTime(work.updatedAt)}
         </p>
       </div>
@@ -387,14 +387,14 @@ function AuthorCard({ group, onOpen }: AuthorCardProps): React.JSX.Element {
             : group.userName}
         </p>
         <p className="truncate text-[11px] text-muted-foreground">
-          {t("library.authorTypes", {
+          {t('library.authorTypes', {
             illustration: group.illustration.length,
             manga: group.manga.length,
             novel: group.novels.length,
           })}
         </p>
         <p className="truncate text-[10px] text-muted-foreground/60">
-          {t("library.authorStat", {
+          {t('library.authorStat', {
             works: group.illustration.length + group.manga.length,
             files: group.files,
             bytes: formatBytes(group.bytes),
@@ -420,7 +420,7 @@ function NovelCard(props: {
       tabIndex={0}
       onClick={() => props.onOpen(item)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           props.onOpen(item);
         }
@@ -436,7 +436,7 @@ function NovelCard(props: {
             decoding="async"
             className="h-full w-full object-cover"
             onError={(event) => {
-              event.currentTarget.style.visibility = "hidden";
+              event.currentTarget.style.visibility = 'hidden';
             }}
           />
         ) : (
@@ -452,7 +452,7 @@ function NovelCard(props: {
             {item.title}
           </h3>
           <span className="shrink-0 rounded bg-secondary/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {item.kind === "series" ? t("novel.series") : t("novelLib.oneshot")}
+            {item.kind === 'series' ? t('novel.series') : t('novelLib.oneshot')}
           </span>
         </div>
         <p className="truncate text-[11px] text-muted-foreground">
@@ -460,10 +460,10 @@ function NovelCard(props: {
         </p>
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
           {item.characters > 0 ? (
-            <span>{t("novel.chars", { count: item.characters })}</span>
+            <span>{t('novel.chars', { count: item.characters })}</span>
           ) : null}
           {item.episodes > 1 ? (
-            <span>{t("novel.episodes", { count: item.episodes })}</span>
+            <span>{t('novel.episodes', { count: item.episodes })}</span>
           ) : null}
           <span>{item.updatedAt.slice(0, 10)}</span>
         </div>
@@ -477,7 +477,7 @@ function NovelCard(props: {
             }}
           >
             <FolderOpen className="h-4 w-4" />
-            {t("novel.openDir")}
+            {t('novel.openDir')}
           </Button>
         </div>
       </div>
@@ -487,8 +487,8 @@ function NovelCard(props: {
 
 /** 全文检索结果：标题 + 作者 + 命中片段 */
 function NovelHitCard(props: {
-  hit: NovelTextSearchResult["hits"][number];
-  onOpen: (hit: NovelTextSearchResult["hits"][number]) => void;
+  hit: NovelTextSearchResult['hits'][number];
+  onOpen: (hit: NovelTextSearchResult['hits'][number]) => void;
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
@@ -497,7 +497,7 @@ function NovelHitCard(props: {
       tabIndex={0}
       onClick={() => props.onOpen(props.hit)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           props.onOpen(props.hit);
         }
@@ -513,7 +513,7 @@ function NovelHitCard(props: {
           {props.hit.author}
         </span>
         <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-          {t("novelLib.matches", { count: props.hit.matches })}
+          {t('novelLib.matches', { count: props.hit.matches })}
         </span>
       </div>
       <div className="mt-2 space-y-1">
@@ -536,19 +536,19 @@ export function LibraryPage(): React.JSX.Element {
   const preview = useImagePreview();
   const [data, setData] = useState<LibraryResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<LibrarySort>("updated");
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<LibrarySort>('updated');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   /** 当前查看的作者目录；null 表示停留在作者列表 */
   const [authorKey, setAuthorKey] = useState<string | null>(null);
   /** 作者页的栏目：插画 / 漫画 / 小说 */
-  const [tab, setTab] = useState<LocalContent>("illustration");
+  const [tab, setTab] = useState<LocalContent>('illustration');
   /** 小说栏目：是否在全库正文里做全文检索 */
   const [deep, setDeep] = useState(false);
   const [deepResult, setDeepResult] = useState<NovelTextSearchResult | null>(
-    null,
+    null
   );
   const [deepSearching, setDeepSearching] = useState(false);
 
@@ -576,7 +576,7 @@ export function LibraryPage(): React.JSX.Element {
       // 文件可能已在外部变化，选中项只在仍然存在的作品里保留
       const alive = new Set(result.works.map((work) => keyOf(work)));
       setSelected(
-        (previous) => new Set([...previous].filter((key) => alive.has(key))),
+        (previous) => new Set([...previous].filter((key) => alive.has(key)))
       );
     } catch (reason) {
       toast.error(messageOf(reason));
@@ -608,14 +608,14 @@ export function LibraryPage(): React.JSX.Element {
 
   const authors = useMemo(
     () => groupAuthors(data?.works ?? [], data?.novels ?? []),
-    [data],
+    [data]
   );
   const currentAuthor = useMemo(
     () =>
       authorKey
         ? (authors.find((group) => group.key === authorKey) ?? null)
         : null,
-    [authors, authorKey],
+    [authors, authorKey]
   );
 
   // 删除或外部变更后作者目录可能整个消失，自动退回作者列表
@@ -634,23 +634,23 @@ export function LibraryPage(): React.JSX.Element {
     setConfirmingDelete(false);
     setDeep(false);
     setDeepResult(null);
-    setQuery("");
+    setQuery('');
     anchorRef.current = null;
     if (group) {
-      if (group.illustration.length > 0) setTab("illustration");
-      else if (group.manga.length > 0) setTab("manga");
-      else setTab("novel");
+      if (group.illustration.length > 0) setTab('illustration');
+      else if (group.manga.length > 0) setTab('manga');
+      else setTab('novel');
     }
     setAuthorKey(key);
   };
 
   const currentWorks = useMemo(() => {
     if (!currentAuthor) return [];
-    return tab === "manga" ? currentAuthor.manga : currentAuthor.illustration;
+    return tab === 'manga' ? currentAuthor.manga : currentAuthor.illustration;
   }, [currentAuthor, tab]);
 
   const filtered = useMemo(() => {
-    if (tab === "novel") return [];
+    if (tab === 'novel') return [];
     const keyword = query.trim().toLowerCase();
     const list = currentWorks.filter((work) => {
       if (!keyword) return true;
@@ -667,18 +667,18 @@ export function LibraryPage(): React.JSX.Element {
     const keyword = query.trim().toLowerCase();
     const list = keyword
       ? currentAuthor.novels.filter((item) =>
-          item.title.toLowerCase().includes(keyword),
+          item.title.toLowerCase().includes(keyword)
         )
       : currentAuthor.novels;
     return [...list].sort(
-      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
     );
   }, [currentAuthor, query]);
 
   // 全文检索：输入停顿 350ms 后再发起，避免逐字打盘
   useEffect(() => {
     const word = query.trim();
-    if (tab !== "novel" || !deep || !word) {
+    if (tab !== 'novel' || !deep || !word) {
       setDeepResult(null);
       setDeepSearching(false);
       return;
@@ -709,12 +709,12 @@ export function LibraryPage(): React.JSX.Element {
 
   const filteredBytes = useMemo(
     () => filtered.reduce((sum, work) => sum + work.totalBytes, 0),
-    [filtered],
+    [filtered]
   );
 
   const selectedWorks = useMemo(
     () => filtered.filter((work) => selected.has(keyOf(work))),
-    [filtered, selected],
+    [filtered, selected]
   );
 
   // 容器宽度变化时重新计算列数，虚拟滚动的行高随之变化
@@ -808,14 +808,14 @@ export function LibraryPage(): React.JSX.Element {
   const openUgoira = async (work: LibraryWork): Promise<void> => {
     const file = ugoiraFileOf(work);
     if (!file) return;
-    const alt = `${work.title} · ${t("library.ugoira")}`;
+    const alt = `${work.title} · ${t('library.ugoira')}`;
 
-    if (file.ext === ".zip") {
+    if (file.ext === '.zip') {
       preview.open([
         {
-          src: "",
+          src: '',
           alt,
-          ugoira: { kind: "local", path: file.path, id: work.id },
+          ugoira: { kind: 'local', path: file.path, id: work.id },
         },
       ]);
       return;
@@ -826,9 +826,9 @@ export function LibraryPage(): React.JSX.Element {
         const media = await window.pixiv.readLocalMedia(file.path);
         revokeVideoUrl();
         videoUrlRef.current = URL.createObjectURL(
-          new Blob([media.bytes as unknown as BlobPart], { type: media.mime }),
+          new Blob([media.bytes as unknown as BlobPart], { type: media.mime })
         );
-        preview.open([{ src: "", alt, video: videoUrlRef.current }]);
+        preview.open([{ src: '', alt, video: videoUrlRef.current }]);
       } catch (reason) {
         toast.error(messageOf(reason));
       }
@@ -891,8 +891,8 @@ export function LibraryPage(): React.JSX.Element {
     });
     void Promise.all(
       [...dirs].map((dir) =>
-        window.pixiv.openLibraryDir(dir).catch(() => undefined),
-      ),
+        window.pixiv.openLibraryDir(dir).catch(() => undefined)
+      )
     );
   };
 
@@ -901,10 +901,10 @@ export function LibraryPage(): React.JSX.Element {
     setDeleting(true);
     try {
       const groups = await window.pixiv.getLibraryFiles(
-        selectedWorks.map(workKeyOf),
+        selectedWorks.map(workKeyOf)
       );
       const paths = groups.flatMap((group) =>
-        group.files.map((file) => file.path),
+        group.files.map((file) => file.path)
       );
       const result = await window.pixiv.deleteLibraryFiles(paths);
       setData(result);
@@ -922,24 +922,24 @@ export function LibraryPage(): React.JSX.Element {
     currentAuthor
       ? [
           {
-            value: "illustration",
-            label: t("library.tabIllustration"),
+            value: 'illustration',
+            label: t('library.tabIllustration'),
             count: currentAuthor.illustration.length,
           },
           {
-            value: "manga",
-            label: t("library.tabManga"),
+            value: 'manga',
+            label: t('library.tabManga'),
             count: currentAuthor.manga.length,
           },
           {
-            value: "novel",
-            label: t("library.tabNovel"),
+            value: 'novel',
+            label: t('library.tabNovel'),
             count: currentAuthor.novels.length,
           },
         ]
       : [];
 
-  const searchingText = tab === "novel" && deep && query.trim().length > 0;
+  const searchingText = tab === 'novel' && deep && query.trim().length > 0;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
@@ -953,7 +953,7 @@ export function LibraryPage(): React.JSX.Element {
                 onClick={() => setAuthorKey(null)}
               >
                 <ArrowLeft className="h-4 w-4" />
-                {t("library.allAuthors")}
+                {t('library.allAuthors')}
               </Button>
               <div className="relative min-w-[180px] flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -961,11 +961,11 @@ export function LibraryPage(): React.JSX.Element {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={
-                    tab === "novel"
+                    tab === 'novel'
                       ? deep
-                        ? t("novelLib.searchPlaceholder")
-                        : t("library.novelSearchPlaceholder")
-                      : t("library.searchPlaceholder")
+                        ? t('novelLib.searchPlaceholder')
+                        : t('library.novelSearchPlaceholder')
+                      : t('library.searchPlaceholder')
                   }
                   className="pl-8"
                   spellCheck={false}
@@ -973,8 +973,8 @@ export function LibraryPage(): React.JSX.Element {
                 {query ? (
                   <button
                     type="button"
-                    onClick={() => setQuery("")}
-                    aria-label={t("library.clearSearch")}
+                    onClick={() => setQuery('')}
+                    aria-label={t('library.clearSearch')}
                     className="absolute right-2 top-2.5 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <X className="h-4 w-4" />
@@ -982,15 +982,15 @@ export function LibraryPage(): React.JSX.Element {
                 ) : null}
               </div>
 
-              {tab === "novel" ? (
+              {tab === 'novel' ? (
                 <Button
-                  variant={deep ? "default" : "outline"}
+                  variant={deep ? 'default' : 'outline'}
                   size="sm"
-                  title={t("library.deepSearchHint")}
+                  title={t('library.deepSearchHint')}
                   onClick={() => setDeep((value) => !value)}
                 >
                   <FileText className="h-4 w-4" />
-                  {t("library.deepSearch")}
+                  {t('library.deepSearch')}
                 </Button>
               ) : (
                 <div className="w-[130px] shrink-0">
@@ -998,10 +998,10 @@ export function LibraryPage(): React.JSX.Element {
                     value={sort}
                     onChange={(value) => setSort(value as LibrarySort)}
                     options={[
-                      { value: "updated", label: t("library.sortUpdated") },
-                      { value: "files", label: t("library.sortFiles") },
-                      { value: "size", label: t("library.sortSize") },
-                      { value: "id", label: t("library.sortId") },
+                      { value: 'updated', label: t('library.sortUpdated') },
+                      { value: 'files', label: t('library.sortFiles') },
+                      { value: 'size', label: t('library.sortSize') },
+                      { value: 'id', label: t('library.sortId') },
                     ]}
                   />
                 </div>
@@ -1013,17 +1013,17 @@ export function LibraryPage(): React.JSX.Element {
                 onClick={() => openDir(currentAuthor.key)}
               >
                 <FolderOpen className="h-4 w-4" />
-                {t("library.openAuthorDir")}
+                {t('library.openAuthorDir')}
               </Button>
             </>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Users className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate text-sm font-medium">
-                {t("library.authors")}
+                {t('library.authors')}
               </span>
               <span className="text-[11px] text-muted-foreground">
-                {t("library.authorsHint", { count: authors.length })}
+                {t('library.authorsHint', { count: authors.length })}
               </span>
             </div>
           )}
@@ -1035,11 +1035,11 @@ export function LibraryPage(): React.JSX.Element {
             onClick={() => void load(true)}
           >
             {loading ? (
-              <Loader2 className="animate-spin h-4 w-4" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            {t("library.rescan")}
+            {t('library.rescan')}
           </Button>
           {data ? (
             <Button
@@ -1048,7 +1048,7 @@ export function LibraryPage(): React.JSX.Element {
               onClick={() => openDir(data.outDir)}
             >
               <FolderOpen className="h-4 w-4" />
-              {t("library.openLibrary")}
+              {t('library.openLibrary')}
             </Button>
           ) : null}
         </div>
@@ -1064,15 +1064,15 @@ export function LibraryPage(): React.JSX.Element {
                   type="button"
                   onClick={() => {
                     setTab(item.value);
-                    setQuery("");
+                    setQuery('');
                     setSelected(new Set());
                     setConfirmingDelete(false);
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors",
+                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors',
                     active
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {item.label}
@@ -1093,42 +1093,42 @@ export function LibraryPage(): React.JSX.Element {
                       ? `${currentAuthor.userName} (${currentAuthor.userId})`
                       : currentAuthor.userName}
                   </span>
-                  {tab === "novel" ? (
+                  {tab === 'novel' ? (
                     <span>
-                      {t("library.novelCount", {
+                      {t('library.novelCount', {
                         count: filteredNovels.length,
                       })}
                     </span>
                   ) : (
                     <span>
                       {filtered.length === currentWorks.length
-                        ? t("library.workCount", { count: currentWorks.length })
-                        : t("library.workCountFiltered", {
+                        ? t('library.workCount', { count: currentWorks.length })
+                        : t('library.workCountFiltered', {
                             shown: filtered.length,
                             total: currentWorks.length,
                           })}
                     </span>
                   )}
                   <span className="tabular-nums">
-                    {t("library.fileCount", {
+                    {t('library.fileCount', {
                       count:
-                        tab === "novel"
+                        tab === 'novel'
                           ? filteredNovels.length
                           : filtered.reduce(
                               (sum, work) => sum + work.fileCount,
-                              0,
+                              0
                             ),
                     })}
                   </span>
                   <span className="tabular-nums">
-                    {t("library.totalSize", {
+                    {t('library.totalSize', {
                       size: formatBytes(
-                        tab === "novel"
+                        tab === 'novel'
                           ? filteredNovels.reduce(
                               (sum, item) => sum + item.size,
-                              0,
+                              0
                             )
-                          : filteredBytes,
+                          : filteredBytes
                       ),
                     })}
                   </span>
@@ -1136,19 +1136,19 @@ export function LibraryPage(): React.JSX.Element {
               ) : (
                 <>
                   <span>
-                    {t("library.authorCount", { count: authors.length })}
+                    {t('library.authorCount', { count: authors.length })}
                   </span>
                   <span>
-                    {t("library.workCount", { count: data.works.length })}
+                    {t('library.workCount', { count: data.works.length })}
                   </span>
                   <span>
-                    {t("library.novelCount", { count: data.novels.length })}
+                    {t('library.novelCount', { count: data.novels.length })}
                   </span>
                   <span className="tabular-nums">
-                    {t("library.fileCount", { count: data.totalFiles })}
+                    {t('library.fileCount', { count: data.totalFiles })}
                   </span>
                   <span className="tabular-nums">
-                    {t("library.totalSize", {
+                    {t('library.totalSize', {
                       size: formatBytes(data.totalBytes),
                     })}
                   </span>
@@ -1160,38 +1160,38 @@ export function LibraryPage(): React.JSX.Element {
           {loading ? (
             <span className="flex items-center gap-1">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {t("library.scanning")}
+              {t('library.scanning')}
             </span>
           ) : null}
         </div>
 
         {/* 批量操作栏：有选中项时常驻，避免选中后还要滚动找按钮 */}
-        {currentAuthor && tab !== "novel" && selected.size > 0 ? (
+        {currentAuthor && tab !== 'novel' && selected.size > 0 ? (
           <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-[11px]">
             <span className="font-medium text-primary">
-              {t("library.selectedWorks", { count: selectedWorks.length })}
+              {t('library.selectedWorks', { count: selectedWorks.length })}
             </span>
-            <span className="text-muted-foreground tabular-nums">
+            <span className="tabular-nums text-muted-foreground">
               {formatBytes(
-                selectedWorks.reduce((sum, work) => sum + work.totalBytes, 0),
+                selectedWorks.reduce((sum, work) => sum + work.totalBytes, 0)
               )}
             </span>
             <div className="ml-auto flex flex-wrap items-center gap-1">
               <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
                 {selected.size >= filtered.length && filtered.length > 0
-                  ? t("library.deselectAll")
-                  : t("library.selectAll")}
+                  ? t('library.deselectAll')
+                  : t('library.selectAll')}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelected(new Set())}
               >
-                {t("library.clearSelection")}
+                {t('library.clearSelection')}
               </Button>
               <Button variant="outline" size="sm" onClick={openSelectedDirs}>
                 <FolderOpen className="h-4 w-4" />
-                {t("library.openDir")}
+                {t('library.openDir')}
               </Button>
               {confirmingDelete ? (
                 <>
@@ -1202,14 +1202,14 @@ export function LibraryPage(): React.JSX.Element {
                     onClick={() => void deleteSelected()}
                   >
                     {deleting ? (
-                      <Loader2 className="animate-spin h-4 w-4" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Trash2 className="h-4 w-4" />
                     )}
-                    {t("library.confirmDelete", {
+                    {t('library.confirmDelete', {
                       count: selectedWorks.reduce(
                         (sum, work) => sum + work.fileCount,
-                        0,
+                        0
                       ),
                     })}
                   </Button>
@@ -1218,7 +1218,7 @@ export function LibraryPage(): React.JSX.Element {
                     size="sm"
                     onClick={() => setConfirmingDelete(false)}
                   >
-                    {t("library.cancel")}
+                    {t('library.cancel')}
                   </Button>
                 </>
               ) : (
@@ -1229,7 +1229,7 @@ export function LibraryPage(): React.JSX.Element {
                   className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  {t("library.deleteFiles")}
+                  {t('library.deleteFiles')}
                 </Button>
               )}
             </div>
@@ -1248,9 +1248,9 @@ export function LibraryPage(): React.JSX.Element {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
                 <Images className="h-4 w-4" />
               </div>
-              <p className="text-sm font-medium">{t("library.empty")}</p>
+              <p className="text-sm font-medium">{t('library.empty')}</p>
               <p className="max-w-md text-xs leading-5 text-muted-foreground">
-                {t("library.emptyHint")}
+                {t('library.emptyHint')}
               </p>
             </div>
           ) : null}
@@ -1265,18 +1265,18 @@ export function LibraryPage(): React.JSX.Element {
           ) : null}
 
           {/* 小说栏目：默认列该作者的小说，开启全文检索后列全库命中 */}
-          {currentAuthor && tab === "novel" ? (
+          {currentAuthor && tab === 'novel' ? (
             <div className="space-y-2">
               {searchingText ? (
                 <p className="text-[11px] text-muted-foreground">
                   {deepSearching
-                    ? t("novelLib.searching")
+                    ? t('novelLib.searching')
                     : deepResult
-                      ? t("novelLib.hitCount", {
+                      ? t('novelLib.hitCount', {
                           count: deepResult.hits.length,
                           scanned: deepResult.scanned,
                         })
-                      : ""}
+                      : ''}
                 </p>
               ) : null}
 
@@ -1286,8 +1286,8 @@ export function LibraryPage(): React.JSX.Element {
                     <NovelHitCard key={hit.path} hit={hit} onOpen={openNovel} />
                   ))
                 ) : !deepSearching && deepResult ? (
-                  <div className="flex h-42 items-center justify-center text-sm text-muted-foreground">
-                    {t("novelLib.noHit")}
+                  <div className="h-42 flex items-center justify-center text-sm text-muted-foreground">
+                    {t('novelLib.noHit')}
                   </div>
                 ) : null
               ) : filteredNovels.length > 0 ? (
@@ -1304,28 +1304,28 @@ export function LibraryPage(): React.JSX.Element {
               ) : currentAuthor.novels.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
                   <BookOpen className="h-4 w-4" />
-                  {t("library.novelEmpty")}
+                  {t('library.novelEmpty')}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
                   <Sparkles className="h-4 w-4" />
-                  {t("library.noMatch")}
+                  {t('library.noMatch')}
                 </div>
               )}
             </div>
           ) : null}
 
           {currentAuthor &&
-          tab !== "novel" &&
+          tab !== 'novel' &&
           !loading &&
           filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-16 text-center text-sm text-muted-foreground">
               <Sparkles className="h-4 w-4" />
-              {t("library.noMatch")}
+              {t('library.noMatch')}
             </div>
           ) : null}
 
-          {currentAuthor && tab !== "novel" && filtered.length > 0 ? (
+          {currentAuthor && tab !== 'novel' && filtered.length > 0 ? (
             <div
               className="relative"
               style={{ height: virtualizer.getTotalSize() }}

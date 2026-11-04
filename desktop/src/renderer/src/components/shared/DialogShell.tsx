@@ -1,28 +1,28 @@
-import * as React from 'react'
-import { cn } from '@renderer/utils/ui'
+import { cn } from '@renderer/utils/ui';
+import * as React from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '../ui/dialog'
+  DialogTitle,
+} from '../ui/dialog';
 
 export interface DialogShellProps {
-  title: string
-  description?: string
-  icon?: React.ReactNode
-  onClose: () => void
+  title: string;
+  description?: string;
+  icon?: React.ReactNode;
+  onClose: () => void;
   /** 底部操作区，可选 */
-  footer?: React.ReactNode
-  children: React.ReactNode
-  className?: string
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
   /**
    * 是否响应 Esc 关闭，默认响应。
    * 上层弹窗里又开了一层弹窗时，先关掉上层的那次 Esc 应该只关内层。
    */
-  closeOnEscape?: boolean
+  closeOnEscape?: boolean;
 }
 
 /**
@@ -33,19 +33,27 @@ export interface DialogShellProps {
  * DialogHeader / DialogContent / 关闭按钮。
  */
 export function DialogShell(props: DialogShellProps): React.JSX.Element {
-  const { title, description, icon, onClose, footer, children, className, closeOnEscape = true } =
-    props
+  const {
+    title,
+    description,
+    icon,
+    onClose,
+    footer,
+    children,
+    className,
+    closeOnEscape = true,
+  } = props;
 
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose()
+        if (!open) onClose();
       }}
     >
       <DialogContent
         onEscapeKeyDown={(event) => {
-          if (!closeOnEscape) event.preventDefault()
+          if (!closeOnEscape) event.preventDefault();
         }}
         className={cn(
           'flex max-h-[86vh] w-full max-w-2xl flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-2xl sm:rounded-xl',
@@ -58,14 +66,18 @@ export function DialogShell(props: DialogShellProps): React.JSX.Element {
             {title}
           </DialogTitle>
           {description ? (
-            <DialogDescription className="text-xs leading-5">{description}</DialogDescription>
+            <DialogDescription className="text-xs leading-5">
+              {description}
+            </DialogDescription>
           ) : (
             // Radix 要求始终有一个 description 供读屏关联，没有文案时给个空节点
             <DialogDescription className="sr-only">{''}</DialogDescription>
           )}
         </DialogHeader>
 
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {children}
+        </div>
 
         {footer ? (
           <DialogFooter className="shrink-0 flex-row items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
@@ -74,5 +86,5 @@ export function DialogShell(props: DialogShellProps): React.JSX.Element {
         ) : null}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

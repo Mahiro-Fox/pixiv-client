@@ -1,9 +1,9 @@
-import { app } from 'electron'
-import path from 'node:path'
-import type { OAuthCredentials, OAuthStatus } from '../../shared/types'
-import { resolveAppClient } from '../../shared/appClient'
-import { readSecureText, writeSecureText } from '../secureFile'
-import { postFormJson } from './http'
+import path from 'node:path';
+import { app } from 'electron';
+import { resolveAppClient } from '../../shared/appClient';
+import type { OAuthCredentials, OAuthStatus } from '../../shared/types';
+import { readSecureText, writeSecureText } from '../secureFile';
+import { postFormJson } from './http';
 
 /**
  * App API（OAuth）凭据层。
@@ -20,72 +20,75 @@ import { postFormJson } from './http'
  * - refresh_token 属于用户自己的账号，只存在本地，可手填，也可以点设置里的
  *   「通过 pixiv 登录获取」走 PKCE 授权码流程自动换取（见 `oauthLogin.ts`）。
  */
-const OAUTH_TOKEN_URL = 'https://oauth.secure.pixiv.net/auth/token'
+const OAUTH_TOKEN_URL = 'https://oauth.secure.pixiv.net/auth/token';
 
 /** PKCE 授权码换 token 时回传的地址，必须与授权页一致 */
-export const OAUTH_REDIRECT_URI = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback'
+export const OAUTH_REDIRECT_URI =
+  'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback';
 /** token 端点要求 Android 客户端 UA，不能沿用网页 UA */
-const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)'
+const APP_USER_AGENT = 'PixivAndroidApp/6.140.2 (Android 15.0)';
 /** 提前 60 秒续期，避免请求发出时刚好过期 */
-const REFRESH_AHEAD_MS = 60_000
+const REFRESH_AHEAD_MS = 60_000;
 
 interface TokenRecord extends OAuthCredentials {
-  accessToken: string | null
+  accessToken: string | null;
   /** access_token 过期时间戳（毫秒） */
-  expiresAt: number | null
-  userId: string | null
+  expiresAt: number | null;
+  userId: string | null;
 }
 
 interface TokenResponse {
-  access_token?: string
-  expires_in?: number
-  refresh_token?: string
-  user?: { id?: string | number }
+  access_token?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  user?: { id?: string | number };
 }
 
 /** undefined 表示还没读过磁盘，null 表示读过但没有凭据 */
-let cached: TokenRecord | null | undefined
+let cached: TokenRecord | null | undefined;
 /** 并发去重：多个写操作同时触发续期时只发一次刷新请求 */
-let inflight: Promise<string> | null = null
+let inflight: Promise<string> | null = null;
 
 function tokenFile(): string {
-  return path.join(app.getPath('userData'), 'oauth.json')
+  return path.join(app.getPath('userData'), 'oauth.json');
 }
 
 function isFilled(record: Partial<TokenRecord> | null): boolean {
   return Boolean(
     record?.clientId && record?.clientSecret && record?.refreshToken
-  )
+  );
 }
 
 async function load(): Promise<TokenRecord | null> {
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return cached;
   try {
-    const found = await readSecureText(tokenFile())
+    const found = await readSecureText(tokenFile());
     if (!found) {
-      cached = null
-      return cached
+      cached = null;
+      return cached;
     }
-    const parsed = JSON.parse(found.text) as Partial<TokenRecord>
+    const parsed = JSON.parse(found.text) as Partial<TokenRecord>;
     cached = isFilled(parsed)
       ? {
           clientId: String(parsed.clientId),
           clientSecret: String(parsed.clientSecret),
           refreshToken: String(parsed.refreshToken),
-          accessToken: typeof parsed.accessToken === 'string' ? parsed.accessToken : null,
-          expiresAt: typeof parsed.expiresAt === 'number' ? parsed.expiresAt : null,
-          userId: parsed.userId ? String(parsed.userId) : null
+          accessToken:
+            typeof parsed.accessToken === 'string' ? parsed.accessToken : null,
+          expiresAt:
+            typeof parsed.expiresAt === 'number' ? parsed.expiresAt : null,
+          userId: parsed.userId ? String(parsed.userId) : null,
         }
-      : null
+      : null;
   } catch {
-    cached = null
+    cached = null;
   }
-  return cached
+  return cached;
 }
 
 async function persist(record: TokenRecord): Promise<void> {
-  cached = record
-  await writeSecureText(tokenFile(), JSON.stringify(record, null, 2))
+  cached = record;
+  await writeSecureText(tokenFile(), JSON.stringify(record, null, 2));
 }
 
 function statusOf(record: TokenRecord | null): OAuthStatus {
@@ -95,60 +98,64 @@ function statusOf(record: TokenRecord | null): OAuthStatus {
     hasClient: true,
     tail: record?.refreshToken ? record.refreshToken.slice(-4) : '',
     expiresAt: record?.expiresAt ?? null,
-    userId: record?.userId ?? null
-  }
+    userId: record?.userId ?? null,
+  };
 }
 
 /** 用 refresh_token 换 access_token；失败时把 pixiv 的错误码翻成能看懂的原因 */
-async function refreshTokens(credentials: OAuthCredentials): Promise<TokenRecord> {
+async function refreshTokens(
+  credentials: OAuthCredentials
+): Promise<TokenRecord> {
   const form = {
     grant_type: 'refresh_token',
     refresh_token: credentials.refreshToken,
     client_id: credentials.clientId,
     client_secret: credentials.clientSecret,
-    include_policy: 'true'
-  }
+    include_policy: 'true',
+  };
 
-  let response: TokenResponse
+  let response: TokenResponse;
   try {
     response = await postFormJson<TokenResponse>(OAUTH_TOKEN_URL, form, {
       headers: { 'User-Agent': APP_USER_AGENT },
       readErrorBody: true,
       // App API 的 401 与 Cookie 无关，不能触发「请重新登录」
-      notifyAuthFailure: false
-    })
+      notifyAuthFailure: false,
+    });
   } catch (reason) {
-    const text = String(reason)
+    const text = String(reason);
     if (text.includes('invalid_grant')) {
-      throw new Error('refresh_token 无效或已被吊销，请重新导入')
+      throw new Error('refresh_token 无效或已被吊销，请重新导入');
     }
     if (text.includes('invalid_client')) {
-      throw new Error('client_id 或 client_secret 不正确')
+      throw new Error('client_id 或 client_secret 不正确');
     }
-    throw reason
+    throw reason;
   }
 
-  if (!response.access_token) throw new Error('刷新失败：响应里没有 access_token')
+  if (!response.access_token)
+    throw new Error('刷新失败：响应里没有 access_token');
 
   return {
     ...credentials,
     // pixiv 每次刷新都会下发新的 refresh_token，必须跟着更新
     refreshToken: response.refresh_token || credentials.refreshToken,
     accessToken: response.access_token,
-    expiresAt: Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
-    userId: response.user?.id ? String(response.user.id) : null
-  }
+    expiresAt:
+      Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
+    userId: response.user?.id ? String(response.user.id) : null,
+  };
 }
 
 export async function getOAuthStatus(): Promise<OAuthStatus> {
-  return statusOf(await load())
+  return statusOf(await load());
 }
 
 interface AuthorizationInput {
-  code: string
-  codeVerifier: string
-  clientId?: string
-  clientSecret?: string
+  code: string;
+  codeVerifier: string;
+  clientId?: string;
+  clientSecret?: string;
 }
 
 /**
@@ -156,8 +163,10 @@ interface AuthorizationInput {
  * 与 refresh 流程共用 token 端点，但 grant_type 换成 authorization_code，
  * 并回传 code_verifier 与 redirect_uri。
  */
-async function requestTokensByCode(input: AuthorizationInput): Promise<TokenRecord> {
-  const client = resolveAppClient(input.clientId, input.clientSecret)
+async function requestTokensByCode(
+  input: AuthorizationInput
+): Promise<TokenRecord> {
+  const client = resolveAppClient(input.clientId, input.clientSecret);
   const form = {
     grant_type: 'authorization_code',
     code: input.code,
@@ -165,29 +174,29 @@ async function requestTokensByCode(input: AuthorizationInput): Promise<TokenReco
     client_id: client.clientId,
     client_secret: client.clientSecret,
     redirect_uri: OAUTH_REDIRECT_URI,
-    include_policy: 'true'
-  }
+    include_policy: 'true',
+  };
 
-  let response: TokenResponse
+  let response: TokenResponse;
   try {
     response = await postFormJson<TokenResponse>(OAUTH_TOKEN_URL, form, {
       headers: { 'User-Agent': APP_USER_AGENT },
       readErrorBody: true,
-      notifyAuthFailure: false
-    })
+      notifyAuthFailure: false,
+    });
   } catch (reason) {
-    const text = String(reason)
+    const text = String(reason);
     if (text.includes('invalid_grant')) {
-      throw new Error('授权码无效或已过期，请重新登录授权')
+      throw new Error('授权码无效或已过期，请重新登录授权');
     }
     if (text.includes('invalid_client')) {
-      throw new Error('client_id 或 client_secret 不正确')
+      throw new Error('client_id 或 client_secret 不正确');
     }
-    throw reason
+    throw reason;
   }
 
   if (!response.access_token || !response.refresh_token) {
-    throw new Error('授权失败：响应里没有 access_token 或 refresh_token')
+    throw new Error('授权失败：响应里没有 access_token 或 refresh_token');
   }
 
   return {
@@ -195,9 +204,10 @@ async function requestTokensByCode(input: AuthorizationInput): Promise<TokenReco
     clientSecret: client.clientSecret,
     refreshToken: response.refresh_token,
     accessToken: response.access_token,
-    expiresAt: Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
-    userId: response.user?.id ? String(response.user.id) : null
-  }
+    expiresAt:
+      Date.now() + Math.max(0, Number(response.expires_in ?? 3600)) * 1000,
+    userId: response.user?.id ? String(response.user.id) : null,
+  };
 }
 
 /**
@@ -211,60 +221,64 @@ export async function completePixivAuthorization(
     clientId: input.clientId,
     clientSecret: input.clientSecret,
     code: input.code.trim(),
-    codeVerifier: input.codeVerifier
-  })
-  await persist(record)
-  return statusOf(record)
+    codeVerifier: input.codeVerifier,
+  });
+  await persist(record);
+  return statusOf(record);
 }
 
 /**
  * 保存并校验凭据：先刷新一次，成功才落盘。
  * 这样「保存成功」就等于「凭据可用」，避免存进一份死 token。
  */
-export async function saveOAuthCredentials(raw: OAuthCredentials): Promise<OAuthStatus> {
-  const client = resolveAppClient(raw.clientId, raw.clientSecret)
+export async function saveOAuthCredentials(
+  raw: OAuthCredentials
+): Promise<OAuthStatus> {
+  const client = resolveAppClient(raw.clientId, raw.clientSecret);
   const credentials: OAuthCredentials = {
     clientId: client.clientId,
     clientSecret: client.clientSecret,
-    refreshToken: raw.refreshToken.trim()
-  }
-  if (!credentials.refreshToken) throw new Error('refresh_token 不能为空')
+    refreshToken: raw.refreshToken.trim(),
+  };
+  if (!credentials.refreshToken) throw new Error('refresh_token 不能为空');
 
-  const next = await refreshTokens(credentials)
-  await persist(next)
-  return statusOf(next)
+  const next = await refreshTokens(credentials);
+  await persist(next);
+  return statusOf(next);
 }
 
 export async function clearOAuth(): Promise<OAuthStatus> {
-  cached = null
-  inflight = null
-  await writeSecureText(tokenFile(), '{}')
-  return statusOf(null)
+  cached = null;
+  inflight = null;
+  await writeSecureText(tokenFile(), '{}');
+  return statusOf(null);
 }
 
 /** 供写操作使用：返回可用的 access_token，过期前自动续期 */
 export async function getAccessToken(): Promise<string> {
-  const record = await load()
+  const record = await load();
   if (!record) {
-    throw new Error('未配置 App API 凭据：请在设置里登录 pixiv 授权，或填入 refresh_token')
+    throw new Error(
+      '未配置 App API 凭据：请在设置里登录 pixiv 授权，或填入 refresh_token'
+    );
   }
 
   const stillValid =
     record.accessToken &&
     record.expiresAt !== null &&
-    record.expiresAt - Date.now() > REFRESH_AHEAD_MS
-  if (stillValid) return record.accessToken as string
+    record.expiresAt - Date.now() > REFRESH_AHEAD_MS;
+  if (stillValid) return record.accessToken as string;
 
   if (!inflight) {
     inflight = (async () => {
       try {
-        const next = await refreshTokens(record)
-        await persist(next)
-        return next.accessToken as string
+        const next = await refreshTokens(record);
+        await persist(next);
+        return next.accessToken as string;
       } finally {
-        inflight = null
+        inflight = null;
       }
-    })()
+    })();
   }
-  return inflight
+  return inflight;
 }

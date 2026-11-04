@@ -1,27 +1,43 @@
-import { ArrowLeft, Bell, BellOff, ImageOff, Layers, Loader2, User } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type * as React from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import type { OAuthStatus, SearchWork, SeriesDetail, SeriesEpisode } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { openPreview } from '@renderer/hooks/useWorkPreview'
-import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
-import { WorkCard } from '@renderer/components/shared/WorkCard'
+import { WorkCard } from '@renderer/components/shared/WorkCard';
+import { Badge } from '@renderer/components/ui/badge';
+import { Button } from '@renderer/components/ui/button';
+import { openPreview } from '@renderer/hooks/useWorkPreview';
+import { useI18n } from '@renderer/i18n';
+import { toast } from '@renderer/utils/toast';
+import type {
+  OAuthStatus,
+  SearchWork,
+  SeriesDetail,
+  SeriesEpisode,
+} from '@shared/types';
+import {
+  ArrowLeft,
+  Bell,
+  BellOff,
+  ImageOff,
+  Layers,
+  Loader2,
+  User,
+} from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import type * as React from 'react';
 
 interface SeriesPageProps {
   /** App API 凭据状态；追更按钮依赖它 */
-  oauth: OAuthStatus | null
+  oauth: OAuthStatus | null;
 }
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 /** 系列里的一话转成预览弹窗需要的作品结构 */
-function toSearchWork(detail: SeriesDetail, episode: SeriesEpisode): SearchWork {
+function toSearchWork(
+  detail: SeriesDetail,
+  episode: SeriesEpisode
+): SearchWork {
   return {
     id: episode.id,
     title: episode.title,
@@ -42,60 +58,60 @@ function toSearchWork(detail: SeriesDetail, episode: SeriesEpisode): SearchWork 
       id: detail.id,
       title: detail.title,
       order: episode.order,
-      isConcluded: detail.isConcluded
-    }
-  }
+      isConcluded: detail.isConcluded,
+    },
+  };
 }
 
 export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const { seriesId = '' } = useParams()
-  const [searchParams] = useSearchParams()
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { seriesId = '' } = useParams();
+  const [searchParams] = useSearchParams();
 
-  const [detail, setDetail] = useState<SeriesDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [watching, setWatching] = useState(false)
-  const [watchBusy, setWatchBusy] = useState(false)
+  const [detail, setDetail] = useState<SeriesDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [watching, setWatching] = useState(false);
+  const [watchBusy, setWatchBusy] = useState(false);
 
-  const workId = searchParams.get('work') || ''
+  const workId = searchParams.get('work') || '';
 
   useEffect(() => {
-    if (!seriesId) return
-    let alive = true
-    setLoading(true)
-    setDetail(null)
+    if (!seriesId) return;
+    let alive = true;
+    setLoading(true);
+    setDetail(null);
     void window.pixiv
       .getWorkSeries({ seriesId, workId })
       .then((data) => {
-        if (!alive) return
-        setDetail(data)
-        setWatching(data.watchlisted)
+        if (!alive) return;
+        setDetail(data);
+        setWatching(data.watchlisted);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [seriesId, workId])
+      alive = false;
+    };
+  }, [seriesId, workId]);
 
   const toggleWatch = async (): Promise<void> => {
-    if (!detail || watchBusy) return
-    setWatchBusy(true)
+    if (!detail || watchBusy) return;
+    setWatchBusy(true);
     try {
-      const next = !watching
-      await window.pixiv.setSeriesWatch(detail.id, next)
-      setWatching(next)
+      const next = !watching;
+      await window.pixiv.setSeriesWatch(detail.id, next);
+      setWatching(next);
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setWatchBusy(false)
+      setWatchBusy(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -103,7 +119,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
         <Loader2 className="h-4 w-4 animate-spin" />
         {t('series.loading')}
       </main>
-    )
+    );
   }
 
   if (!detail) {
@@ -114,10 +130,10 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
           {t('series.back')}
         </Button>
       </main>
-    )
+    );
   }
 
-  const episodes = detail.episodes
+  const episodes = detail.episodes;
 
   return (
     <main className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
@@ -129,7 +145,7 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
       </div>
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
-        <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
+        <div className="w-42 relative h-44 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.cover ? (
             <img
               src={detail.cover}
@@ -146,9 +162,13 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start gap-2">
-            <h1 className="flex-1 text-lg font-semibold leading-7">{detail.title}</h1>
+            <h1 className="flex-1 text-lg font-semibold leading-7">
+              {detail.title}
+            </h1>
             {/* App API 的漫画系列详情不返回完结状态，只有确定已完结时才显示角标 */}
-            {detail.isConcluded ? <Badge variant="outline">{t('series.concluded')}</Badge> : null}
+            {detail.isConcluded ? (
+              <Badge variant="outline">{t('series.concluded')}</Badge>
+            ) : null}
           </div>
 
           <button
@@ -195,7 +215,10 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
               variant="ghost"
               size="sm"
               onClick={() =>
-                window.open(`https://www.pixiv.net/manga/series/${detail.id}`, '_blank')
+                window.open(
+                  `https://www.pixiv.net/manga/series/${detail.id}`,
+                  '_blank'
+                )
               }
             >
               {t('series.openWeb')}
@@ -216,7 +239,9 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
           {t('series.episodes')}
         </p>
         {episodes.length === 0 ? (
-          <p className="py-10 text-center text-xs text-muted-foreground">{t('series.empty')}</p>
+          <p className="py-10 text-center text-xs text-muted-foreground">
+            {t('series.empty')}
+          </p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {episodes.map((episode, index) => (
@@ -238,5 +263,5 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
         )}
       </section>
     </main>
-  )
+  );
 }

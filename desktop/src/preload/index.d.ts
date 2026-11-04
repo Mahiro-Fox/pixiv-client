@@ -1,9 +1,9 @@
-import type { PixivApi } from '../shared/types'
+import type { PixivApi } from '../shared/types';
 
 declare global {
   interface Window {
-    pixiv: PixivApi
+    pixiv: PixivApi;
   }
 }
 
-export {}
+export {};

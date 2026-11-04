@@ -1,91 +1,116 @@
-import { Bookmark, BookmarkCheck, Check, Clock3, ExternalLink, Gem, Image as ImageIcon, ImageOff, Layers, Loader2, Plus, X } from 'lucide-react'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import type * as React from 'react'
-import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage, WorkSeriesNav } from '@shared/types'
-import { readWorkPages, writeWorkPages } from '@renderer/utils/dialogCache'
-import { useUgoiraFrames } from '@renderer/hooks/useUgoira'
-import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
-import { useImagePreview } from '../layout/ImagePreview'
-import { UgoiraPlayer } from './UgoiraPlayer'
+import { useUgoiraFrames } from '@renderer/hooks/useUgoira';
+import { useI18n } from '@renderer/i18n';
+import { readWorkPages, writeWorkPages } from '@renderer/utils/dialogCache';
+import { toast } from '@renderer/utils/toast';
+import type {
+  BookmarkInput,
+  BookmarkPrivacy,
+  BookmarkState,
+  ImageQuality,
+  PixivWork,
+  WorkPage,
+  WorkSeriesNav,
+} from '@shared/types';
+import {
+  Bookmark,
+  BookmarkCheck,
+  Check,
+  Clock3,
+  ExternalLink,
+  Gem,
+  Image as ImageIcon,
+  ImageOff,
+  Layers,
+  Loader2,
+  Plus,
+  X,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
+import { useImagePreview } from '../layout/ImagePreview';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { UgoiraPlayer } from './UgoiraPlayer';
 
 interface WorkDetailDialogProps {
-  work: PixivWork
+  work: PixivWork;
   /** 初始预览质量，来自全局下载质量设置 */
-  quality: ImageQuality
-  selected: boolean
-  onToggle: (id: string) => void
-  onClose: () => void
+  quality: ImageQuality;
+  selected: boolean;
+  onToggle: (id: string) => void;
+  onClose: () => void;
   /** 搜索结果只做预览，不提供「加入下载」，默认显示 */
-  showSelection?: boolean
+  showSelection?: boolean;
 }
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
-export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const { work } = props
-  const preview = useImagePreview()
-  const [pages, setPages] = useState<WorkPage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [quality, setQuality] = useState<ImageQuality>(props.quality)
+export function WorkDetailDialog(
+  props: WorkDetailDialogProps
+): React.JSX.Element {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { work } = props;
+  const preview = useImagePreview();
+  const [pages, setPages] = useState<WorkPage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [quality, setQuality] = useState<ImageQuality>(props.quality);
 
   /** 收藏依赖 App API 凭据；未连接时整块控件不渲染 */
-  const [oauthConnected, setOauthConnected] = useState(false)
-  const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
-  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
-  const [bookmarkBusy, setBookmarkBusy] = useState(false)
+  const [oauthConnected, setOauthConnected] = useState(false);
+  const [bookmark, setBookmark] = useState<BookmarkState | null>(null);
+  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public');
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
   /** 稍后看是纯本地列表，不依赖 OAuth；状态需要单独读一次 */
-  const [watchLater, setWatchLater] = useState(false)
-  const [watchLaterBusy, setWatchLaterBusy] = useState(false)
+  const [watchLater, setWatchLater] = useState(false);
+  const [watchLaterBusy, setWatchLaterBusy] = useState(false);
   /** undefined 表示来源数据没带系列字段（如搜索结果），需要按 id 补一次详情 */
-  const [seriesNav, setSeriesNav] = useState<WorkSeriesNav | null | undefined>(work.series)
+  const [seriesNav, setSeriesNav] = useState<WorkSeriesNav | null | undefined>(
+    work.series
+  );
 
   useEffect(() => {
-    setSeriesNav(work.series)
-    if (work.series !== undefined) return
-    let alive = true
+    setSeriesNav(work.series);
+    if (work.series !== undefined) return;
+    let alive = true;
     void window.pixiv
       .getWorkDetail(work.id)
       .then((detail) => {
-        if (alive) setSeriesNav(detail?.series ?? null)
+        if (alive) setSeriesNav(detail?.series ?? null);
       })
-      .catch(() => undefined)
+      .catch(() => undefined);
     return () => {
-      alive = false
-    }
-  }, [work.id, work.series])
+      alive = false;
+    };
+  }, [work.id, work.series]);
 
   // 切换作品时重置稍后看状态
   useEffect(() => {
-    let alive = true
-    setWatchLater(false)
+    let alive = true;
+    setWatchLater(false);
     void window.pixiv
       .isWatchLater(work.id)
       .then((saved) => {
-        if (alive) setWatchLater(saved)
+        if (alive) setWatchLater(saved);
       })
-      .catch(() => undefined)
+      .catch(() => undefined);
     return () => {
-      alive = false
-    }
-  }, [work.id])
+      alive = false;
+    };
+  }, [work.id]);
 
   const toggleWatchLater = async (): Promise<void> => {
-    if (watchLaterBusy) return
-    setWatchLaterBusy(true)
+    if (watchLaterBusy) return;
+    setWatchLaterBusy(true);
     try {
       if (watchLater) {
-        await window.pixiv.removeWatchLater(work.id)
-        setWatchLater(false)
-        return
+        await window.pixiv.removeWatchLater(work.id);
+        setWatchLater(false);
+        return;
       }
       // 只在加入时传完整展示信息，移除只需要 id
       await window.pixiv.addWatchLater({
@@ -96,79 +121,79 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
         url: work.url,
         pageCount: work.pageCount,
         xRestrict: work.xRestrict,
-        illustType: work.illustType
-      })
-      setWatchLater(true)
+        illustType: work.illustType,
+      });
+      setWatchLater(true);
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setWatchLaterBusy(false)
+      setWatchLaterBusy(false);
     }
-  }
+  };
 
   // 打开时读取一次收藏状态；切换作品要重置，避免显示上一件的状态
   useEffect(() => {
-    let alive = true
-    setBookmark(null)
+    let alive = true;
+    setBookmark(null);
     void window.pixiv
       .getOAuthStatus()
       .then(async (status) => {
-        if (!alive) return
-        setOauthConnected(status.connected)
-        if (!status.connected) return
-        const state = await window.pixiv.getBookmarkState(work.id)
-        if (!alive) return
-        setBookmark(state)
-        setPrivacy(state.restrict)
+        if (!alive) return;
+        setOauthConnected(status.connected);
+        if (!status.connected) return;
+        const state = await window.pixiv.getBookmarkState(work.id);
+        if (!alive) return;
+        setBookmark(state);
+        setPrivacy(state.restrict);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
-      })
+        if (alive) toast.error(messageOf(reason));
+      });
     return () => {
-      alive = false
-    }
-  }, [work.id])
+      alive = false;
+    };
+  }, [work.id]);
 
   const applyBookmark = async (input: BookmarkInput): Promise<void> => {
-    if (bookmarkBusy) return
-    setBookmarkBusy(true)
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true);
     try {
-      const next = await window.pixiv.setBookmark(work.id, input)
-      setBookmark(next)
-      setPrivacy(next.restrict)
+      const next = await window.pixiv.setBookmark(work.id, input);
+      setBookmark(next);
+      setPrivacy(next.restrict);
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setBookmarkBusy(false)
+      setBookmarkBusy(false);
     }
-  }
+  };
 
   /** 已收藏时切换可见性需要重新提交；未收藏时只记下待用的选择 */
   const choosePrivacy = (value: BookmarkPrivacy): void => {
     if (bookmark?.bookmarked) {
-      void applyBookmark({ bookmarked: true, restrict: value })
-      return
+      void applyBookmark({ bookmarked: true, restrict: value });
+      return;
     }
-    setPrivacy(value)
-  }
+    setPrivacy(value);
+  };
 
   // 详情弹窗的预览质量默认跟随全局设置，切换作品时重置
   useEffect(() => {
-    setQuality(props.quality)
-  }, [props.quality, work.id])
+    setQuality(props.quality);
+  }, [props.quality, work.id]);
 
   // 打开详情即写入浏览记录；同一作品重复打开只更新时间，不产生多条。
   // 列表数据偶尔没有缩略图（作品详情接口只给 urls），这时等第一张分页图出来再落一条，
   // 避免历史里出现 thumbnail 为空、卡片只剩占位底色的条目。
-  const recordedCover = useRef('')
+  const recordedCover = useRef('');
   useEffect(() => {
-    if (!work.userId) return
-    const cover = work.url || pages[0]?.regular || pages[0]?.url || ''
-    const key = `${work.id}|${cover}`
-    if (recordedCover.current === key) return
+    if (!work.userId) return;
+    const cover = work.url || pages[0]?.regular || pages[0]?.url || '';
+    const key = `${work.id}|${cover}`;
+    if (recordedCover.current === key) return;
     // 还没有封面且分页在加载：等拿到第一张图再写，历史条目一次就是完整的
-    if (!cover && loading) return
-    recordedCover.current = key
+    if (!cover && loading) return;
+    recordedCover.current = key;
     void window.pixiv
       .recordView({
         id: work.id,
@@ -178,93 +203,96 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
         url: cover,
         pageCount: work.pageCount,
         xRestrict: work.xRestrict,
-        illustType: work.illustType
+        illustType: work.illustType,
       })
-      .catch(() => undefined)
-  }, [work, pages, loading])
+      .catch(() => undefined);
+  }, [work, pages, loading]);
 
   const srcOf = (page: WorkPage): string => {
-    if (quality === 'original') return page.original || page.regular || page.url
-    return page.regular || page.url
-  }
+    if (quality === 'original')
+      return page.original || page.regular || page.url;
+    return page.regular || page.url;
+  };
 
   // 点击图片在应用内全屏预览，不再跳浏览器
   const openPreview = (start: number): void => {
     preview.open(
       pages.map((page, index) => ({
         src: srcOf(page),
-        alt: t('detail.pageAlt', { title: work.title, page: index + 1 })
+        alt: t('detail.pageAlt', { title: work.title, page: index + 1 }),
       })),
       start
-    )
-  }
+    );
+  };
 
-  const isUgoira = Number(work.illustType) === 2
+  const isUgoira = Number(work.illustType) === 2;
   /** 动图不走分页接口：它只有一段动画，帧由 ugoira:frames 现取现播 */
-  const ugoira = useUgoiraFrames(isUgoira ? { kind: 'remote', id: work.id } : null)
+  const ugoira = useUgoiraFrames(
+    isUgoira ? { kind: 'remote', id: work.id } : null
+  );
 
   /** 全屏预览：动图把来源一并带过去，由预览层自己取帧播放 */
   const openUgoiraPreview = (): void => {
-    if (ugoira.frames.length === 0) return
+    if (ugoira.frames.length === 0) return;
     preview.open([
       {
         src: ugoira.frames[0]!.src,
         alt: work.title,
-        ugoira: { kind: 'remote', id: work.id }
-      }
-    ])
-  }
+        ugoira: { kind: 'remote', id: work.id },
+      },
+    ]);
+  };
 
   useEffect(() => {
-    let alive = true
+    let alive = true;
 
     if (isUgoira) {
-      setPages([])
-      setLoading(false)
+      setPages([]);
+      setLoading(false);
       return () => {
-        alive = false
-      }
+        alive = false;
+      };
     }
 
     // 同一个作品短时间内再次打开时直接用缓存，避免重复请求分页接口
-    const cached = readWorkPages(work.id)
+    const cached = readWorkPages(work.id);
     if (cached) {
-      setPages(cached)
-      setLoading(false)
+      setPages(cached);
+      setLoading(false);
       return () => {
-        alive = false
-      }
+        alive = false;
+      };
     }
 
-    setPages([])
-    setLoading(true)
+    setPages([]);
+    setLoading(true);
 
     void window.pixiv
       .getWorkPages(work.id)
       .then((result) => {
-        if (!alive) return
-        setPages(result)
-        writeWorkPages(work.id, result)
+        if (!alive) return;
+        setPages(result);
+        writeWorkPages(work.id, result);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
 
     return () => {
-      alive = false
-    }
-  }, [work.id])
+      alive = false;
+    };
+  }, [work.id]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') props.onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [props.onClose])
+      if (event.key === 'Escape') props.onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [props.onClose]);
 
   return (
     <div
@@ -286,10 +314,14 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
             </p>
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               <Badge variant="outline">
-                {t('detail.pageCount', { count: work.pageCount || pages.length })}
+                {t('detail.pageCount', {
+                  count: work.pageCount || pages.length,
+                })}
               </Badge>
               {isUgoira ? (
-                <Badge className="bg-amber-500/80 text-white backdrop-blur">{t('detail.ugoira')}</Badge>
+                <Badge className="bg-amber-500/80 text-white backdrop-blur">
+                  {t('detail.ugoira')}
+                </Badge>
               ) : null}
               {work.width > 0 && work.height > 0 ? (
                 <Badge variant="outline">
@@ -298,19 +330,31 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               ) : null}
               {pages[0]?.width ? (
                 <Badge variant="outline">
-                  {t('detail.singlePage', { width: pages[0].width, height: pages[0].height })}
+                  {t('detail.singlePage', {
+                    width: pages[0].width,
+                    height: pages[0].height,
+                  })}
                 </Badge>
               ) : null}
               <div className="ml-1 flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
                 {(
                   [
-                    { value: 'regular', labelKey: 'detail.qualityRegular', icon: <ImageIcon className="h-4 w-4" /> },
-                    { value: 'original', labelKey: 'detail.qualityOriginal', icon: <Gem className="h-4 w-4" /> }
+                    {
+                      value: 'regular',
+                      labelKey: 'detail.qualityRegular',
+                      icon: <ImageIcon className="h-4 w-4" />,
+                    },
+                    {
+                      value: 'original',
+                      labelKey: 'detail.qualityOriginal',
+                      icon: <Gem className="h-4 w-4" />,
+                    },
                   ] as {
-                      value: ImageQuality
-                      labelKey: 'detail.qualityRegular' | 'detail.qualityOriginal'
-                      icon: React.JSX.Element
-                    }[]
+                    value: ImageQuality;
+                    labelKey:
+                      'detail.qualityRegular' | 'detail.qualityOriginal';
+                    icon: React.JSX.Element;
+                  }[]
                 ).map((option) => (
                   <button
                     key={option.value}
@@ -340,15 +384,20 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 <button
                   type="button"
                   onClick={() => {
-                    props.onClose()
+                    props.onClose();
                     // 带上当前作品 ID：没有 App API 凭据时用它读网页系列信息
-                    navigate(`/series/${seriesNav.id}?work=${encodeURIComponent(work.id)}`)
+                    navigate(
+                      `/series/${seriesNav.id}?work=${encodeURIComponent(work.id)}`
+                    );
                   }}
                   className="inline-flex max-w-full items-center gap-1 text-[11px] text-primary transition-colors hover:underline"
                 >
                   <Layers className="h-4 w-4 shrink-0" />
                   <span className="truncate">
-                    {t('detail.series', { title: seriesNav.title, order: seriesNav.order })}
+                    {t('detail.series', {
+                      title: seriesNav.title,
+                      order: seriesNav.order,
+                    })}
                   </span>
                 </button>
               ) : null}
@@ -388,7 +437,10 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   {t('preview.ugoiraLoading')}
                 </div>
               ) : (
-                <UgoiraPlayer frames={ugoira.frames} onClick={openUgoiraPreview} />
+                <UgoiraPlayer
+                  frames={ugoira.frames}
+                  onClick={openUgoiraPreview}
+                />
               )}
             </div>
           ) : loading ? (
@@ -404,7 +456,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {pages.map((page, index) => {
-                const src = srcOf(page)
+                const src = srcOf(page);
                 return (
                   <button
                     key={`${page.url}-${index}`}
@@ -414,7 +466,10 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   >
                     <img
                       src={src}
-                      alt={t('detail.pageAlt', { title: work.title, page: index + 1 })}
+                      alt={t('detail.pageAlt', {
+                        title: work.title,
+                        page: index + 1,
+                      })}
                       loading="lazy"
                       decoding="async"
                       className="aspect-[3/4] w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
@@ -423,7 +478,7 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                       p{index}
                     </span>
                   </button>
-                )
+                );
               })}
             </div>
           )}
@@ -440,8 +495,14 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
               disabled={watchLaterBusy}
               onClick={() => void toggleWatchLater()}
             >
-              {watchLaterBusy ? <Loader2 className="animate-spin h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
-              {watchLater ? t('detail.watchLaterSaved') : t('detail.watchLater')}
+              {watchLaterBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Clock3 className="h-4 w-4" />
+              )}
+              {watchLater
+                ? t('detail.watchLaterSaved')
+                : t('detail.watchLater')}
             </Button>
             {oauthConnected ? (
               <>
@@ -452,18 +513,20 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                   onClick={() =>
                     void applyBookmark({
                       bookmarked: !bookmark?.bookmarked,
-                      restrict: privacy
+                      restrict: privacy,
                     })
                   }
                 >
                   {bookmarkBusy ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : bookmark?.bookmarked ? (
                     <BookmarkCheck className="h-4 w-4" />
                   ) : (
                     <Bookmark className="h-4 w-4" />
                   )}
-                  {bookmark?.bookmarked ? t('detail.bookmarked') : t('detail.bookmark')}
+                  {bookmark?.bookmarked
+                    ? t('detail.bookmarked')
+                    : t('detail.bookmark')}
                 </Button>
                 <div className="flex overflow-hidden rounded-md border border-border/70">
                   {(['public', 'private'] as BookmarkPrivacy[]).map((value) => (
@@ -478,7 +541,9 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                           : 'px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/50'
                       }
                     >
-                      {value === 'public' ? t('detail.bookmarkPublic') : t('detail.bookmarkPrivate')}
+                      {value === 'public'
+                        ? t('detail.bookmarkPublic')
+                        : t('detail.bookmarkPrivate')}
                     </button>
                   ))}
                 </div>
@@ -493,13 +558,19 @@ export function WorkDetailDialog(props: WorkDetailDialogProps): React.JSX.Elemen
                 size="sm"
                 onClick={() => props.onToggle(work.id)}
               >
-                {props.selected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {props.selected ? t('detail.selected') : t('detail.addToDownload')}
+                {props.selected ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {props.selected
+                  ? t('detail.selected')
+                  : t('detail.addToDownload')}
               </Button>
             )}
           </div>
         </footer>
       </div>
     </div>
-  )
+  );
 }

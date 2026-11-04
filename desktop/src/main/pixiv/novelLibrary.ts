@@ -1,239 +1,261 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
-import path from 'node:path'
+import { readdir, readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
+import { CONTENT_DIR } from '../../shared/layout';
 import type {
   NovelLibraryItem,
   NovelLibraryResult,
   NovelTextHit,
-  NovelTextSearchResult
-} from '../../shared/types'
-import { CONTENT_DIR } from '../../shared/layout'
-import { parseAuthorFolder } from './files'
-import { UNKNOWN_AUTHOR } from './workFields'
+  NovelTextSearchResult,
+} from '../../shared/types';
+import { parseAuthorFolder } from './files';
+import { UNKNOWN_AUTHOR } from './workFields';
 
-const META_SUFFIX = '.meta.json'
-const MAX_READ_BYTES = 40 * 1024 * 1024
-const MAX_HITS = 80
-const SNIPPETS_PER_FILE = 3
-const SNIPPET_RADIUS = 40
+const META_SUFFIX = '.meta.json';
+const MAX_READ_BYTES = 40 * 1024 * 1024;
+const MAX_HITS = 80;
+const SNIPPETS_PER_FILE = 3;
+const SNIPPET_RADIUS = 40;
 
 interface NovelMeta {
-  title?: string
-  author?: string
-  userId?: string
-  kind?: 'novel' | 'series'
-  novelId?: string
-  seriesId?: string
-  episodes?: number
-  characters?: number
-  cover?: string
-  tags?: string[]
+  title?: string;
+  author?: string;
+  userId?: string;
+  kind?: 'novel' | 'series';
+  novelId?: string;
+  seriesId?: string;
+  episodes?: number;
+  characters?: number;
+  cover?: string;
+  tags?: string[];
 }
 
 interface CacheEntry {
-  mtimeMs: number
-  size: number
-  text: string
+  mtimeMs: number;
+  size: number;
+  text: string;
 }
 
 /** 已读取的正文缓存：按 mtime + size 失效，避免重复检索时反复读盘 */
-const textCache = new Map<string, CacheEntry>()
+const textCache = new Map<string, CacheEntry>();
 
 /** 小说散落在各作者的 `novel` 目录里，书库根就是保存目录本身 */
 export function novelLibraryRoot(outDir: string): string {
-  return path.resolve(outDir)
+  return path.resolve(outDir);
 }
 
 function isInside(root: string, target: string): boolean {
-  const relative = path.relative(path.resolve(root), path.resolve(target))
-  return Boolean(relative) && !relative.startsWith('..') && !path.isAbsolute(relative)
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return (
+    Boolean(relative) &&
+    !relative.startsWith('..') &&
+    !path.isAbsolute(relative)
+  );
 }
 
 /** 目录名与文件名统一按 Windows 规则清洗，防止拼接出越界路径 */
 export function assertNovelFile(root: string, filePath: string): string {
-  const resolved = path.resolve(filePath)
-  if (!isInside(root, resolved)) throw new Error('非法的小说文件路径')
-  if (!resolved.toLowerCase().endsWith('.txt')) throw new Error('只能读取 TXT 文件')
-  return resolved
+  const resolved = path.resolve(filePath);
+  if (!isInside(root, resolved)) throw new Error('非法的小说文件路径');
+  if (!resolved.toLowerCase().endsWith('.txt'))
+    throw new Error('只能读取 TXT 文件');
+  return resolved;
 }
 
 /**
  * 列出保存目录下所有「{作者ID}_{作者名}/novel」里的小说文件。
  * 与图片同一套作者目录，图片和小说才能在图库里按作者聚合到一起。
  */
-async function listNovelFiles(outDir: string): Promise<{ file: string; authorPath: string }[]> {
-  let authors
+async function listNovelFiles(
+  outDir: string
+): Promise<{ file: string; authorPath: string }[]> {
+  let authors;
   try {
-    authors = await readdir(outDir, { withFileTypes: true })
+    authors = await readdir(outDir, { withFileTypes: true });
   } catch {
-    return []
+    return [];
   }
 
-  const found: { file: string; authorPath: string }[] = []
+  const found: { file: string; authorPath: string }[] = [];
   for (const author of authors) {
-    if (!author.isDirectory() || !parseAuthorFolder(author.name)) continue
-    const authorPath = path.join(outDir, author.name)
-    const dir = path.join(authorPath, CONTENT_DIR.novel)
-    let entries
+    if (!author.isDirectory() || !parseAuthorFolder(author.name)) continue;
+    const authorPath = path.join(outDir, author.name);
+    const dir = path.join(authorPath, CONTENT_DIR.novel);
+    let entries;
     try {
-      entries = await readdir(dir, { withFileTypes: true })
+      entries = await readdir(dir, { withFileTypes: true });
     } catch {
-      continue
+      continue;
     }
     for (const entry of entries) {
       if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt')) {
-        found.push({ file: path.join(dir, entry.name), authorPath })
+        found.push({ file: path.join(dir, entry.name), authorPath });
       }
     }
   }
-  return found
+  return found;
 }
 
 async function readMeta(txtPath: string): Promise<NovelMeta | null> {
   try {
-    const raw = await readFile(`${txtPath}${META_SUFFIX}`, 'utf-8')
-    const parsed = JSON.parse(raw) as NovelMeta
-    return parsed && typeof parsed === 'object' ? parsed : null
+    const raw = await readFile(`${txtPath}${META_SUFFIX}`, 'utf-8');
+    const parsed = JSON.parse(raw) as NovelMeta;
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
-    return null
+    return null;
   }
 }
 
 /** 文件名形如「标题_12345.txt」，去掉末尾 ID 作为回退标题 */
 function titleFromFileName(fileName: string): string {
-  const base = fileName.replace(/\.txt$/i, '')
-  const stripped = base.replace(/_\d+$/, '')
-  return stripped || base
+  const base = fileName.replace(/\.txt$/i, '');
+  const stripped = base.replace(/_\d+$/, '');
+  return stripped || base;
 }
 
 export async function scanNovelLibrary(
   outDir: string,
   force = false
 ): Promise<NovelLibraryResult> {
-  const root = novelLibraryRoot(outDir)
-  const files = await listNovelFiles(outDir)
+  const root = novelLibraryRoot(outDir);
+  const files = await listNovelFiles(outDir);
 
   const items = await Promise.all(
-    files.map(async ({ file, authorPath }): Promise<NovelLibraryItem | null> => {
-      try {
-        const info = await stat(file)
-        if (info.size > MAX_READ_BYTES) return null
-        const meta = await readMeta(file)
-        const fileName = path.basename(file)
-        const folder = parseAuthorFolder(path.basename(authorPath))
-        if (force) textCache.delete(file)
-        return {
-          path: file,
-          fileName,
-          title: meta?.title || titleFromFileName(fileName),
-          author: meta?.author || folder?.userName || UNKNOWN_AUTHOR,
-          authorPath,
-          userId: meta?.userId || folder?.userId || '',
-          size: info.size,
-          updatedAt: info.mtime.toISOString(),
-          characters: Number(meta?.characters || 0),
-          episodes: Number(meta?.episodes || 1),
-          kind: meta?.kind === 'series' ? 'series' : 'novel',
-          novelId: meta?.novelId,
-          seriesId: meta?.seriesId,
-          cover: meta?.cover || '',
-          tags: Array.isArray(meta?.tags) ? meta.tags : []
+    files.map(
+      async ({ file, authorPath }): Promise<NovelLibraryItem | null> => {
+        try {
+          const info = await stat(file);
+          if (info.size > MAX_READ_BYTES) return null;
+          const meta = await readMeta(file);
+          const fileName = path.basename(file);
+          const folder = parseAuthorFolder(path.basename(authorPath));
+          if (force) textCache.delete(file);
+          return {
+            path: file,
+            fileName,
+            title: meta?.title || titleFromFileName(fileName),
+            author: meta?.author || folder?.userName || UNKNOWN_AUTHOR,
+            authorPath,
+            userId: meta?.userId || folder?.userId || '',
+            size: info.size,
+            updatedAt: info.mtime.toISOString(),
+            characters: Number(meta?.characters || 0),
+            episodes: Number(meta?.episodes || 1),
+            kind: meta?.kind === 'series' ? 'series' : 'novel',
+            novelId: meta?.novelId,
+            seriesId: meta?.seriesId,
+            cover: meta?.cover || '',
+            tags: Array.isArray(meta?.tags) ? meta.tags : [],
+          };
+        } catch {
+          return null;
         }
-      } catch {
-        return null
       }
-    })
-  )
+    )
+  );
 
   return {
     root,
     items: items
       .filter((item): item is NovelLibraryItem => Boolean(item))
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-  }
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+  };
 }
 
 async function loadText(file: string): Promise<string | null> {
   try {
-    const info = await stat(file)
-    if (info.size > MAX_READ_BYTES) return null
-    const cached = textCache.get(file)
-    if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
-      return cached.text
+    const info = await stat(file);
+    if (info.size > MAX_READ_BYTES) return null;
+    const cached = textCache.get(file);
+    if (
+      cached &&
+      cached.mtimeMs === info.mtimeMs &&
+      cached.size === info.size
+    ) {
+      return cached.text;
     }
-    const raw = await readFile(file, 'utf-8')
-    const text = raw.replace(/^\ufeff/, '')
-    textCache.set(file, { mtimeMs: info.mtimeMs, size: info.size, text })
-    return text
+    const raw = await readFile(file, 'utf-8');
+    const text = raw.replace(/^\ufeff/, '');
+    textCache.set(file, { mtimeMs: info.mtimeMs, size: info.size, text });
+    return text;
   } catch {
-    return null
+    return null;
   }
 }
 
 function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function snippetsOf(text: string, keyword: string): { matches: number; snippets: string[] } {
-  const pattern = new RegExp(escapeRegExp(keyword), 'gi')
-  const snippets: string[] = []
-  let matches = 0
-  let match: RegExpExecArray | null
+function snippetsOf(
+  text: string,
+  keyword: string
+): { matches: number; snippets: string[] } {
+  const pattern = new RegExp(escapeRegExp(keyword), 'gi');
+  const snippets: string[] = [];
+  let matches = 0;
+  let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
     // 空匹配会导致 lastIndex 不前进，手动跳过
     if (match[0].length === 0) {
-      pattern.lastIndex += 1
-      continue
+      pattern.lastIndex += 1;
+      continue;
     }
-    matches += 1
+    matches += 1;
     if (snippets.length < SNIPPETS_PER_FILE) {
-      const start = Math.max(0, match.index - SNIPPET_RADIUS)
-      const end = Math.min(text.length, match.index + keyword.length + SNIPPET_RADIUS)
+      const start = Math.max(0, match.index - SNIPPET_RADIUS);
+      const end = Math.min(
+        text.length,
+        match.index + keyword.length + SNIPPET_RADIUS
+      );
       snippets.push(
         `${start > 0 ? '…' : ''}${text.slice(start, end).replace(/\s+/g, ' ').trim()}${
           end < text.length ? '…' : ''
         }`
-      )
+      );
     }
   }
 
-  return { matches, snippets }
+  return { matches, snippets };
 }
 
 export async function searchNovelLibraryText(
   outDir: string,
   keyword: string
 ): Promise<NovelTextSearchResult> {
-  const word = keyword.trim()
-  if (!word) return { hits: [], scanned: 0 }
+  const word = keyword.trim();
+  if (!word) return { hits: [], scanned: 0 };
 
-  const library = await scanNovelLibrary(outDir)
-  const hits: NovelTextHit[] = []
-  let scanned = 0
+  const library = await scanNovelLibrary(outDir);
+  const hits: NovelTextHit[] = [];
+  let scanned = 0;
 
   for (const item of library.items) {
-    const text = await loadText(item.path)
-    scanned += 1
-    if (!text) continue
-    const { matches, snippets } = snippetsOf(text, word)
-    if (matches === 0) continue
+    const text = await loadText(item.path);
+    scanned += 1;
+    if (!text) continue;
+    const { matches, snippets } = snippetsOf(text, word);
+    if (matches === 0) continue;
     hits.push({
       path: item.path,
       title: item.title,
       author: item.author,
       matches,
-      snippets
-    })
-    if (hits.length >= MAX_HITS) break
+      snippets,
+    });
+    if (hits.length >= MAX_HITS) break;
   }
 
-  return { hits, scanned }
+  return { hits, scanned };
 }
 
-export async function readNovelText(outDir: string, filePath: string): Promise<string> {
-  const root = novelLibraryRoot(outDir)
-  const safe = assertNovelFile(root, filePath)
-  const text = await loadText(safe)
-  if (text === null) throw new Error('无法读取该小说文件')
-  return text
+export async function readNovelText(
+  outDir: string,
+  filePath: string
+): Promise<string> {
+  const root = novelLibraryRoot(outDir);
+  const safe = assertNovelFile(root, filePath);
+  const text = await loadText(safe);
+  if (text === null) throw new Error('无法读取该小说文件');
+  return text;
 }

@@ -10,6 +10,7 @@
 **技术栈**：Electron 45 + electron-vite + React 19 + TypeScript + Tailwind + react-router-dom（Hash 路由）。主进程用 Electron `net` 直连 pixiv，渲染层只管 UI。
 
 **命令**（cwd = `desktop`）：
+
 ```bash
 npm install          # 首次
 npm run dev          # 开发
@@ -18,6 +19,7 @@ npm run build        # 提交前必跑
 ```
 
 **目录约定**（改动前先看这几处）：
+
 - `src/shared/types.ts`：跨层类型的唯一来源，新增接口先加类型。
 - `src/main/pixiv/`：pixiv 接口层。`http.ts` 是所有请求的底座（代理、超时、429 冷却、重试），`search.ts` / `user.ts` / `novels.ts` / `api.ts` 是各业务，`ranking.ts` 是网页排行榜，`oauth.ts` 是 App API 凭据，`appApi.ts` 是 App API 的 GET / POST 通道，`recommend.ts` / `write.ts` 是推荐与写操作。
 - `src/main/ipc.ts`：所有 IPC handler 的注册处（含参数清洗与白名单）。
@@ -26,6 +28,7 @@ npm run build        # 提交前必跑
 - `src/renderer/src/i18n/messages.ts`：三语言文案，zhCN 是 MessageKey 的来源，en / ja 必须同步补齐，否则类型报错。
 
 **关键机制**：
+
 - 图片防盗链：主进程 `installImageReferer()` 给 `i.pximg.net` 补 Referer，渲染层直接用 `https://i.pximg.net/...` 即可。
 - 请求节流：`main/pixiv/throttle.ts` 全局闸门（冷却、并发、最小间隔），所有 API 请求经 `acquireSlot('api')` 排队。
 - 页面状态放 URL（`word / order / mode / page / tab`），便于返回与分享状态。
@@ -36,16 +39,16 @@ npm run build        # 提交前必跑
 
 ## 搁置项
 
-| 功能 | 优先级 | 搁置原因 | 后续前置条件 |
-| --- | --- | --- | --- |
-| 关注画师批量同步（入口已屏蔽） | P2 | 勾选画师后没有挑选具体作品的操作空间，只能全量同步；多任务队列已覆盖大部分批量场景。界面入口已注释，代码保留在 `FollowDialog` 与 `App.batchSync` | 需要补「先抓取 → 挑选作品 → 再入队」的中间步骤；需求确认后取消注释即可恢复 |
-| 批量同步的抓取阶段并行 | P2 | 批量同步的下载阶段已走全局并行调度；但多名画师同时翻页最容易触发 429，抓取仍保持逐个串行 | 需要任务级限流与 `BatchSyncProgress` 改为多画师结构（进度条重做）后再评估 |
-| 定时任务 | P2 | 关注画师批量同步已实现（入口暂时屏蔽）；自动执行需要调度，当前手动触发已覆盖日常增量备份 | 托盘菜单、开机自启、错过执行是否补跑、失败通知策略一并设计 |
-| SQLite 下载历史库（含 FTS5 检索） | P2 | 已提供 `history.json` 元数据索引，图库有 15s 缓存 + `fs.watch` 增量刷新 + 虚拟滚动，当前规模足够；收益主要在跨维度检索而非性能 | `better-sqlite3` 是原生模块，需确认 Electron ABI 预编译包，否则要 electron-rebuild 与 `asarUnpack`；图库要做复杂组合检索时再迁移 |
-| 单张图片 HTTP Range 断点续传 | P2 | 当前按「文件粒度」重下，单文件失败重试成本可接受 | 需要记录已下载字节、校验服务端是否支持 Range |
-| 磁盘空间预检 | P3 | 下载前预估体积不准（原图尺寸差异大），收益有限 | 需要稳定的体积估算来源 |
-| 剪贴板监听作品链接 | P3 | 与批量备份主流程关联弱 | 需要链接解析与单作品下载入口 |
-| 安装包代码签名 | P3 | 分发与自动更新已打通；未签名的安装包会触发 Windows SmartScreen 警告 | 需要代码签名证书与相应构建流程 |
+| 功能                              | 优先级 | 搁置原因                                                                                                                                         | 后续前置条件                                                                                                                     |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 关注画师批量同步（入口已屏蔽）    | P2     | 勾选画师后没有挑选具体作品的操作空间，只能全量同步；多任务队列已覆盖大部分批量场景。界面入口已注释，代码保留在 `FollowDialog` 与 `App.batchSync` | 需要补「先抓取 → 挑选作品 → 再入队」的中间步骤；需求确认后取消注释即可恢复                                                       |
+| 批量同步的抓取阶段并行            | P2     | 批量同步的下载阶段已走全局并行调度；但多名画师同时翻页最容易触发 429，抓取仍保持逐个串行                                                         | 需要任务级限流与 `BatchSyncProgress` 改为多画师结构（进度条重做）后再评估                                                        |
+| 定时任务                          | P2     | 关注画师批量同步已实现（入口暂时屏蔽）；自动执行需要调度，当前手动触发已覆盖日常增量备份                                                         | 托盘菜单、开机自启、错过执行是否补跑、失败通知策略一并设计                                                                       |
+| SQLite 下载历史库（含 FTS5 检索） | P2     | 已提供 `history.json` 元数据索引，图库有 15s 缓存 + `fs.watch` 增量刷新 + 虚拟滚动，当前规模足够；收益主要在跨维度检索而非性能                   | `better-sqlite3` 是原生模块，需确认 Electron ABI 预编译包，否则要 electron-rebuild 与 `asarUnpack`；图库要做复杂组合检索时再迁移 |
+| 单张图片 HTTP Range 断点续传      | P2     | 当前按「文件粒度」重下，单文件失败重试成本可接受                                                                                                 | 需要记录已下载字节、校验服务端是否支持 Range                                                                                     |
+| 磁盘空间预检                      | P3     | 下载前预估体积不准（原图尺寸差异大），收益有限                                                                                                   | 需要稳定的体积估算来源                                                                                                           |
+| 剪贴板监听作品链接                | P3     | 与批量备份主流程关联弱                                                                                                                           | 需要链接解析与单作品下载入口                                                                                                     |
+| 安装包代码签名                    | P3     | 分发与自动更新已打通；未签名的安装包会触发 Windows SmartScreen 警告                                                                              | 需要代码签名证书与相应构建流程                                                                                                   |
 
 ## 与 Pixeval 的功能差距（2026-10-28 评估）
 
@@ -53,18 +56,18 @@ npm run build        # 提交前必跑
 
 只列我们未实现或明显不足的能力：
 
-| 功能 | Pixeval 侧依据 | 我们的现状 | 复刻难度 | 建议优先级 |
-| --- | --- | --- | --- | --- |
-| 收藏浏览页 | `WorkBookmarks` 导航页；`WorkSubscriptionDownloadService.cs:601-625` | **已实现**：`/favorites`，公开 / 私密切换 + 标签筛选 + 分页 | — | ✅ |
-| 浏览历史 | 本地 SQLite，`HistoryPersistHelper.cs:116-139` | **已实现**：`/history`，`viewHistory.json` + 搜索 + 清空 | — | ✅ |
-| 全局屏蔽（标签 / 用户） | `BrowsingExperienceSettingsGroup.cs:14-49`，浏览设置里全局生效 | **已实现**：`shared/block.ts`，主进程过滤搜索 / 用户作品 / 收藏 / 批量同步 | — | ✅ |
-| 图片查看器能力 | 缩放 / 旋转 / 镜像 / 原图 / Fit / 幻灯片自动播放 / 页 Slider / 悬浮工具栏，`IllustrationViewerPage.axaml:237-357` | `WorkDetailDialog` 单图 + 简单翻页；**2026-10-28 确认现有预览够用，暂不升级** | 中 | 暂缓 |
-| 系列聚合浏览 | `Series` 导航页 | **已实现**：`/series/:seriesId`，App API 取完整目录 + 追更；未连接凭据时用作品页 `seriesNavData` 兜底 | — | ✅ |
-| 收藏 / 关注 / 取关等写操作 | `MakoHelper.cs:54-77`；端点见 `IAppApiEndPoint.cs:21-128` | **已实现**：`appApi.ts` 表单 POST + `write.ts`；详情弹窗收藏（公开 / 私密）、用户主页关注 / 取关 | — | ✅ |
-| 推荐 / 排行榜 / 用户推荐 | `NavigationMenuYaml.cs:8-40`；`WorkRankingPage.axaml.cs:70-75` | **已实现**：`/ranking`（网页排行榜）与 `/recommend`（App API 推荐作品 / 画师，未连接时网页发现兜底） | — | ✅ |
-| 下载任务状态机 | `Channel` 队列 + `DownloadTaskKey` 去重，状态含 Queued / Running / Paused / Error / Cancelled / Completed，`DownloadManager.cs:83-140`、`DownloadItemViewModel.cs:38-131` | **已实现（2026-10-29）**：排队 / 解析 / 下载 / 未完成 / 已取消 / 失败 / 完成七态，三种结束态语义互斥；中止分 pause / cancel / shutdown 三条路径；任务级自动重试（可重试错误退避重试、404/403 立即放弃）与连续失败熔断 | — | ✅ |
-| 稍后看 | `WatchLater` 导航页 | **已实现**：`/watch-later`，本地 `watchLater.json` + 详情弹窗「稍后看」按钮 + 搜索 / 移出 / 清空 | — | ✅ |
-| 订阅式增量下载 | 按收藏 / 关注 / 搜索条件定期拉新作，`WorkSubscriptionDownloadService.cs:601-625` | 无 | 高 | P3 |
+| 功能                       | Pixeval 侧依据                                                                                                                                                            | 我们的现状                                                                                                                                                                                                            | 复刻难度 | 建议优先级 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| 收藏浏览页                 | `WorkBookmarks` 导航页；`WorkSubscriptionDownloadService.cs:601-625`                                                                                                      | **已实现**：`/favorites`，公开 / 私密切换 + 标签筛选 + 分页                                                                                                                                                           | —        | ✅         |
+| 浏览历史                   | 本地 SQLite，`HistoryPersistHelper.cs:116-139`                                                                                                                            | **已实现**：`/history`，`viewHistory.json` + 搜索 + 清空                                                                                                                                                              | —        | ✅         |
+| 全局屏蔽（标签 / 用户）    | `BrowsingExperienceSettingsGroup.cs:14-49`，浏览设置里全局生效                                                                                                            | **已实现**：`shared/block.ts`，主进程过滤搜索 / 用户作品 / 收藏 / 批量同步                                                                                                                                            | —        | ✅         |
+| 图片查看器能力             | 缩放 / 旋转 / 镜像 / 原图 / Fit / 幻灯片自动播放 / 页 Slider / 悬浮工具栏，`IllustrationViewerPage.axaml:237-357`                                                         | `WorkDetailDialog` 单图 + 简单翻页；**2026-10-28 确认现有预览够用，暂不升级**                                                                                                                                         | 中       | 暂缓       |
+| 系列聚合浏览               | `Series` 导航页                                                                                                                                                           | **已实现**：`/series/:seriesId`，App API 取完整目录 + 追更；未连接凭据时用作品页 `seriesNavData` 兜底                                                                                                                 | —        | ✅         |
+| 收藏 / 关注 / 取关等写操作 | `MakoHelper.cs:54-77`；端点见 `IAppApiEndPoint.cs:21-128`                                                                                                                 | **已实现**：`appApi.ts` 表单 POST + `write.ts`；详情弹窗收藏（公开 / 私密）、用户主页关注 / 取关                                                                                                                      | —        | ✅         |
+| 推荐 / 排行榜 / 用户推荐   | `NavigationMenuYaml.cs:8-40`；`WorkRankingPage.axaml.cs:70-75`                                                                                                            | **已实现**：`/ranking`（网页排行榜）与 `/recommend`（App API 推荐作品 / 画师，未连接时网页发现兜底）                                                                                                                  | —        | ✅         |
+| 下载任务状态机             | `Channel` 队列 + `DownloadTaskKey` 去重，状态含 Queued / Running / Paused / Error / Cancelled / Completed，`DownloadManager.cs:83-140`、`DownloadItemViewModel.cs:38-131` | **已实现（2026-10-29）**：排队 / 解析 / 下载 / 未完成 / 已取消 / 失败 / 完成七态，三种结束态语义互斥；中止分 pause / cancel / shutdown 三条路径；任务级自动重试（可重试错误退避重试、404/403 立即放弃）与连续失败熔断 | —        | ✅         |
+| 稍后看                     | `WatchLater` 导航页                                                                                                                                                       | **已实现**：`/watch-later`，本地 `watchLater.json` + 详情弹窗「稍后看」按钮 + 搜索 / 移出 / 清空                                                                                                                      | —        | ✅         |
+| 订阅式增量下载             | 按收藏 / 关注 / 搜索条件定期拉新作，`WorkSubscriptionDownloadService.cs:601-625`                                                                                          | 无                                                                                                                                                                                                                    | 高       | P3         |
 
 不需要复刻：YAML 可配置导航、MCP Server、扩展（Extensions）系统、多端（Android / iOS / Browser）适配。
 
@@ -78,28 +81,22 @@ npm run build        # 提交前必跑
 4. ✅ 小说阅读设置（2026-10-28 完成）：`NovelReaderSettings` 浮层，字号 / 行高 / 宽度 / 主题存 `localStorage`，在线阅读与本地 TXT 阅读共用。
 5. ✅ 排行榜 / 推荐 / 用户推荐（2026-10-28 完成）：`/ranking` 走网页 `ranking.php?format=json`（7 种榜单 × 插画/漫画 + 历史日期 + 10 页）；`/recommend` 的推荐作品与画师走 App API，未连接 OAuth 时作品退回 `/ajax/illust/discovery` 兜底。
 
-**第二档：需新增能力**
-6. 图片查看器升级（**暂缓**）：2026-10-28 确认现有 `WorkDetailDialog` 预览已满足使用，不做缩放 / 旋转 / 幻灯片改造；若后续要做，把 `ImagePreview` 扩成支持缩放 / 旋转 / 镜像 / 原图 / Fit / 键盘 / 幻灯片播放的组件即可。
-7. ✅ 写操作（2026-10-28 完成）：`appApi.ts` 增加 `appApiPost` 表单通道，`write.ts` 封装收藏状态 / 收藏 / 关注状态 / 关注四个操作；详情弹窗加收藏按钮与公开 / 私密切换，用户主页加关注按钮（自己的主页不显示），未连接 OAuth 时不渲染按钮。
+**第二档：需新增能力** 6. 图片查看器升级（**暂缓**）：2026-10-28 确认现有 `WorkDetailDialog` 预览已满足使用，不做缩放 / 旋转 / 幻灯片改造；若后续要做，把 `ImagePreview` 扩成支持缩放 / 旋转 / 镜像 / 原图 / Fit / 键盘 / 幻灯片播放的组件即可。7. ✅ 写操作（2026-10-28 完成）：`appApi.ts` 增加 `appApiPost` 表单通道，`write.ts` 封装收藏状态 / 收藏 / 关注状态 / 关注四个操作；详情弹窗加收藏按钮与公开 / 私密切换，用户主页加关注按钮（自己的主页不显示），未连接 OAuth 时不渲染按钮。
 
-**第三档：不建议现在做**
-8. ~~下载引擎重构为队列式任务~~（**已过时，2026-10-29 移除**：队列式任务早已是现状，`main/queue.ts` + `ipc.ts pumpQueue()` + `jobs.ts runDownloadJob`，`QueuePanel` / `ProgressPanel` 也已按队列模型实现；状态机与重试策略同日补齐）。剩下的只有订阅增量下载。
+**第三档：不建议现在做** 8. ~~下载引擎重构为队列式任务~~（**已过时，2026-10-29 移除**：队列式任务早已是现状，`main/queue.ts` + `ipc.ts pumpQueue()` + `jobs.ts runDownloadJob`，`QueuePanel` / `ProgressPanel` 也已按队列模型实现；状态机与重试策略同日补齐）。剩下的只有订阅增量下载。
 
-**已完成补充（2026-10-29）**
-9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。
-10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。
-11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorksGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
-12. ✅ 列表页离开再回来保留数据（keep-alive + 已加载标记 + 滚动位置 hook）：
-   - **库**：`keepalive-for-react` v6（不再用 `keepalive-for-react-router` 的现成出口）。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
-   - **非缓存路由同步切换（2026-10-29 修）**：`keepalive-for-react-router` 的出口把缓存键更新包进了 `startTransition`，新路由要等一个额外调度帧才挂载，这期间旧页面已经画出来了——表现为「从推荐页点进用户详情 / 关注列表时闪一下推荐页」。现在只把命中 `include` 的页面交给 `KeepAlive`，其它路由的 `useOutlet()` 直接渲染在正常 DOM 里（同步），离开缓存页时用 `hidden` 立即藏起缓存容器；非缓存路由统一用占位缓存键 `/(off)`，避免每个详情页都在缓存表里留一条。
-   - **推荐页切标签 / 切插画漫画不重取**：作品按 `kind` 分桶 `WorksBucket { works, next, token }`（`token = kind:连接状态`），命中即跳过；画师用 `usersLoaded` 布尔标记。只有点「刷新」才删掉当前桶重取；kind / 凭据变化会让标记不匹配并自动重取。
-   - **后台页面不读全局 URL（关键根因）**：keep-alive 页面在后台没卸载，`useSearchParams()` 读到的是全局位置；进详情页时 URL 无 `word` / `page`，后台页把它们算成空值触发 effect，返回时参数复原又跑一遍，表现为「点作者→返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台不请求也不清空；六个缓存页均已接入。
-   - **请求签名**：各页用 `loadedSig` ref 保存「取数据的条件」（kind / word / 筛选 / 页码 / 提交序号），一致即跳过，失败清空以便重试，作为第二道防线。
-   - **搜索框同步只在栏目页**：`App.tsx` 只在 `/illust`、`/manga`、`/novel`、`/users` 用 URL 的 `word` 回填输入框，进 `/user/:id` 等详情页不同步，避免输入框被清空再跳回。
-   - **滚动位置**：库不做滚动恢复。`lib/scrollMemory.ts` 提供 `useKeepAliveScroll(key)`（回调 ref + 挂载还原 + `useLayoutEffectOnActive` 激活还原 + rAF 兜底）与 `useScrollMemory(key)`。**ref 必须挂到真正滚动的容器上**：推荐页与排行榜挂外层 `main`（推荐页列表包一层 `shrink-0` 防止内部 grid 在 flex 收缩下变成独立滚动区）；插画 / 漫画 / 小说 / 用户四页挂内层 `overflow-y-auto` 列表容器。推荐页用动态键 `recommend:works:{kind}` / `recommend:users`，切键时直接还原新键位置；位置只在滚动事件里实时记录，切键时**不要**补读 `scrollTop`（此时 DOM 已换成新列表，旧列表更长会被 clamp，补读会把真实位置覆盖成 0）。`reset()` 用于数据整批重置时归零。
-   - **刷新时机**：`lib/searchSubmit.ts` 全局提交序号，`submitSearch` 每次回车都递增并进入搜索页 effect 依赖，同一关键词再回车也重取。
-   - 旧的 `lib/pageCache.ts`（内存快照）已删除，避免与 keep-alive 两套机制并存。
-   - 顺带给排行榜页与推荐页的 `main` 补了 `overflow-y-auto`（此前内容会被根布局裁掉）。所有缓存与滚动位置只在内存，重启失效。
+**已完成补充（2026-10-29）** 9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorksGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。12. ✅ 列表页离开再回来保留数据（keep-alive + 已加载标记 + 滚动位置 hook）：
+
+- **库**：`keepalive-for-react` v6（不再用 `keepalive-for-react-router` 的现成出口）。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
+- **非缓存路由同步切换（2026-10-29 修）**：`keepalive-for-react-router` 的出口把缓存键更新包进了 `startTransition`，新路由要等一个额外调度帧才挂载，这期间旧页面已经画出来了——表现为「从推荐页点进用户详情 / 关注列表时闪一下推荐页」。现在只把命中 `include` 的页面交给 `KeepAlive`，其它路由的 `useOutlet()` 直接渲染在正常 DOM 里（同步），离开缓存页时用 `hidden` 立即藏起缓存容器；非缓存路由统一用占位缓存键 `/(off)`，避免每个详情页都在缓存表里留一条。
+- **推荐页切标签 / 切插画漫画不重取**：作品按 `kind` 分桶 `WorksBucket { works, next, token }`（`token = kind:连接状态`），命中即跳过；画师用 `usersLoaded` 布尔标记。只有点「刷新」才删掉当前桶重取；kind / 凭据变化会让标记不匹配并自动重取。
+- **后台页面不读全局 URL（关键根因）**：keep-alive 页面在后台没卸载，`useSearchParams()` 读到的是全局位置；进详情页时 URL 无 `word` / `page`，后台页把它们算成空值触发 effect，返回时参数复原又跑一遍，表现为「点作者→返回后搜索页重新请求」。`lib/pageActive.ts` 的 `usePageActive()` 在 effect 首行判断，后台不请求也不清空；六个缓存页均已接入。
+- **请求签名**：各页用 `loadedSig` ref 保存「取数据的条件」（kind / word / 筛选 / 页码 / 提交序号），一致即跳过，失败清空以便重试，作为第二道防线。
+- **搜索框同步只在栏目页**：`App.tsx` 只在 `/illust`、`/manga`、`/novel`、`/users` 用 URL 的 `word` 回填输入框，进 `/user/:id` 等详情页不同步，避免输入框被清空再跳回。
+- **滚动位置**：库不做滚动恢复。`lib/scrollMemory.ts` 提供 `useKeepAliveScroll(key)`（回调 ref + 挂载还原 + `useLayoutEffectOnActive` 激活还原 + rAF 兜底）与 `useScrollMemory(key)`。**ref 必须挂到真正滚动的容器上**：推荐页与排行榜挂外层 `main`（推荐页列表包一层 `shrink-0` 防止内部 grid 在 flex 收缩下变成独立滚动区）；插画 / 漫画 / 小说 / 用户四页挂内层 `overflow-y-auto` 列表容器。推荐页用动态键 `recommend:works:{kind}` / `recommend:users`，切键时直接还原新键位置；位置只在滚动事件里实时记录，切键时**不要**补读 `scrollTop`（此时 DOM 已换成新列表，旧列表更长会被 clamp，补读会把真实位置覆盖成 0）。`reset()` 用于数据整批重置时归零。
+- **刷新时机**：`lib/searchSubmit.ts` 全局提交序号，`submitSearch` 每次回车都递增并进入搜索页 effect 依赖，同一关键词再回车也重取。
+- 旧的 `lib/pageCache.ts`（内存快照）已删除，避免与 keep-alive 两套机制并存。
+- 顺带给排行榜页与推荐页的 `main` 补了 `overflow-y-auto`（此前内容会被根布局裁掉）。所有缓存与滚动位置只在内存，重启失效。
 
 ## 写操作接口细节（Mako 调研结论）
 
@@ -107,17 +104,17 @@ Mako 的写操作全部走 **App API**（`https://app-api.pixiv.net`）+ OAuth B
 
 端点清单（`Mako/Net/EndPoints/IAppApiEndPoint.cs`）：
 
-| 操作 | 方法 | 端点 | 表单字段 |
-| --- | --- | --- | --- |
-| 收藏插画 / 漫画 | POST | `/v2/illust/bookmark/add` | `illust_id`、`restrict`、`tags[]`（可选，空格拼接） |
-| 取消收藏插画 / 漫画 | POST | `/v1/illust/bookmark/delete` | `illust_id` |
-| 查询收藏状态 | GET | `/v2/illust/bookmark/detail` | `illust_id` |
-| 收藏小说 | POST | `/v2/novel/bookmark/add` | `novel_id`、`restrict`、`tags[]` |
-| 取消收藏小说 | POST | `/v1/novel/bookmark/delete` | `novel_id` |
-| 关注用户 | POST | `/v1/user/follow/add` | `user_id`、`restrict` |
-| 取消关注 | POST | `/v1/user/follow/delete` | `user_id` |
-| 追更漫画系列 | POST | `/v1/watchlist/manga/add`、`/v1/watchlist/manga/delete` | `series_id` |
-| 追更小说系列 | POST | `/v1/watchlist/novel/add`、`/v1/watchlist/novel/delete` | `series_id` |
+| 操作                | 方法 | 端点                                                    | 表单字段                                            |
+| ------------------- | ---- | ------------------------------------------------------- | --------------------------------------------------- |
+| 收藏插画 / 漫画     | POST | `/v2/illust/bookmark/add`                               | `illust_id`、`restrict`、`tags[]`（可选，空格拼接） |
+| 取消收藏插画 / 漫画 | POST | `/v1/illust/bookmark/delete`                            | `illust_id`                                         |
+| 查询收藏状态        | GET  | `/v2/illust/bookmark/detail`                            | `illust_id`                                         |
+| 收藏小说            | POST | `/v2/novel/bookmark/add`                                | `novel_id`、`restrict`、`tags[]`                    |
+| 取消收藏小说        | POST | `/v1/novel/bookmark/delete`                             | `novel_id`                                          |
+| 关注用户            | POST | `/v1/user/follow/add`                                   | `user_id`、`restrict`                               |
+| 取消关注            | POST | `/v1/user/follow/delete`                                | `user_id`                                           |
+| 追更漫画系列        | POST | `/v1/watchlist/manga/add`、`/v1/watchlist/manga/delete` | `series_id`                                         |
+| 追更小说系列        | POST | `/v1/watchlist/novel/add`、`/v1/watchlist/novel/delete` | `series_id`                                         |
 
 请求与认证要点：
 
@@ -161,6 +158,7 @@ UI 初始化状态：收藏状态用 `GET /v2/illust/bookmark/detail`，关注�
 - 三语言文案 key：`settings.oauth.*`（12 个）。
 
 **写操作已接线（2026-10-28）**：
+
 1. `src/main/pixiv/appApi.ts`：`appApiGet` / `appApiPost`，内部 `Authorization: Bearer ${await getAccessToken()}`，复用 `http.ts` 的全局 API 闸门做限速。
 2. `src/main/pixiv/write.ts`：`getBookmarkState` / `setBookmark` / `getFollowState` / `setFollow`；401 / 403 翻成中文提示，凭据缺失时直接报「写操作需要先连接 App API 凭据」。
 3. IPC / preload：`write:bookmarkState`、`write:setBookmark`、`write:followState`、`write:setFollow`。

@@ -1,30 +1,30 @@
-import { createContext, useContext, useMemo } from 'react'
-import type * as React from 'react'
-import type { AppConfig } from '@shared/types'
 import {
   compileFilters,
   filterNovels,
   filterWorks,
   type CompiledFilters,
   type FilterableNovel,
-  type FilterableWork
-} from '@shared/filters'
+  type FilterableWork,
+} from '@shared/filters';
+import type { AppConfig } from '@shared/types';
+import { createContext, useContext, useMemo } from 'react';
+import type * as React from 'react';
 
 interface FilterContextValue {
-  config: AppConfig | null
+  config: AppConfig | null;
   /** 编译好的判定参数，列表过滤器直接用 */
-  filters: CompiledFilters
+  filters: CompiledFilters;
   /** 打开过滤规则弹窗（空态提示里的「调整规则」要用） */
-  onOpenFilter?: () => void
+  onOpenFilter?: () => void;
 }
 
-const EMPTY_FILTERS = compileFilters(null)
+const EMPTY_FILTERS = compileFilters(null);
 
 const FilterContext = createContext<FilterContextValue>({
   config: null,
   filters: EMPTY_FILTERS,
-  onOpenFilter: undefined
-})
+  onOpenFilter: undefined,
+});
 
 /**
  * 过滤规则的全局上下文。
@@ -34,25 +34,29 @@ const FilterContext = createContext<FilterContextValue>({
  * 不必重新请求接口，已加载的列表会立刻重算。
  */
 export function FilterProvider(props: {
-  config: AppConfig | null
-  onOpenFilter?: () => void
-  children: React.ReactNode
+  config: AppConfig | null;
+  onOpenFilter?: () => void;
+  children: React.ReactNode;
 }): React.JSX.Element {
-  const { config, onOpenFilter } = props
+  const { config, onOpenFilter } = props;
   const value = useMemo<FilterContextValue>(
     () => ({ config, filters: compileFilters(config), onOpenFilter }),
     [config, onOpenFilter]
-  )
-  return <FilterContext.Provider value={value}>{props.children}</FilterContext.Provider>
+  );
+  return (
+    <FilterContext.Provider value={value}>
+      {props.children}
+    </FilterContext.Provider>
+  );
 }
 
 export function useFilterContext(): FilterContextValue {
-  return useContext(FilterContext)
+  return useContext(FilterContext);
 }
 
 /** 只取配置本身（例如小说页需要判断分级等） */
 export function useFilterConfig(): AppConfig | null {
-  return useContext(FilterContext).config
+  return useContext(FilterContext).config;
 }
 
 /** 按当前规则过滤作品列表，返回保留项与被隐藏的数量 */
@@ -60,30 +64,32 @@ export function useFilteredWorks<T extends FilterableWork>(
   works: T[],
   options?: { ignoreRating?: boolean }
 ): {
-  items: T[]
-  hidden: number
+  items: T[];
+  hidden: number;
 } {
-  const { config, filters } = useFilterContext()
-  const ignoreRating = Boolean(options?.ignoreRating)
+  const { config, filters } = useFilterContext();
+  const ignoreRating = Boolean(options?.ignoreRating);
   return useMemo(() => {
     // 推荐页的作品没有分级维度：用同一份配置重新编译一次，只把 r18 置为 any，
     // 其它规则（页数 / 尺寸 / 排除标签 / 屏蔽）照常生效
-    const effective = ignoreRating ? compileFilters(config, { ignoreRating }) : filters
-    const result = filterWorks(works, effective)
-    return { items: result.items, hidden: result.removed }
-  }, [works, filters, config, ignoreRating])
+    const effective = ignoreRating
+      ? compileFilters(config, { ignoreRating })
+      : filters;
+    const result = filterWorks(works, effective);
+    return { items: result.items, hidden: result.removed };
+  }, [works, filters, config, ignoreRating]);
 }
 
 /** 按当前规则过滤小说列表（页数 / 尺寸规则不适用） */
 export function useFilteredNovels<T extends FilterableNovel>(
   novels: T[]
 ): {
-  items: T[]
-  hidden: number
+  items: T[];
+  hidden: number;
 } {
-  const { filters } = useFilterContext()
+  const { filters } = useFilterContext();
   return useMemo(() => {
-    const result = filterNovels(novels, filters)
-    return { items: result.items, hidden: result.removed }
-  }, [novels, filters])
+    const result = filterNovels(novels, filters);
+    return { items: result.items, hidden: result.removed };
+  }, [novels, filters]);
 }

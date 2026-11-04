@@ -6,6 +6,6 @@
  * 直接贴到界面上既长又没信息量，统一在这里裁一刀。
  */
 export function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }

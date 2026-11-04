@@ -13,19 +13,19 @@
 export const CONTENT_DIR = {
   illustration: 'illustration',
   manga: 'manga',
-  novel: 'novel'
-} as const
+  novel: 'novel',
+} as const;
 
 /** 图片作品的两类内容（小说走单独的 TXT 流程） */
-export type ImageContent = 'illustration' | 'manga'
+export type ImageContent = 'illustration' | 'manga';
 
 /** 本地库的三类内容 */
-export type LocalContent = keyof typeof CONTENT_DIR
+export type LocalContent = keyof typeof CONTENT_DIR;
 
 /** 扫描时遍历的图片目录，顺序即界面栏目的顺序 */
-export const IMAGE_CONTENTS: ImageContent[] = ['illustration', 'manga']
+export const IMAGE_CONTENTS: ImageContent[] = ['illustration', 'manga'];
 
 /** pixiv illustType：0 插画、1 漫画、2 动图（动图与插画同属 illustration） */
 export function imageContentOfIllustType(value: unknown): ImageContent {
-  return Number(value) === 1 ? 'manga' : 'illustration'
+  return Number(value) === 1 ? 'manga' : 'illustration';
 }

@@ -8,12 +8,12 @@ import type {
   WorkSearchParams,
   WorkSearchResult,
   WorkSearchScope,
-  WorkSeriesNav
-} from '../../shared/types'
-import { fetchJson } from './http'
-import { webEndpoints } from './endpoints'
-import { pickLangText } from './lang'
-import { searchWorkBase } from './workFields'
+  WorkSeriesNav,
+} from '../../shared/types';
+import { webEndpoints } from './endpoints';
+import { fetchJson } from './http';
+import { pickLangText } from './lang';
+import { searchWorkBase } from './workFields';
 
 /** 每页条数由 pixiv 决定（插画/漫画为 60），翻页上限沿用接口返回的 lastPage */
 const ORDERS: WorkSearchOrder[] = [
@@ -21,74 +21,74 @@ const ORDERS: WorkSearchOrder[] = [
   'date',
   'popular_d',
   'popular_male_d',
-  'popular_female_d'
-]
+  'popular_female_d',
+];
 
 interface RawSearchWork {
-  id?: string | number
-  illustId?: string | number
-  title?: string
-  illustTitle?: string
-  userId?: string | number
-  userName?: string
-  url?: string
-  profileImageUrl?: string
-  pageCount?: number
-  width?: number
-  height?: number
-  xRestrict?: number
-  illustType?: number
-  tags?: string[]
-  createDate?: string
-  bookmarkCount?: number
-  aiType?: number
+  id?: string | number;
+  illustId?: string | number;
+  title?: string;
+  illustTitle?: string;
+  userId?: string | number;
+  userName?: string;
+  url?: string;
+  profileImageUrl?: string;
+  pageCount?: number;
+  width?: number;
+  height?: number;
+  xRestrict?: number;
+  illustType?: number;
+  tags?: string[];
+  createDate?: string;
+  bookmarkCount?: number;
+  aiType?: number;
   /** 详情接口带系列信息；列表接口通常没有。无系列时可能是空对象 */
-  seriesNavData?: RawSeriesNav | null
+  seriesNavData?: RawSeriesNav | null;
 }
 
 interface RawSeriesNav {
-  seriesId?: string | number
+  seriesId?: string | number;
   /** 网页作品详情用 title，少数接口用 seriesTitle */
-  title?: string
-  seriesTitle?: string
-  order?: number
-  isConcluded?: boolean
+  title?: string;
+  seriesTitle?: string;
+  order?: number;
+  isConcluded?: boolean;
 }
 
 interface RawChip {
-  id?: string
-  label?: string
-  url?: string
-  isPremiumFeature?: boolean
-  score?: number
+  id?: string;
+  label?: string;
+  url?: string;
+  isPremiumFeature?: boolean;
+  score?: number;
 }
 
 interface RawBookmarkRange {
-  min?: number | null
-  max?: number | null
+  min?: number | null;
+  max?: number | null;
 }
 
 interface SearchResponse {
-  error?: boolean
-  message?: string
+  error?: boolean;
+  message?: string;
   body?: {
     illust?: {
-      data?: RawSearchWork[]
-      total?: number
-      lastPage?: number
-      bookmarkRanges?: RawBookmarkRange[]
-    }
+      data?: RawSearchWork[];
+      total?: number;
+      lastPage?: number;
+      bookmarkRanges?: RawBookmarkRange[];
+    };
     manga?: {
-      data?: RawSearchWork[]
-      total?: number
-      lastPage?: number
-      bookmarkRanges?: RawBookmarkRange[]
-    }
-    relatedTags?: string[]
+      data?: RawSearchWork[];
+      total?: number;
+      lastPage?: number;
+      bookmarkRanges?: RawBookmarkRange[];
+    };
+    relatedTags?: string[];
     /* 标签翻译：tag -> { zh, zh_tw, en, romaji, ... } */
-    tagTranslation?: Record<string, Record<string, string>>
-    suggestChips?: RawChip[]
-  }
+    tagTranslation?: Record<string, Record<string, string>>;
+    suggestChips?: RawChip[];
+  };
 }
 
 /**
@@ -99,101 +99,109 @@ interface SearchResponse {
  * 对每个参数取出现最多的值当作基线，凡是与基线不同的键就是该 chip 的增量。
  * 这样不依赖 chip id 或文案，pixiv 改 id 也不影响。
  */
-const CHIP_KEYS = ['order', 'mode', 'csw', 'blt', 's_mode'] as const
+const CHIP_KEYS = ['order', 'mode', 'csw', 'blt', 's_mode'] as const;
 /**
  * 无法映射到 ajax 接口的参数：dgw 含义未知。
  * type 单独处理：动到 type 的 chip 就是「包含漫画」，改由前端合并漫画接口实现。
  */
-const CHIP_UNSUPPORTED = ['dgw'] as const
-const CHIP_TYPE = 'type'
+const CHIP_UNSUPPORTED = ['dgw'] as const;
+const CHIP_TYPE = 'type';
 
 function parseChips(raw: RawChip[] | undefined): WorkSearchChip[] {
-  const source = (raw || []).filter((chip) => chip.id && chip.url)
-  if (source.length === 0) return []
+  const source = (raw || []).filter((chip) => chip.id && chip.url);
+  if (source.length === 0) return [];
 
   const parsed = source.map((chip) => ({
     chip,
-    params: new URL(String(chip.url), 'https://www.pixiv.net').searchParams
-  }))
+    params: new URL(String(chip.url), 'https://www.pixiv.net').searchParams,
+  }));
 
   /** 逐参数取众数作为基线（含「缺失」这一取值） */
   const baseline = (key: string): string => {
-    const counts = new Map<string, number>()
+    const counts = new Map<string, number>();
     parsed.forEach((item) => {
-      const value = item.params.get(key) ?? ''
-      counts.set(value, (counts.get(value) || 0) + 1)
-    })
-    let best = ''
-    let bestCount = -1
+      const value = item.params.get(key) ?? '';
+      counts.set(value, (counts.get(value) || 0) + 1);
+    });
+    let best = '';
+    let bestCount = -1;
     counts.forEach((count, value) => {
       if (count > bestCount) {
-        best = value
-        bestCount = count
+        best = value;
+        bestCount = count;
       }
-    })
-    return best
-  }
+    });
+    return best;
+  };
 
-  const base: Record<string, string> = {}
+  const base: Record<string, string> = {};
   CHIP_KEYS.forEach((key) => {
-    base[key] = baseline(key)
-  })
+    base[key] = baseline(key);
+  });
   CHIP_UNSUPPORTED.forEach((key) => {
-    base[key] = baseline(key)
-  })
-  base[CHIP_TYPE] = baseline(CHIP_TYPE)
+    base[key] = baseline(key);
+  });
+  base[CHIP_TYPE] = baseline(CHIP_TYPE);
 
   return parsed.flatMap(({ chip, params }) => {
     // dgw 等未知参数会改变查询语义，ajax 侧无法复现，直接跳过
-    if (CHIP_UNSUPPORTED.some((key) => (params.get(key) ?? '') !== base[key])) return []
+    if (CHIP_UNSUPPORTED.some((key) => (params.get(key) ?? '') !== base[key]))
+      return [];
 
-    const delta: WorkSearchChip['params'] = {}
-    const order = params.get('order')
-    if (order && order !== base.order && ORDERS.includes(order as WorkSearchOrder)) {
-      delta.order = order as WorkSearchOrder
+    const delta: WorkSearchChip['params'] = {};
+    const order = params.get('order');
+    if (
+      order &&
+      order !== base.order &&
+      ORDERS.includes(order as WorkSearchOrder)
+    ) {
+      delta.order = order as WorkSearchOrder;
     }
-    const mode = params.get('mode')
-    if (mode === 'safe' || mode === 'r18') delta.mode = mode
-    if (params.get('csw') === '1' && base.csw !== '1') delta.csw = '1'
-    const blt = params.get('blt')
-    if (blt && blt !== base.blt && Number(blt) > 0) delta.blt = blt
-    const scope = params.get('s_mode')
-    if (scope === 'tag_tc' && base.s_mode !== 'tag_tc') delta.scope = 'tag_tc'
+    const mode = params.get('mode');
+    if (mode === 'safe' || mode === 'r18') delta.mode = mode;
+    if (params.get('csw') === '1' && base.csw !== '1') delta.csw = '1';
+    const blt = params.get('blt');
+    if (blt && blt !== base.blt && Number(blt) > 0) delta.blt = blt;
+    const scope = params.get('s_mode');
+    if (scope === 'tag_tc' && base.s_mode !== 'tag_tc') delta.scope = 'tag_tc';
     // 「包含漫画」：ajax 的 type=artwork 会 400，改为前端并行请求漫画接口再合并
-    const type = params.get(CHIP_TYPE)
-    if (type === 'artwork' && type !== base[CHIP_TYPE]) delta.includeManga = '1'
+    const type = params.get(CHIP_TYPE);
+    if (type === 'artwork' && type !== base[CHIP_TYPE])
+      delta.includeManga = '1';
 
-    if (Object.keys(delta).length === 0) return []
+    if (Object.keys(delta).length === 0) return [];
     return [
       {
         id: String(chip.id),
         label: chip.label || String(chip.id),
         premium: Boolean(chip.isPremiumFeature),
-        params: delta
-      }
-    ]
-  })
+        params: delta,
+      },
+    ];
+  });
 }
 
 function parseBookmarkRanges(raw: RawBookmarkRange[] | undefined): number[] {
   const values = (raw || [])
     .map((item) => Number(item.min))
-    .filter((value) => Number.isFinite(value) && value > 0)
-  return Array.from(new Set(values)).sort((left, right) => right - left)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return Array.from(new Set(values)).sort((left, right) => right - left);
 }
 
 /** 搜索结果里标签的展示译文：取界面语言那条，见 lang.ts 的 pickLangText */
 /** 无系列时接口可能返回空对象 `{}`，缺 seriesId 即视为不在系列中 */
-export function toWorkSeriesNav(raw: RawSeriesNav | null | undefined): WorkSeriesNav | null {
-  if (!raw) return null
-  const id = String(raw.seriesId ?? '').trim()
-  if (!id) return null
+export function toWorkSeriesNav(
+  raw: RawSeriesNav | null | undefined
+): WorkSeriesNav | null {
+  if (!raw) return null;
+  const id = String(raw.seriesId ?? '').trim();
+  if (!id) return null;
   return {
     id,
     title: raw.title || raw.seriesTitle || '',
     order: Math.max(1, Number(raw.order || 1)),
-    isConcluded: Boolean(raw.isConcluded)
-  }
+    isConcluded: Boolean(raw.isConcluded),
+  };
 }
 
 /** 用户主页与收藏列表复用同一套作品字段映射 */
@@ -215,11 +223,12 @@ export function toSearchWork(raw: RawSearchWork): SearchWork {
       tags: raw.tags,
       createDate: raw.createDate,
       bookmarkCount: raw.bookmarkCount,
-      aiType: raw.aiType
+      aiType: raw.aiType,
     }),
     // 只有详情接口会带这个字段：缺失表示「不知道」，null 表示确定不属于任何系列
-    series: 'seriesNavData' in raw ? toWorkSeriesNav(raw.seriesNavData) : undefined
-  }
+    series:
+      'seriesNavData' in raw ? toWorkSeriesNav(raw.seriesNavData) : undefined,
+  };
 }
 
 /**
@@ -232,7 +241,7 @@ export async function searchWorks(
   cookie = '',
   signal?: AbortSignal
 ): Promise<WorkSearchResult> {
-  const word = params.word.trim()
+  const word = params.word.trim();
   const empty: WorkSearchResult = {
     works: [],
     total: 0,
@@ -240,48 +249,50 @@ export async function searchWorks(
     relatedTags: [],
     tagTranslation: {},
     chips: [],
-    bookmarkRanges: []
-  }
-  if (!word) return empty
+    bookmarkRanges: [],
+  };
+  if (!word) return empty;
 
-  const kind: WorkSearchKind = params.kind === 'manga' ? 'manga' : 'illust'
-  const order = ORDERS.includes(params.order) ? params.order : 'date_d'
+  const kind: WorkSearchKind = params.kind === 'manga' ? 'manga' : 'illust';
+  const order = ORDERS.includes(params.order) ? params.order : 'date_d';
   const mode: WorkSearchMode =
-    params.mode === 'safe' || params.mode === 'r18' ? params.mode : 'all'
-  const scope: WorkSearchScope = params.scope === 'tag_tc' ? 'tag_tc' : 'tag'
-  const blt = Math.max(0, Math.round(Number(params.blt) || 0))
-  const page = Math.max(1, Math.round(Number(params.page) || 1))
-  const csw = Boolean(params.csw)
-  const query = { word, order, mode, page, csw, blt, scope, cookie, signal }
+    params.mode === 'safe' || params.mode === 'r18' ? params.mode : 'all';
+  const scope: WorkSearchScope = params.scope === 'tag_tc' ? 'tag_tc' : 'tag';
+  const blt = Math.max(0, Math.round(Number(params.blt) || 0));
+  const page = Math.max(1, Math.round(Number(params.page) || 1));
+  const csw = Boolean(params.csw);
+  const query = { word, order, mode, page, csw, blt, scope, cookie, signal };
 
-  const primary = await requestPage(kind, query)
+  const primary = await requestPage(kind, query);
   // 「包含漫画」只在插画页出现：并行再取一页漫画，前端合并展示
-  if (kind !== 'illust' || !params.includeManga) return primary
+  if (kind !== 'illust' || !params.includeManga) return primary;
 
-  const manga = await requestPage('manga', query).catch(() => null)
-  if (!manga) return primary
+  const manga = await requestPage('manga', query).catch(() => null);
+  if (!manga) return primary;
 
   return {
     works: [...primary.works, ...manga.works],
     total: primary.total + manga.total,
     lastPage: Math.max(primary.lastPage, manga.lastPage),
-    relatedTags: Array.from(new Set([...primary.relatedTags, ...manga.relatedTags])),
+    relatedTags: Array.from(
+      new Set([...primary.relatedTags, ...manga.relatedTags])
+    ),
     tagTranslation: { ...manga.tagTranslation, ...primary.tagTranslation },
     chips: primary.chips,
-    bookmarkRanges: primary.bookmarkRanges
-  }
+    bookmarkRanges: primary.bookmarkRanges,
+  };
 }
 
 interface PageQuery {
-  word: string
-  order: WorkSearchOrder
-  mode: WorkSearchMode
-  page: number
-  csw: boolean
-  blt: number
-  scope: WorkSearchScope
-  cookie: string
-  signal?: AbortSignal
+  word: string;
+  order: WorkSearchOrder;
+  mode: WorkSearchMode;
+  page: number;
+  csw: boolean;
+  blt: number;
+  scope: WorkSearchScope;
+  cookie: string;
+  signal?: AbortSignal;
 }
 
 /** 取单个栏目（插画或漫画）的一页结果 */
@@ -297,23 +308,26 @@ async function requestPage(
     page: query.page,
     csw: query.csw,
     blt: query.blt,
-    scope: query.scope
-  })
+    scope: query.scope,
+  });
 
-  const data = await fetchJson<SearchResponse>(url, query.cookie, query.signal)
-  if (data.error) throw new Error(`搜索接口报错：${data.message || '未知错误'}`)
+  const data = await fetchJson<SearchResponse>(url, query.cookie, query.signal);
+  if (data.error)
+    throw new Error(`搜索接口报错：${data.message || '未知错误'}`);
 
-  const body = data.body || {}
-  const group = kind === 'illust' ? body.illust : body.manga
-  const works = (group?.data || []).map(toSearchWork).filter((work) => work.id)
-  const total = Number(group?.total || works.length)
-  const lastPage = Number(group?.lastPage || Math.ceil(total / Math.max(1, works.length)))
+  const body = data.body || {};
+  const group = kind === 'illust' ? body.illust : body.manga;
+  const works = (group?.data || []).map(toSearchWork).filter((work) => work.id);
+  const total = Number(group?.total || works.length);
+  const lastPage = Number(
+    group?.lastPage || Math.ceil(total / Math.max(1, works.length))
+  );
 
-  const tagTranslation: Record<string, string> = {}
+  const tagTranslation: Record<string, string> = {};
   Object.entries(body.tagTranslation || {}).forEach(([tag, dict]) => {
-    const text = pickLangText(dict)
-    if (text) tagTranslation[tag] = text
-  })
+    const text = pickLangText(dict);
+    if (text) tagTranslation[tag] = text;
+  });
 
   return {
     works,
@@ -322,30 +336,30 @@ async function requestPage(
     relatedTags: (body.relatedTags || []).filter((tag) => Boolean(tag)),
     tagTranslation,
     chips: parseChips(body.suggestChips),
-    bookmarkRanges: parseBookmarkRanges(group?.bookmarkRanges)
-  }
+    bookmarkRanges: parseBookmarkRanges(group?.bookmarkRanges),
+  };
 }
 
 /** 详情接口给的标签结构与搜索结果不同（tags.tags 里是 { tag, translation }） */
 type RawWorkDetail = Omit<RawSearchWork, 'tags'> & {
-  tags?: { tags?: { tag?: string }[] }
+  tags?: { tags?: { tag?: string }[] };
   /**
    * 作品详情接口不返回 `url`，缩略图只在 `urls` 里（thumb / mini / small…）。
    * 少了这一层，从用户列表四图打开的详情会带着空缩略图，进而写进浏览记录。
    */
   urls?: {
-    mini?: string
-    thumb?: string
-    small?: string
-    regular?: string
-    original?: string
-  }
-}
+    mini?: string;
+    thumb?: string;
+    small?: string;
+    regular?: string;
+    original?: string;
+  };
+};
 
 function detailTags(body: RawWorkDetail): string[] {
-  const list = body.tags?.tags
-  if (!Array.isArray(list)) return []
-  return list.map((item) => String(item?.tag || '').trim()).filter(Boolean)
+  const list = body.tags?.tags;
+  if (!Array.isArray(list)) return [];
+  return list.map((item) => String(item?.tag || '').trim()).filter(Boolean);
 }
 
 /**
@@ -357,23 +371,23 @@ export async function fetchWorkDetail(
   cookie = '',
   signal?: AbortSignal
 ): Promise<SearchWork | null> {
-  const id = illustId.trim()
-  if (!/^\d+$/.test(id)) return null
+  const id = illustId.trim();
+  if (!/^\d+$/.test(id)) return null;
 
   const data = await fetchJson<{ error?: boolean; body?: RawWorkDetail }>(
     webEndpoints.workDetail(id),
     cookie,
     signal
-  )
-  if (data.error || !data.body) return null
+  );
+  if (data.error || !data.body) return null;
 
-  const raw = data.body
+  const raw = data.body;
   return toSearchWork({
     ...raw,
     // 详情接口只有 urls，按卡片需要的尺寸取一张，避免落到空缩略图
     url: raw.url || raw.urls?.thumb || raw.urls?.small || raw.urls?.mini || '',
-    tags: detailTags(raw)
-  })
+    tags: detailTags(raw),
+  });
 }
 
 /**
@@ -386,24 +400,24 @@ export async function fetchTrendingTags(
   signal?: AbortSignal
 ): Promise<TagSuggestion[]> {
   const data = await fetchJson<{
-    error?: boolean
-    body?: Record<string, { tags?: string[]; xRestrict?: number }>
-  }>(webEndpoints.discovery('all'), cookie, signal)
-  if (data.error) return []
+    error?: boolean;
+    body?: Record<string, { tags?: string[]; xRestrict?: number }>;
+  }>(webEndpoints.discovery('all'), cookie, signal);
+  if (data.error) return [];
 
-  const counts = new Map<string, number>()
+  const counts = new Map<string, number>();
   Object.values(data.body || {}).forEach((work) => {
-    if (!work || typeof work !== 'object') return
-    if (Number(work.xRestrict || 0) > 0) return
-    ;(work.tags || []).forEach((tag) => {
-      const key = String(tag || '').trim()
-      if (!key) return
-      counts.set(key, (counts.get(key) || 0) + 1)
-    })
-  })
+    if (!work || typeof work !== 'object') return;
+    if (Number(work.xRestrict || 0) > 0) return;
+    (work.tags || []).forEach((tag) => {
+      const key = String(tag || '').trim();
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  });
 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 12)
-    .map(([tag]) => ({ tag }))
+    .map(([tag]) => ({ tag }));
 }

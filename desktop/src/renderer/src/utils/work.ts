@@ -1,4 +1,4 @@
-import type { PixivWork, SearchWork, UserWorkThumb } from '@shared/types'
+import type { PixivWork, SearchWork, UserWorkThumb } from '@shared/types';
 
 /** SearchWork / 用户列表的缩略图都能转成详情弹窗需要的 PixivWork */
 export function toPixivWork(work: SearchWork | UserWorkThumb): PixivWork {
@@ -17,8 +17,8 @@ export function toPixivWork(work: SearchWork | UserWorkThumb): PixivWork {
       tags: work.tags,
       createDate: work.createDate,
       aiType: work.aiType,
-      series: work.series
-    }
+      series: work.series,
+    };
   }
   return {
     id: work.id,
@@ -28,6 +28,6 @@ export function toPixivWork(work: SearchWork | UserWorkThumb): PixivWork {
     url: work.url,
     pageCount: 1,
     width: 0,
-    height: 0
-  }
+    height: 0,
+  };
 }

@@ -1,98 +1,100 @@
-import { ArrowLeft, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type * as React from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
+import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings';
+import { Button } from '@renderer/components/ui/button';
+import { useI18n } from '@renderer/i18n';
 import {
   loadReaderSettings,
   loadReadingProgress,
   saveReaderSettings,
   saveReadingProgress,
-  type ReaderSettings
-} from '@renderer/utils/novel'
-import { Button } from '@renderer/components/ui/button'
-import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
+  type ReaderSettings,
+} from '@renderer/utils/novel';
+import { toast } from '@renderer/utils/toast';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 /** 本地 TXT 阅读：与在线阅读器共用字号、主题和进度记忆，只是正文不做标记解析 */
 export function NovelLocalReaderPage(): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const [params] = useSearchParams()
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
 
-  const filePath = params.get('path') || ''
-  const title = params.get('title') || ''
-  const author = params.get('author') || ''
+  const filePath = params.get('path') || '';
+  const title = params.get('title') || '';
+  const author = params.get('author') || '';
 
-  const [text, setText] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
-  const [percent, setPercent] = useState(0)
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<ReaderSettings>(() =>
+    loadReaderSettings()
+  );
+  const [percent, setPercent] = useState(0);
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const restoredRef = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
 
   useEffect(() => {
     if (!filePath) {
-      setLoading(false)
-      toast.error(t('novel.loadFailed'))
-      return
+      setLoading(false);
+      toast.error(t('novel.loadFailed'));
+      return;
     }
-    let alive = true
-    setLoading(true)
-    restoredRef.current = false
+    let alive = true;
+    setLoading(true);
+    restoredRef.current = false;
     void window.pixiv
       .readNovelLibraryFile(filePath)
       .then((data) => {
-        if (alive) setText(data)
+        if (alive) setText(data);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [filePath])
+      alive = false;
+    };
+  }, [filePath]);
 
   useEffect(() => {
-    if (loading || restoredRef.current) return
-    const el = scrollRef.current
-    if (!el) return
-    restoredRef.current = true
-    const saved = loadReadingProgress(filePath)
-    if (saved <= 0) return
+    if (loading || restoredRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    restoredRef.current = true;
+    const saved = loadReadingProgress(filePath);
+    if (saved <= 0) return;
     requestAnimationFrame(() => {
-      el.scrollTop = saved * Math.max(0, el.scrollHeight - el.clientHeight)
-      setPercent(Math.round(saved * 100))
-    })
-  }, [loading, filePath])
+      el.scrollTop = saved * Math.max(0, el.scrollHeight - el.clientHeight);
+      setPercent(Math.round(saved * 100));
+    });
+  }, [loading, filePath]);
 
   useEffect(() => {
-    if (!filePath || loading) return
+    if (!filePath || loading) return;
     const timer = window.setTimeout(() => {
-      saveReadingProgress(filePath, percent / 100)
-    }, 600)
-    return () => window.clearTimeout(timer)
-  }, [filePath, loading, percent])
+      saveReadingProgress(filePath, percent / 100);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [filePath, loading, percent]);
 
   useEffect(() => {
-    saveReaderSettings(settings)
-  }, [settings])
+    saveReaderSettings(settings);
+  }, [settings]);
 
   const themeClass =
     settings.theme === 'dark'
       ? 'bg-[#15161a] text-[#c8c8d0]'
       : settings.theme === 'light'
         ? 'bg-[#fbfbfa] text-[#232323]'
-        : 'bg-[#f4ecd8] text-[#3a3128]'
+        : 'bg-[#f4ecd8] text-[#3a3128]';
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -110,14 +112,21 @@ export function NovelLocalReaderPage(): React.JSX.Element {
         </span>
         <NovelReaderSettings
           settings={settings}
-          onChange={(patch) => setSettings((previous) => ({ ...previous, ...patch }))}
+          onChange={(patch) =>
+            setSettings((previous) => ({ ...previous, ...patch }))
+          }
         />
         <Button
           variant="ghost"
           size="sm"
           onClick={() => {
-            const index = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'))
-            void window.pixiv.openDir(index > 0 ? filePath.slice(0, index) : filePath)
+            const index = Math.max(
+              filePath.lastIndexOf('\\'),
+              filePath.lastIndexOf('/')
+            );
+            void window.pixiv.openDir(
+              index > 0 ? filePath.slice(0, index) : filePath
+            );
           }}
         >
           {t('novel.openDir')}
@@ -127,9 +136,9 @@ export function NovelLocalReaderPage(): React.JSX.Element {
       <div
         ref={scrollRef}
         onScroll={(event) => {
-          const el = event.currentTarget
-          const max = el.scrollHeight - el.clientHeight
-          setPercent(max > 0 ? Math.round((el.scrollTop / max) * 100) : 100)
+          const el = event.currentTarget;
+          const max = el.scrollHeight - el.clientHeight;
+          setPercent(max > 0 ? Math.round((el.scrollTop / max) * 100) : 100);
         }}
         className={`scrollbar-thin min-h-0 flex-1 overflow-y-auto ${themeClass}`}
       >
@@ -144,7 +153,7 @@ export function NovelLocalReaderPage(): React.JSX.Element {
             style={{
               fontSize: `${settings.fontSize}px`,
               lineHeight: settings.lineHeight,
-              maxWidth: `${settings.maxWidth}px`
+              maxWidth: `${settings.maxWidth}px`,
             }}
           >
             {text}
@@ -152,5 +161,5 @@ export function NovelLocalReaderPage(): React.JSX.Element {
         )}
       </div>
     </main>
-  )
+  );
 }

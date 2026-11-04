@@ -1,23 +1,33 @@
-import { CheckCircle2, FolderCheck, Loader2, RefreshCcw, ScrollText, XCircle } from 'lucide-react'
-import { memo } from 'react'
-import type * as React from 'react'
-import type { DownloadItemEvent } from '@shared/types'
-import { formatBytes } from '@renderer/utils/ui'
-import { cn } from '@renderer/utils/ui'
-import { useI18n } from '@renderer/i18n'
+import { useI18n } from '@renderer/i18n';
+import { cn, formatBytes } from '@renderer/utils/ui';
+import type { DownloadItemEvent } from '@shared/types';
+import {
+  CheckCircle2,
+  FolderCheck,
+  Loader2,
+  RefreshCcw,
+  ScrollText,
+  XCircle,
+} from 'lucide-react';
+import { memo } from 'react';
+import type * as React from 'react';
 
 interface LogPanelProps {
-  items: DownloadItemEvent[]
-  running: boolean
+  items: DownloadItemEvent[];
+  running: boolean;
 }
 
 // 文案随语言变化，所以只记 key，渲染时再取
 const STATUS_META = {
   ok: { icon: CheckCircle2, tone: 'text-emerald-400', key: 'log.statusOk' },
   exists: { icon: FolderCheck, tone: 'text-sky-400', key: 'log.statusExists' },
-  replaced: { icon: RefreshCcw, tone: 'text-amber-400', key: 'log.statusReplaced' },
-  failed: { icon: XCircle, tone: 'text-destructive', key: 'log.statusFailed' }
-} as const
+  replaced: {
+    icon: RefreshCcw,
+    tone: 'text-amber-400',
+    key: 'log.statusReplaced',
+  },
+  failed: { icon: XCircle, tone: 'text-destructive', key: 'log.statusFailed' },
+} as const;
 
 /**
  * 单行日志。
@@ -26,17 +36,23 @@ const STATUS_META = {
  * 条目对象是复用的（插新条目不会克隆旧条目），所以 memo 一挡，
  * 每次只有新增那一行真正渲染，500 行的历史记录不再逐帧 diff。
  */
-const LogRow = memo(function LogRow({ item }: { item: DownloadItemEvent }): React.JSX.Element {
-  const { t } = useI18n()
-  const meta = STATUS_META[item.status]
-  const Icon = meta.icon
+const LogRow = memo(function LogRow({
+  item,
+}: {
+  item: DownloadItemEvent;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  const meta = STATUS_META[item.status];
+  const Icon = meta.icon;
   return (
     <li className="flex items-start gap-2.5 px-3 py-2 font-mono text-[11px]">
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', meta.tone)} />
       <div className="min-w-0 flex-1">
         <p className="break-all leading-5 text-foreground/90">{item.label}</p>
         {item.error ? (
-          <p className="break-all text-[10px] leading-4 text-destructive/80">{item.error}</p>
+          <p className="break-all text-[10px] leading-4 text-destructive/80">
+            {item.error}
+          </p>
         ) : null}
       </div>
       <span className="shrink-0 tabular-nums text-muted-foreground">
@@ -45,11 +61,11 @@ const LogRow = memo(function LogRow({ item }: { item: DownloadItemEvent }): Reac
           : t(meta.key)}
       </span>
     </li>
-  )
-})
+  );
+});
 
 export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
-  const { t } = useI18n()
+  const { t } = useI18n();
 
   if (items.length === 0) {
     return (
@@ -62,7 +78,7 @@ export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
           <p className="text-xs text-muted-foreground">{t('log.emptyHint')}</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -79,5 +95,5 @@ export function LogPanel({ items, running }: LogPanelProps): React.JSX.Element {
         </div>
       ) : null}
     </div>
-  )
+  );
 }

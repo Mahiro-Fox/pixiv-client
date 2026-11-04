@@ -1,72 +1,72 @@
-import type { ImageContent } from './layout'
+import type { ImageContent } from './layout';
 
 export interface PixivWork {
-  id: string
-  title: string
-  userId: string
-  userName: string
-  url: string
-  pageCount: number
-  width: number
-  height: number
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
+  url: string;
+  pageCount: number;
+  width: number;
+  height: number;
   /** 0 全年龄，1 R-18，2 R-18G */
-  xRestrict?: number
+  xRestrict?: number;
   /** 作品类型：0 插画，1 漫画，2 动图（ugoira） */
-  illustType?: number
+  illustType?: number;
   /** 作品标签（接口返回的原始标签） */
-  tags?: string[]
+  tags?: string[];
   /** 发布时间，ISO 字符串 */
-  createDate?: string
+  createDate?: string;
   /** 1 非 AI，2 AI 生成 */
-  aiType?: number
+  aiType?: number;
   /** 所属系列；详情接口会带 seriesNavData，列表接口通常没有 */
-  series?: WorkSeriesNav | null
+  series?: WorkSeriesNav | null;
 }
 
 /**
  * 作者主页口径的栏目：`all` 是插画 + 漫画合并（与作者主页「作品」总数一致），
  * `illust` / `manga` 各自取单类。
  */
-export type AuthorContent = 'all' | 'illust' | 'manga'
+export type AuthorContent = 'all' | 'illust' | 'manga';
 /**
  * 工作台作品栏目。
  * 前三个是作者的作品类型；`bookmarks` 是该作者的收藏夹——它走的是另一条接口，
  * 但抓取、分页、组合标签、筛选、下载与前三者完全同一条流程。
  */
-export type WorkContent = AuthorContent | 'bookmarks'
-export type BookmarkRest = 'show' | 'hide'
+export type WorkContent = AuthorContent | 'bookmarks';
+export type BookmarkRest = 'show' | 'hide';
 /** 写操作的可见性：公开 / 私密（pixiv App API 的 restrict） */
-export type BookmarkPrivacy = 'public' | 'private'
+export type BookmarkPrivacy = 'public' | 'private';
 
 /** 作品收藏状态；restrict 在取消收藏后仍保留上一次的选择 */
 export interface BookmarkState {
-  bookmarked: boolean
-  restrict: BookmarkPrivacy
+  bookmarked: boolean;
+  restrict: BookmarkPrivacy;
 }
 
 export interface BookmarkInput {
-  bookmarked: boolean
+  bookmarked: boolean;
   /** 收藏时的可见性；取消收藏时忽略 */
-  restrict?: BookmarkPrivacy
+  restrict?: BookmarkPrivacy;
 }
 
 export interface FollowInput {
-  followed: boolean
+  followed: boolean;
   /** 关注时的可见性；取关时忽略 */
-  restrict?: BookmarkPrivacy
+  restrict?: BookmarkPrivacy;
 }
-export type R18Filter = 'any' | 'only' | 'exclude'
+export type R18Filter = 'any' | 'only' | 'exclude';
 /** 多标签组合方式：and 同时满足，or 任一满足 */
-export type TagMode = 'and' | 'or'
+export type TagMode = 'and' | 'or';
 /** 下载质量：regular 常规图（约 1200px），original 高清原图 */
-export type ImageQuality = 'regular' | 'original'
+export type ImageQuality = 'regular' | 'original';
 /** 动图保存格式：zip 保留帧压缩包，mp4 / gif 转码后保存 */
-export type UgoiraFormat = 'zip' | 'mp4' | 'gif'
+export type UgoiraFormat = 'zip' | 'mp4' | 'gif';
 
 /** 动图帧：文件名 + 该帧展示时长（毫秒） */
 export interface UgoiraFrame {
-  file: string
-  delay: number
+  file: string;
+  delay: number;
 }
 
 /**
@@ -77,133 +77,133 @@ export interface UgoiraFrame {
  */
 export interface UgoiraFrameData {
   /** 帧图片原始字节（jpg / png），渲染层自行包成 Blob */
-  data: Uint8Array
+  data: Uint8Array;
   /** 该帧停留时长（毫秒） */
-  delay: number
+  delay: number;
   /** 帧图片的 MIME，用于还原 Blob 类型 */
-  mime: string
+  mime: string;
 }
 
 /** 一个动图作品的完整帧序列（已按播放顺序排好） */
 export interface UgoiraFrames {
-  frames: UgoiraFrameData[]
+  frames: UgoiraFrameData[];
 }
 
 export interface AppConfig {
-  userId: string
-  tag: string
+  userId: string;
+  tag: string;
   /** 多标签组合：附加包含标签，逗号/空格/顿号分隔 */
-  tagExtra: string
+  tagExtra: string;
   /** 多标签组合：排除标签，逗号/空格/顿号分隔 */
-  tagExclude: string
+  tagExclude: string;
   /** 多标签组合方式 */
-  tagMode: TagMode
-  offset: number
-  limit: number
-  workers: number
-  delay: number
-  outDir: string
+  tagMode: TagMode;
+  offset: number;
+  limit: number;
+  workers: number;
+  delay: number;
+  outDir: string;
   /** 下载质量：常规图 / 高清原图 */
-  imageQuality: ImageQuality
+  imageQuality: ImageQuality;
   /** 动图保存格式：zip / mp4 / gif */
-  ugoiraFormat: UgoiraFormat
+  ugoiraFormat: UgoiraFormat;
   /** 作品栏目：全部（插画+漫画）/ 插画 / 漫画 / 收藏 */
-  contentKind: WorkContent
+  contentKind: WorkContent;
   /** 文件名模板，变量见 shared/template.ts */
-  fileNameTemplate: string
+  fileNameTemplate: string;
   /** 收藏栏目的公开 / 私密（私密只有本人可选） */
-  bookmarkRest: BookmarkRest
+  bookmarkRest: BookmarkRest;
   /** 过滤规则：页数区间，0 表示不限 */
-  filterMinPages: number
-  filterMaxPages: number
+  filterMinPages: number;
+  filterMaxPages: number;
   /** 过滤规则：原图最小宽高，0 表示不限 */
-  filterMinWidth: number
-  filterMinHeight: number
+  filterMinWidth: number;
+  filterMinHeight: number;
   /** 过滤规则：排除标签，逗号或空格分隔 */
-  filterExcludeTags: string
+  filterExcludeTags: string;
   /** 过滤规则：标题排除关键词，逗号或空格分隔 */
-  filterExcludeKeywords: string
+  filterExcludeKeywords: string;
   /** 过滤规则：内容分级 */
-  filterR18: R18Filter
+  filterR18: R18Filter;
   /** 过滤规则：排除 AI 生成作品 */
-  filterExcludeAi: boolean
+  filterExcludeAi: boolean;
   /** 全局屏蔽：作品标签，逗号或空格分隔；搜索、用户作品、收藏与下载均生效 */
-  blockTags: string
+  blockTags: string;
   /** 全局屏蔽：用户 ID 或作者名，逗号或空格分隔 */
-  blockUsers: string
+  blockUsers: string;
   /** 接口请求最大并发 */
-  throttleApiConcurrency: number
+  throttleApiConcurrency: number;
   /** 接口两次请求的最小间隔（毫秒） */
-  throttleApiInterval: number
+  throttleApiInterval: number;
   /** 图片 CDN 最大并发 */
-  throttleCdnConcurrency: number
+  throttleCdnConcurrency: number;
   /** 图片 CDN 两次请求的最小间隔（毫秒） */
-  throttleCdnInterval: number
+  throttleCdnInterval: number;
   /** 同时运行的下载任务数上限；1 表示串行 */
-  parallelJobs: number
+  parallelJobs: number;
   /** 界面主题：亮色 / 暗色 / 跟随系统 */
-  theme: ThemeMode
+  theme: ThemeMode;
   /** 界面语言 */
-  locale: Locale
+  locale: Locale;
   /** 托盘：显示托盘图标；关掉后关闭窗口即退出应用 */
-  trayEnabled: boolean
+  trayEnabled: boolean;
   /** 托盘：点关闭按钮时收进托盘而不是退出 */
-  closeToTray: boolean
+  closeToTray: boolean;
   /** 托盘：点最小化按钮时收进托盘 */
-  minimizeToTray: boolean
+  minimizeToTray: boolean;
   /** 托盘：窗口不在前台时，下载结束发系统提醒 */
-  trayNotify: boolean
+  trayNotify: boolean;
   /** 应用内网络代理 */
-  proxy: ProxyConfig
+  proxy: ProxyConfig;
 }
 
-export type ProxyProtocol = 'http' | 'https' | 'socks4' | 'socks5'
+export type ProxyProtocol = 'http' | 'https' | 'socks4' | 'socks5';
 
 /**
  * 应用内代理设置。
  * 密码不落在这里：只保存账号名，密码由主进程用 `safeStorage` 加密后单独存储。
  */
 export interface ProxyConfig {
-  enabled: boolean
-  protocol: ProxyProtocol
-  host: string
-  port: number
+  enabled: boolean;
+  protocol: ProxyProtocol;
+  host: string;
+  port: number;
   /** HTTP / HTTPS 代理的认证账号；SOCKS 不支持认证 */
-  username: string
+  username: string;
   /** 不走代理的地址列表，格式同 Chromium 的 proxy bypass rules */
-  bypassRules: string
+  bypassRules: string;
 }
 
 export interface ProxyState {
-  config: ProxyConfig
+  config: ProxyConfig;
   /** 是否已保存代理密码（密码本身不会返回渲染层） */
-  hasPassword: boolean
+  hasPassword: boolean;
   /** 最近一次应用是否成功；关闭代理时恒为 true */
-  applied: boolean
+  applied: boolean;
   /** 最近一次应用失败的原因 */
-  error?: string
+  error?: string;
   /** Chromium 解析出的实际路由，如 `PROXY 127.0.0.1:10808`、`DIRECT` */
-  resolved?: string
+  resolved?: string;
 }
 
 export interface ProxyTestResult {
-  ok: boolean
-  latencyMs: number
+  ok: boolean;
+  latencyMs: number;
   /** 收到的 HTTP 状态码；网络层失败时没有 */
-  status?: number
-  message: string
+  status?: number;
+  message: string;
 }
 
-export type ThemeMode = 'light' | 'dark' | 'system'
+export type ThemeMode = 'light' | 'dark' | 'system';
 
-export type Locale = 'zh-CN' | 'en' | 'ja'
+export type Locale = 'zh-CN' | 'en' | 'ja';
 
-export type CookieSource = 'env' | 'file' | 'none'
+export type CookieSource = 'env' | 'file' | 'none';
 
 export interface CookieStatus {
-  hasCookie: boolean
-  masked: string
-  source: CookieSource
+  hasCookie: boolean;
+  masked: string;
+  source: CookieSource;
 }
 
 /**
@@ -212,15 +212,15 @@ export interface CookieStatus {
  */
 export interface OAuthStatus {
   /** 凭据齐全且可用（已保存并校验通过） */
-  connected: boolean
+  connected: boolean;
   /** client_id / client_secret 是否已填 */
-  hasClient: boolean
+  hasClient: boolean;
   /** refresh_token 末四位，用于确认当前是哪一份凭据 */
-  tail: string
+  tail: string;
   /** access_token 过期时间戳（毫秒）；未换取过则为 null */
-  expiresAt: number | null
+  expiresAt: number | null;
   /** pixiv 用户 id，刷新 token 时一并返回 */
-  userId: string | null
+  userId: string | null;
 }
 
 /**
@@ -228,15 +228,15 @@ export interface OAuthStatus {
  * client_id / client_secret 取自 pixiv 官方 Android 客户端，需用户自行获取。
  */
 export interface OAuthCredentials {
-  clientId: string
-  clientSecret: string
-  refreshToken: string
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
 }
 
 /** PKCE 授权登录的客户端常量；留空则用内置默认值 */
 export interface OAuthClientInput {
-  clientId?: string
-  clientSecret?: string
+  clientId?: string;
+  clientSecret?: string;
 }
 
 /**
@@ -244,118 +244,119 @@ export interface OAuthClientInput {
  * `unknown` 表示请求没打到 pixiv（超时、代理不通），
  * 它不能和 `expired` 混为一谈，否则网络抖动会误报成「要重新登录」。
  */
-export type CookieHealth = 'valid' | 'expired' | 'unknown'
+export type CookieHealth = 'valid' | 'expired' | 'unknown';
 
 export interface CollectParams {
-  userId: string
-  tag: string
-  extraTag?: string
-  excludeTag?: string
-  tagMode?: TagMode
-  offset: number
-  limit: number
-  workers: number
+  userId: string;
+  tag: string;
+  extraTag?: string;
+  excludeTag?: string;
+  tagMode?: TagMode;
+  offset: number;
+  limit: number;
+  workers: number;
   /** 栏目：全部 / 插画 / 漫画 / 收藏；不传按 all 处理 */
-  contentKind?: WorkContent
+  contentKind?: WorkContent;
   /** 收藏栏目：公开 / 私密（他人私密在主进程侧不会生效） */
-  bookmarkRest?: BookmarkRest
+  bookmarkRest?: BookmarkRest;
 }
 
 export interface SelfUser {
-  id: string
-  name: string
+  id: string;
+  name: string;
   /** pixiv 账号名，即 @ 后面的那串 */
-  account: string
+  account: string;
   /** 头像地址；i.pximg.net 有防盗链，主进程已统一补 Referer */
-  avatar: string
+  avatar: string;
   /** 是否为高级会员 */
-  premium: boolean
+  premium: boolean;
 }
 
 export interface FollowUser {
-  id: string
-  name: string
-  comment: string
-  avatar: string
+  id: string;
+  name: string;
+  comment: string;
+  avatar: string;
   /** 关注列表接口每个用户自带的前 4 个作品缩略图 */
-  works?: UserWorkThumb[]
+  works?: UserWorkThumb[];
 }
 
 export interface FollowingParams {
   /** 留空表示当前登录账号 */
-  userId: string
-  offset: number
-  limit: number
+  userId: string;
+  offset: number;
+  limit: number;
 }
 
 export interface FollowingResult {
-  users: FollowUser[]
-  total: number
+  users: FollowUser[];
+  total: number;
 }
 
-export type WorkSort = 'default' | 'pages-desc' | 'pages-asc' | 'date-desc' | 'date-asc'
+export type WorkSort =
+  'default' | 'pages-desc' | 'pages-asc' | 'date-desc' | 'date-asc';
 
 export interface WorkExportParams {
-  works: PixivWork[]
-  tag: string
+  works: PixivWork[];
+  tag: string;
   /** 已下载的作品 ID，导出时标记来源状态 */
-  downloaded: string[]
+  downloaded: string[];
 }
 
 export interface CollectProgress {
-  loaded: number
-  total: number
-  pagesDone: number
-  pagesTotal: number
+  loaded: number;
+  total: number;
+  pagesDone: number;
+  pagesTotal: number;
 }
 
 export interface CollectResult {
-  works: PixivWork[]
-  total: number
-  failedPages: number
+  works: PixivWork[];
+  total: number;
+  failedPages: number;
 }
 
 export interface WorkPage {
-  url: string
+  url: string;
   /** 常规图地址（约 1200px） */
-  regular?: string
+  regular?: string;
   /** 高清原图地址 */
-  original?: string
-  width: number
-  height: number
+  original?: string;
+  width: number;
+  height: number;
 }
 
 export interface TagSuggestion {
-  tag: string
-  translation?: string
+  tag: string;
+  translation?: string;
 }
 
 /** 某位作者用过的标签（作者主页「高级搜索」的那份清单） */
 export interface UserTag {
-  tag: string
+  tag: string;
   /** 译文；pixiv 按请求的界面语言返回，可能为空 */
-  translation?: string
+  translation?: string;
   /** 读音（日文标签常用）；译文缺失时作为副标题 */
-  reading?: string
+  reading?: string;
   /** 该作者带此标签的作品数 */
-  count: number
+  count: number;
 }
 
 export interface DownloadedParams {
-  works: PixivWork[]
-  outDir: string
+  works: PixivWork[];
+  outDir: string;
 }
 
 export interface DownloadParams {
-  works: PixivWork[]
-  tag: string
-  outDir: string
-  workers: number
-  delay: number
+  works: PixivWork[];
+  tag: string;
+  outDir: string;
+  workers: number;
+  delay: number;
   /** 本次下载质量，缺省使用配置中的 imageQuality */
-  imageQuality?: ImageQuality
+  imageQuality?: ImageQuality;
   /** 本次动图保存格式，缺省使用配置中的 ugoiraFormat */
-  ugoiraFormat?: UgoiraFormat
+  ugoiraFormat?: UgoiraFormat;
 }
 
 /**
@@ -372,27 +373,27 @@ export type DownloadPhase =
   | 'paused'
   | 'cancelled'
   | 'error'
-  | 'done'
+  | 'done';
 
 /** 中止原因：三条路径共用一个 AbortController，靠 reason 区分 */
-export type AbortReason = 'pause' | 'cancel' | 'shutdown'
+export type AbortReason = 'pause' | 'cancel' | 'shutdown';
 
 export interface DownloadProgress {
   /** 所属队列任务 ID；并行下载时界面靠它区分不同任务的进度 */
-  jobId?: string
-  phase: DownloadPhase
-  total: number
-  done: number
-  ok: number
-  exists: number
-  failed: number
-  resolveFailed: number
-  bytes: number
-  resolvedWorks: number
-  totalWorks: number
-  startedAt: number
+  jobId?: string;
+  phase: DownloadPhase;
+  total: number;
+  done: number;
+  ok: number;
+  exists: number;
+  failed: number;
+  resolveFailed: number;
+  bytes: number;
+  resolvedWorks: number;
+  totalWorks: number;
+  startedAt: number;
   /** 结束（完成或暂停）时间；存在时「用时」不再继续增长 */
-  finishedAt?: number
+  finishedAt?: number;
 }
 
 export interface DownloadItemEvent {
@@ -401,22 +402,22 @@ export interface DownloadItemEvent {
    * 日志列表是「新条目插到最前面」，用数组下标当 key 会让所有旧行整体错位、
    * React 把整个列表卸载重建；有了序号才能做到只挂载新增那一行。
    */
-  seq: number
+  seq: number;
   /** 所属队列任务 ID，便于并行下载时把条目归到对应任务 */
-  jobId?: string
-  status: 'ok' | 'exists' | 'replaced' | 'failed'
-  label: string
-  bytes: number
-  error?: string
+  jobId?: string;
+  status: 'ok' | 'exists' | 'replaced' | 'failed';
+  label: string;
+  bytes: number;
+  error?: string;
 }
 
 export interface DownloadSummary extends DownloadProgress {
-  jobId: string
-  outDir: string
-  elapsedMs: number
-  paused: boolean
+  jobId: string;
+  outDir: string;
+  elapsedMs: number;
+  paused: boolean;
   /** 本次结束如果是被中止的，这里给出是哪条路径发起的 */
-  abortReason?: AbortReason
+  abortReason?: AbortReason;
 }
 
 /** queued：已加入队列，等待并行额度空出后由主进程自动启动 */
@@ -427,211 +428,211 @@ export type QueueStatus =
   | 'paused'
   | 'cancelled'
   | 'error'
-  | 'done'
+  | 'done';
 
-export type QueueTaskStatus = 'pending' | 'ok' | 'exists' | 'failed'
+export type QueueTaskStatus = 'pending' | 'ok' | 'exists' | 'failed';
 
 export interface QueueTask {
-  illustId: string
-  url: string
-  dest: string
-  label: string
+  illustId: string;
+  url: string;
+  dest: string;
+  label: string;
   /** 0 基页码；动图为 0 */
-  page?: number
+  page?: number;
   /** 原图尺寸，用于按质量校验已存在文件是否满足要求 */
-  width?: number
-  height?: number
+  width?: number;
+  height?: number;
   /** 动图任务：zip 下载地址之外的帧信息，转码时按顺序与时长编码 */
-  frames?: UgoiraFrame[]
+  frames?: UgoiraFrame[];
   /** 是否为动图任务（url 始终是帧压缩包地址） */
-  ugoira?: boolean
-  status: QueueTaskStatus
-  bytes: number
-  error?: string
+  ugoira?: boolean;
+  status: QueueTaskStatus;
+  bytes: number;
+  error?: string;
   /** 实际尝试次数（含任务级重试）；1 表示一次就成/一次就放弃 */
-  attempts?: number
+  attempts?: number;
 }
 
 export interface QueueJob {
-  id: string
-  tag: string
-  outDir: string
-  rootDir: string
+  id: string;
+  tag: string;
+  outDir: string;
+  rootDir: string;
   /** 任务创建时选择的下载质量，续传时沿用 */
-  imageQuality?: ImageQuality
+  imageQuality?: ImageQuality;
   /** 任务创建时的动图格式，续传时沿用 */
-  ugoiraFormat?: UgoiraFormat
-  status: QueueStatus
-  createdAt: number
-  updatedAt: number
-  works: PixivWork[]
-  tasks: QueueTask[]
-  progress: DownloadProgress
+  ugoiraFormat?: UgoiraFormat;
+  status: QueueStatus;
+  createdAt: number;
+  updatedAt: number;
+  works: PixivWork[];
+  tasks: QueueTask[];
+  progress: DownloadProgress;
   /** 解析失败的作品（没有分页任务，续传时会重新解析） */
-  resolveFailures?: QueueResolveFailure[]
+  resolveFailures?: QueueResolveFailure[];
   /** 入队时记录的并发与间隔：调度器启动任务时沿用，避免用户中途改设置影响已排队任务 */
-  workers?: number
-  delay?: number
+  workers?: number;
+  delay?: number;
   /** 失败项逐条重试：排队启动时按此范围重置，启动后清空 */
-  retry?: { taskUrls?: string[]; illustIds?: string[] }
+  retry?: { taskUrls?: string[]; illustIds?: string[] };
   /** 单一作者作品的作者 ID；多作者任务为空 */
-  artistId?: string
+  artistId?: string;
   /** 任务归属展示用，单一作者为「{userId}-{userName}」，多作者为「N 位作者」 */
-  artistLabel?: string
+  artistLabel?: string;
   /** status 为 error 时的原因摘要（失败项统计 / 熔断说明 / 启动前校验失败） */
-  error?: string
+  error?: string;
 }
 
 export interface QueueResolveFailure {
-  illustId: string
-  title: string
-  error: string
+  illustId: string;
+  title: string;
+  error: string;
   /** 该错误是否值得重试（404、403 这类确定性错误为 false） */
-  retryable?: boolean
+  retryable?: boolean;
 }
 
 /** 失败清单条目：图片下载失败或作品解析失败 */
 export interface FailureItem {
-  kind: 'image' | 'work'
+  kind: 'image' | 'work';
   /** 作品 ID（图片失败时也能定位到作品） */
-  illustId: string
-  label: string
-  error: string
-  url?: string
+  illustId: string;
+  label: string;
+  error: string;
+  url?: string;
   /** false 表示重试也不会成功（作品已删除、没有权限等），界面据此提示 */
-  retryable?: boolean
+  retryable?: boolean;
 }
 
 /** 给渲染层展示的队列任务摘要 */
 export interface QueueSummary {
-  id: string
-  tag: string
-  rootDir: string
-  status: QueueStatus
+  id: string;
+  tag: string;
+  rootDir: string;
+  status: QueueStatus;
   /** 任务当前阶段，用于任务卡片显示「解析中 / 下载中」 */
-  phase: DownloadProgress['phase']
+  phase: DownloadProgress['phase'];
   /** 单一作者作品的作者 ID，用于入队去重；多作者任务为空 */
-  artistId?: string
+  artistId?: string;
   /** 任务归属展示用，单一作者为「{userId}-{userName}」，多作者为「N 位作者」 */
-  artistLabel?: string
-  createdAt: number
-  updatedAt: number
-  totalWorks: number
-  total: number
-  pending: number
-  ok: number
-  exists: number
-  failed: number
+  artistLabel?: string;
+  createdAt: number;
+  updatedAt: number;
+  totalWorks: number;
+  total: number;
+  pending: number;
+  ok: number;
+  exists: number;
+  failed: number;
   /** 解析失败的作品数（不计入 failed，单独展示） */
-  resolveFailed: number
-  bytes: number
+  resolveFailed: number;
+  bytes: number;
   /** status 为 error 时的原因摘要，卡片上直接展示 */
-  error?: string
+  error?: string;
 }
 
-export type ThrottleKind = 'api' | 'cdn'
+export type ThrottleKind = 'api' | 'cdn';
 
 export interface ThrottleState {
-  kind: ThrottleKind
-  maxConcurrency: number
-  concurrency: number
-  minInterval: number
-  penalty: number
-  active: number
-  cooldownUntil: number
+  kind: ThrottleKind;
+  maxConcurrency: number;
+  concurrency: number;
+  minInterval: number;
+  penalty: number;
+  active: number;
+  cooldownUntil: number;
 }
 
 /** 批量同步选中的画师 */
 export interface BatchArtist {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 export interface BatchSyncParams {
-  artists: BatchArtist[]
-  tag: string
-  outDir: string
-  workers: number
-  delay: number
-  imageQuality?: ImageQuality
-  ugoiraFormat?: UgoiraFormat
+  artists: BatchArtist[];
+  tag: string;
+  outDir: string;
+  workers: number;
+  delay: number;
+  imageQuality?: ImageQuality;
+  ugoiraFormat?: UgoiraFormat;
 }
 
 /** 批量同步进度：始终指向当前正在处理的那位画师 */
 export interface BatchSyncProgress {
   /** 1 基序号 */
-  index: number
-  total: number
-  artist: BatchArtist
-  phase: 'collecting' | 'downloading' | 'done' | 'failed'
+  index: number;
+  total: number;
+  artist: BatchArtist;
+  phase: 'collecting' | 'downloading' | 'done' | 'failed';
   /** 已抓取到的作品数 */
-  works: number
+  works: number;
   /** 该画师已处理的文件数 */
-  files: number
-  failed: number
+  files: number;
+  failed: number;
 }
 
 export interface BatchArtistResult {
-  artist: BatchArtist
-  works: number
-  files: number
-  failed: number
-  error?: string
+  artist: BatchArtist;
+  works: number;
+  files: number;
+  failed: number;
+  error?: string;
 }
 
 export interface BatchSyncSummary {
-  artists: BatchArtistResult[]
-  total: number
-  ok: number
-  failed: number
+  artists: BatchArtistResult[];
+  total: number;
+  ok: number;
+  failed: number;
   /** 用户中途取消 */
-  aborted: boolean
+  aborted: boolean;
 }
 
 /** 下载历史条目：按文件记录，供本地图库补充标题/作者等元数据 */
 export interface HistoryEntry {
-  illustId: string
-  title: string
-  userId: string
-  userName: string
-  tag: string
+  illustId: string;
+  title: string;
+  userId: string;
+  userName: string;
+  tag: string;
   /** 0 基页码；动图为 0 */
-  page: number
-  path: string
-  bytes: number
-  ugoira: boolean
-  at: number
+  page: number;
+  path: string;
+  bytes: number;
+  ugoira: boolean;
+  at: number;
 }
 
 /** 浏览记录条目：同一作品只保留一条，重复打开时更新为最近一次 */
 export interface ViewHistoryEntry {
   /** 作品 ID */
-  id: string
-  title: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
   /** 250px 缩略图地址 */
-  thumbnail: string
-  pageCount: number
+  thumbnail: string;
+  pageCount: number;
   /** 0 全年龄，1 R-18，2 R-18G */
-  xRestrict: number
+  xRestrict: number;
   /** 0 插画，1 漫画，2 动图 */
-  illustType: number
+  illustType: number;
   /** 最近一次浏览时间戳（毫秒） */
-  at: number
+  at: number;
 }
 
 /** 写入浏览记录时只需要作品的展示信息，时间由主进程补 */
 export interface ViewRecordInput {
-  id: string
-  title: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
   /** 原图或任意尺寸地址，主进程会统一收敛成缩略图 */
-  url: string
-  pageCount: number
-  xRestrict?: number
-  illustType?: number
+  url: string;
+  pageCount: number;
+  xRestrict?: number;
+  illustType?: number;
 }
 
 /**
@@ -640,330 +641,322 @@ export interface ViewRecordInput {
  */
 export interface WatchLaterEntry {
   /** 作品 ID */
-  id: string
-  title: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
   /** 250px 缩略图地址 */
-  thumbnail: string
-  pageCount: number
+  thumbnail: string;
+  pageCount: number;
   /** 0 全年龄，1 R-18，2 R-18G */
-  xRestrict: number
+  xRestrict: number;
   /** 0 插画，1 漫画，2 动图 */
-  illustType: number
+  illustType: number;
   /** 加入时间戳（毫秒） */
-  at: number
+  at: number;
 }
 
 export interface LibraryFile {
-  page: number
-  path: string
-  name: string
-  bytes: number
-  ext: string
+  page: number;
+  path: string;
+  name: string;
+  bytes: number;
+  ext: string;
 }
 
 /** 定位一个本地作品所需的最小信息，用于按需拉取文件列表 */
 export interface LibraryWorkKey {
-  id: string
-  content: ImageContent
+  id: string;
+  content: ImageContent;
   /** 作者目录绝对路径，图库按它把插画 / 漫画 / 小说归到同一位作者下 */
-  authorPath: string
+  authorPath: string;
 }
 
 /** 按需返回的作品文件：列表接口不再下发全部路径，打开预览/删除时再取 */
 export interface LibraryWorkFiles extends LibraryWorkKey {
-  files: LibraryFile[]
+  files: LibraryFile[];
 }
 
 /** 本地图库中的一个图片作品（按「作者目录 + 内容类型 + 作品 ID」聚合） */
 export interface LibraryWork extends LibraryWorkKey {
-  title: string
-  userId: string
-  userName: string
+  title: string;
+  userId: string;
+  userName: string;
   /** 实际存在的页数（按文件名页码去重后统计） */
-  pageCount: number
+  pageCount: number;
   /** 文件总数（含原图同页多份），列表只给计数，不传路径 */
-  fileCount: number
+  fileCount: number;
   /** 可直接预览的图片数 */
-  imageCount: number
-  totalBytes: number
-  updatedAt: number
+  imageCount: number;
+  totalBytes: number;
+  updatedAt: number;
   /** 封面文件绝对路径 */
-  cover: string
+  cover: string;
   /** 动图成品（zip / mp4 / gif）绝对路径，没有则为空 */
-  ugoiraPath: string
+  ugoiraPath: string;
   /** 作品所在的内容目录绝对路径 */
-  dir: string
-  ugoira: boolean
+  dir: string;
+  ugoira: boolean;
   /** 是否命中下载历史索引（否则标题/作者为推断值） */
-  hasHistory: boolean
+  hasHistory: boolean;
 }
 
 export interface LibraryResult {
-  outDir: string
-  scannedAt: number
-  works: LibraryWork[]
+  outDir: string;
+  scannedAt: number;
+  works: LibraryWork[];
   /** 同一套作者目录下的小说，图库的「小说」栏目用它 */
-  novels: NovelLibraryItem[]
-  totalFiles: number
-  totalBytes: number
+  novels: NovelLibraryItem[];
+  totalFiles: number;
+  totalBytes: number;
 }
 
 /** 小说搜索排序：最新 / 最早 / 综合人气 / 男性人气 / 女性人气 */
 export type NovelOrder =
-  | 'date_d'
-  | 'date'
-  | 'popular_d'
-  | 'popular_male_d'
-  | 'popular_female_d'
+  'date_d' | 'date' | 'popular_d' | 'popular_male_d' | 'popular_female_d';
 
 /** 小说搜索分级：all 含 R-18，safe 仅全年龄 */
-export type NovelSearchMode = 'all' | 'safe'
+export type NovelSearchMode = 'all' | 'safe';
 
 /** 小说搜索匹配方式：标签精确 / 标签包含 / 标题与简介 */
-export type NovelSearchTarget = 's_tag_full' | 's_tag' | 's_tc'
+export type NovelSearchTarget = 's_tag_full' | 's_tag' | 's_tc';
 
 export interface NovelSearchParams {
-  word: string
-  order: NovelOrder
-  mode: NovelSearchMode
-  target: NovelSearchTarget
-  page: number
+  word: string;
+  order: NovelOrder;
+  mode: NovelSearchMode;
+  target: NovelSearchTarget;
+  page: number;
 }
 
 /** 搜索结果与系列目录共用的小说摘要 */
 export interface NovelWork {
-  id: string
-  title: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
   /** 封面地址（i.pximg.net 有防盗链，主进程已统一补 Referer） */
-  cover: string
-  tags: string[]
+  cover: string;
+  tags: string[];
   /** 0 全年龄，1 R-18，2 R-18G */
-  xRestrict: number
-  createDate: string
-  updateDate?: string
+  xRestrict: number;
+  createDate: string;
+  updateDate?: string;
   /** 正文字符数 */
-  textCount: number
+  textCount: number;
   /** 词数（pixiv 按语言估算） */
-  wordCount: number
+  wordCount: number;
   /** 预计阅读秒数 */
-  readingTime: number
-  bookmarkCount: number
-  description: string
-  seriesId?: string
-  seriesTitle?: string
+  readingTime: number;
+  bookmarkCount: number;
+  description: string;
+  seriesId?: string;
+  seriesTitle?: string;
   /** 在系列中的序号，从 1 开始 */
-  seriesOrder?: number
+  seriesOrder?: number;
   /** 1 非 AI，2 AI 生成 */
-  aiType?: number
+  aiType?: number;
 }
 
 export interface NovelSearchResult {
-  novels: NovelWork[]
-  total: number
+  novels: NovelWork[];
+  total: number;
   /** 接口允许翻到的最后一页（pixiv 上限 10） */
-  lastPage: number
-  relatedTags: string[]
+  lastPage: number;
+  relatedTags: string[];
 }
 
 /** 插画 / 漫画所属系列（来自作品的 seriesNavData；不属于任何系列时为 null） */
 export interface WorkSeriesNav {
-  id: string
-  title: string
+  id: string;
+  title: string;
   /** 本话在系列里的序号，从 1 起 */
-  order: number
-  isConcluded: boolean
+  order: number;
+  isConcluded: boolean;
 }
 
 /** 系列里的一话 */
 export interface SeriesEpisode {
-  id: string
-  title: string
+  id: string;
+  title: string;
   /** 序号，从 1 起；接口缺失时按数组顺序补 */
-  order: number
-  thumbnail: string
-  userId: string
-  userName: string
-  pageCount: number
-  xRestrict: number
-  illustType: number
+  order: number;
+  thumbnail: string;
+  userId: string;
+  userName: string;
+  pageCount: number;
+  xRestrict: number;
+  illustType: number;
 }
 
 export interface SeriesDetail {
-  id: string
-  title: string
-  caption: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  caption: string;
+  userId: string;
+  userName: string;
   /** 作者头像 */
-  avatar: string
+  avatar: string;
   /** 系列封面 */
-  cover: string
+  cover: string;
   /** 话数；网页兜底拿不到总话数时为 0（未知） */
-  workCount: number
-  isConcluded: boolean
+  workCount: number;
+  isConcluded: boolean;
   /** 是否已在 App API 的漫画追更列表里；网页兜底或未连接 OAuth 时恒为 false */
-  watchlisted: boolean
-  episodes: SeriesEpisode[]
+  watchlisted: boolean;
+  episodes: SeriesEpisode[];
   /** 数据来源：App API 详情，或网页作品页的系列信息兜底 */
-  source: 'app' | 'web'
+  source: 'app' | 'web';
 }
 
 /** 读取系列详情的参数：workId 用于没有 App API 凭据时从作品页兜底 */
 export interface WorkSeriesParams {
-  seriesId: string
+  seriesId: string;
   /** 当前作品 ID；网页兜底时用来定位所属系列 */
-  workId?: string
+  workId?: string;
 }
 
 /** 系列内上一话 / 下一话 */
 export interface NovelEpisodeRef {
-  id: string
-  title: string
-  order: number
+  id: string;
+  title: string;
+  order: number;
 }
 
 export interface NovelSeriesNav {
-  id: string
-  title: string
-  order: number
-  isConcluded: boolean
-  prev: NovelEpisodeRef | null
-  next: NovelEpisodeRef | null
+  id: string;
+  title: string;
+  order: number;
+  isConcluded: boolean;
+  prev: NovelEpisodeRef | null;
+  next: NovelEpisodeRef | null;
 }
 
 export interface NovelDetail extends NovelWork {
   /** 正文原始标记文本：含 [newpage]、[[rb:..]]、[chapter:..] 等 */
-  content: string
+  content: string;
   /** 按 [newpage] 切分后的页数 */
-  pageCount: number
-  language?: string
-  isOriginal?: boolean
-  series: NovelSeriesNav | null
+  pageCount: number;
+  language?: string;
+  isOriginal?: boolean;
+  series: NovelSeriesNav | null;
   /** 正文内嵌图片：键为正文中的图片 ID */
-  embeddedImages: Record<string, string>
+  embeddedImages: Record<string, string>;
 }
 
 export interface NovelSeries {
-  id: string
-  title: string
-  caption: string
-  cover: string
-  userId: string
-  userName: string
-  tags: string[]
-  xRestrict: number
-  isConcluded: boolean
-  publishedContentCount: number
-  publishedTotalCharacterCount: number
-  publishedReadingTime: number
-  updateDate: string
+  id: string;
+  title: string;
+  caption: string;
+  cover: string;
+  userId: string;
+  userName: string;
+  tags: string[];
+  xRestrict: number;
+  isConcluded: boolean;
+  publishedContentCount: number;
+  publishedTotalCharacterCount: number;
+  publishedReadingTime: number;
+  updateDate: string;
 }
 
 export interface NovelEpisode extends NovelWork {
   /** 系列内序号，从 1 开始 */
-  order: number
+  order: number;
 }
 
 export interface NovelSeriesDetail {
-  series: NovelSeries
-  episodes: NovelEpisode[]
+  series: NovelSeries;
+  episodes: NovelEpisode[];
 }
 
 export interface NovelDownloadParams {
   /** 单篇下载时传小说 ID */
-  novelId?: string
+  novelId?: string;
   /** 下载整部系列时传系列 ID */
-  seriesId?: string
-  outDir?: string
+  seriesId?: string;
+  outDir?: string;
 }
 
 export interface NovelDownloadResult {
-  path: string
-  title: string
-  episodes: number
-  characters: number
+  path: string;
+  title: string;
+  episodes: number;
+  characters: number;
 }
 
 export interface NovelDownloadProgress {
-  done: number
-  total: number
-  title: string
+  done: number;
+  total: number;
+  title: string;
 }
 
 /** 本地小说书库条目：扫描保存目录下的 小说/ 得到 */
 export interface NovelLibraryItem {
-  path: string
-  fileName: string
-  title: string
-  author: string
+  path: string;
+  fileName: string;
+  title: string;
+  author: string;
   /** 作者目录绝对路径（{保存目录}/{作者ID}_{作者名}） */
-  authorPath: string
-  userId: string
-  size: number
-  updatedAt: string
-  characters: number
-  episodes: number
-  kind: 'novel' | 'series'
-  novelId?: string
-  seriesId?: string
-  cover: string
-  tags: string[]
+  authorPath: string;
+  userId: string;
+  size: number;
+  updatedAt: string;
+  characters: number;
+  episodes: number;
+  kind: 'novel' | 'series';
+  novelId?: string;
+  seriesId?: string;
+  cover: string;
+  tags: string[];
 }
 
 export interface NovelLibraryResult {
-  items: NovelLibraryItem[]
-  root: string
+  items: NovelLibraryItem[];
+  root: string;
 }
 
 /** 正文检索命中的文件，snippets 里已含关键词上下文 */
 export interface NovelTextHit {
-  path: string
-  title: string
-  author: string
-  matches: number
-  snippets: string[]
+  path: string;
+  title: string;
+  author: string;
+  matches: number;
+  snippets: string[];
 }
 
 export interface NovelTextSearchResult {
-  hits: NovelTextHit[]
-  scanned: number
+  hits: NovelTextHit[];
+  scanned: number;
 }
 
 /** 作品搜索栏目：插画 / 漫画（小说走 NovelSearchParams） */
-export type WorkSearchKind = 'illust' | 'manga'
+export type WorkSearchKind = 'illust' | 'manga';
 
 /** 作品搜索排序，与 pixiv 的 order 参数一致 */
 export type WorkSearchOrder =
-  | 'date_d'
-  | 'date'
-  | 'popular_d'
-  | 'popular_male_d'
-  | 'popular_female_d'
+  'date_d' | 'date' | 'popular_d' | 'popular_male_d' | 'popular_female_d';
 
 /** 作品搜索分级：all 全部，safe 仅全年龄，r18 仅 R-18（需登录） */
-export type WorkSearchMode = 'all' | 'safe' | 'r18'
+export type WorkSearchMode = 'all' | 'safe' | 'r18';
 
 /** 搜索范围：s_tag 仅标签，s_tag_tc 标签 + 标题 + 说明 */
-export type WorkSearchScope = 'tag' | 'tag_tc'
+export type WorkSearchScope = 'tag' | 'tag_tc';
 
 export interface WorkSearchParams {
-  kind: WorkSearchKind
-  word: string
-  order: WorkSearchOrder
-  mode: WorkSearchMode
-  page: number
+  kind: WorkSearchKind;
+  word: string;
+  order: WorkSearchOrder;
+  mode: WorkSearchMode;
+  page: number;
   /** 按作者整合（csw=1） */
-  csw?: boolean
+  csw?: boolean;
   /** 收藏数下限，0 或省略表示不限（blt） */
-  blt?: number
+  blt?: number;
   /** 搜索范围 */
-  scope?: WorkSearchScope
+  scope?: WorkSearchScope;
   /** 插画搜索时把漫画结果一并合并进来（对应「包含漫画」） */
-  includeManga?: boolean
+  includeManga?: boolean;
 }
 
 /**
@@ -972,175 +965,208 @@ export interface WorkSearchParams {
  * 前端只需按 params 切换 URL 状态即可，不用关心它的原始 url。
  */
 export interface WorkSearchChip {
-  id: string
-  label: string
-  premium: boolean
+  id: string;
+  label: string;
+  premium: boolean;
   params: {
-    order?: WorkSearchOrder
-    mode?: 'safe' | 'r18'
-    csw?: '1'
-    blt?: string
-    scope?: WorkSearchScope
-    includeManga?: '1'
-  }
+    order?: WorkSearchOrder;
+    mode?: 'safe' | 'r18';
+    csw?: '1';
+    blt?: string;
+    scope?: WorkSearchScope;
+    includeManga?: '1';
+  };
 }
 
 /** 搜索结果作品：比 PixivWork 多出列表专用的缩略图与收藏数 */
 export interface SearchWork {
-  id: string
-  title: string
-  userId: string
-  userName: string
+  id: string;
+  title: string;
+  userId: string;
+  userName: string;
   /** 列表缩略图（约 250px） */
-  thumbnail: string
+  thumbnail: string;
   /** 作者头像 */
-  profileImageUrl: string
-  pageCount: number
-  width: number
-  height: number
-  xRestrict: number
-  illustType: number
-  tags: string[]
-  createDate: string
-  bookmarkCount: number
-  aiType: number
+  profileImageUrl: string;
+  pageCount: number;
+  width: number;
+  height: number;
+  xRestrict: number;
+  illustType: number;
+  tags: string[];
+  createDate: string;
+  bookmarkCount: number;
+  aiType: number;
   /** 排行榜名次；只有排行榜来源才带该字段 */
-  rank?: number
+  rank?: number;
   /** 所属系列；不属于任何系列或接口未返回时为 null */
-  series?: WorkSeriesNav | null
+  series?: WorkSeriesNav | null;
 }
 
 export interface WorkSearchResult {
-  works: SearchWork[]
-  total: number
+  works: SearchWork[];
+  total: number;
   /** 接口允许翻到的最后一页 */
-  lastPage: number
-  relatedTags: string[]
+  lastPage: number;
+  relatedTags: string[];
   /** 标签翻译：标签 -> 当前展示语言文本（无译文时不包含该键） */
-  tagTranslation: Record<string, string>
+  tagTranslation: Record<string, string>;
   /** 接口给出的筛选建议，随当前筛选状态变化 */
-  chips: WorkSearchChip[]
+  chips: WorkSearchChip[];
   /** 可选的收藏数下限（bookmarkRanges），用于「高收藏数作品」类筛选 */
-  bookmarkRanges: number[]
+  bookmarkRanges: number[];
 }
 
 export interface UserSearchParams {
-  word: string
-  page: number
+  word: string;
+  page: number;
   /** 只看投稿过作品的用户；false 为全部用户 */
-  postedOnly: boolean
+  postedOnly: boolean;
 }
 
 /** 用户搜索结果里的前四个作品缩略图 */
 export interface UserWorkThumb {
-  id: string
-  url: string
+  id: string;
+  url: string;
 }
 
 export interface UserSearchItem {
-  id: string
-  name: string
-  comment: string
-  avatar: string
+  id: string;
+  name: string;
+  comment: string;
+  avatar: string;
   /** 该用户的前四个作品缩略图 */
-  works: UserWorkThumb[]
+  works: UserWorkThumb[];
 }
 
 export interface UserSearchResult {
-  users: UserSearchItem[]
-  total: number
+  users: UserSearchItem[];
+  total: number;
 }
 
 /** 排行榜榜单类型，与 pixiv ranking.php 的 mode 参数一致 */
 export type RankingMode =
-  | 'daily'
-  | 'weekly'
-  | 'monthly'
-  | 'rookie'
-  | 'original'
-  | 'male'
-  | 'female'
+  'daily' | 'weekly' | 'monthly' | 'rookie' | 'original' | 'male' | 'female';
+
+/**
+ * App API 排行榜模式，与 `/v1/illust/ranking` 的 mode 参数一致。
+ *
+ * 与网页 ranking.php 是两套口径：网页按 `daily / weekly / monthly / …`，
+ * App 按 `day / week / month`，且把性别向、R-18、漫画榜都写成独立的 mode。
+ */
+export type AppRankingMode =
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'day_male'
+  | 'day_female'
+  | 'week_original'
+  | 'week_rookie'
+  | 'day_r18'
+  | 'day_male_r18'
+  | 'day_female_r18'
+  | 'week_r18'
+  | 'week_r18g'
+  | 'day_manga'
+  | 'week_manga'
+  | 'month_manga'
+  | 'week_rookie_manga'
+  | 'day_r18_manga'
+  | 'week_r18_manga'
+  | 'week_r18g_manga';
+
+/** App API 内容过滤；网页接口没有这个参数 */
+export type AppRankingFilter = 'for_android' | 'for_ios';
+
+/** 排行榜数据来源：web 走 ranking.php，app 走 /v1/illust/ranking */
+export type RankingSource = 'web' | 'app';
 
 export interface RankingParams {
-  kind: WorkSearchKind
-  mode: RankingMode
-  page: number
+  kind: WorkSearchKind;
+  /** 网页榜单或 App 榜单模式；由 fetchRanking 决定实际走哪边 */
+  mode: RankingMode | AppRankingMode;
+  page: number;
   /** YYYYMMDD；留空表示最新一期 */
-  date?: string
+  date?: string;
+  /** App 来源的内容过滤，默认 for_android */
+  filter?: AppRankingFilter;
 }
 
 export interface RankingResult {
-  works: SearchWork[]
-  page: number
-  lastPage: number
-  total: number
+  works: SearchWork[];
+  page: number;
+  lastPage: number;
+  /** 网页接口给的是榜单总数；App 接口不给总数，这里是本页条数 */
+  total: number;
   /** 本期榜单对应的日期（YYYYMMDD） */
-  date: string
+  date: string;
   /** 可翻到的下一期日期；空字符串表示没有 */
-  nextDate: string
+  nextDate: string;
+  /** 实际命中的来源，方便界面提示 */
+  source: RankingSource;
 }
 
 export interface RecommendWorksParams {
-  kind: WorkSearchKind
+  kind: WorkSearchKind;
   /** 上一批返回的 nextUrl；首屏留空 */
-  nextUrl?: string
+  nextUrl?: string;
   /** 未连接 App API 时，网页发现接口使用的分级 */
-  mode?: WorkSearchMode
+  mode?: WorkSearchMode;
 }
 
 export interface RecommendWorksResult {
-  works: SearchWork[]
+  works: SearchWork[];
   /** 继续加载的地址；空字符串表示没有更多 */
-  nextUrl: string
+  nextUrl: string;
   /** app = 个性化推荐，web = 网页发现兜底 */
-  source: 'app' | 'web'
+  source: 'app' | 'web';
 }
 
 export interface RecommendUsersParams {
   /** 上一批返回的 nextUrl；首屏留空 */
-  nextUrl?: string
+  nextUrl?: string;
 }
 
 export interface RecommendUsersResult {
-  users: UserSearchItem[]
+  users: UserSearchItem[];
   /** 继续加载的地址；空字符串表示没有更多 */
-  nextUrl: string
+  nextUrl: string;
 }
 
 /** 用户详情页的栏目 */
-export type UserContentTab = 'illust' | 'manga' | 'novel' | 'bookmarks'
+export type UserContentTab = 'illust' | 'manga' | 'novel' | 'bookmarks';
 
 export interface UserProfile {
-  id: string
-  name: string
-  comment: string
-  avatar: string
-  background: string
-  premium: boolean
+  id: string;
+  name: string;
+  comment: string;
+  avatar: string;
+  background: string;
+  premium: boolean;
   /** 关注数 */
-  following: number
+  following: number;
   /** 各栏目作品数（来自 profile/all） */
-  counts: { illust: number; manga: number; novel: number }
+  counts: { illust: number; manga: number; novel: number };
 }
 
 export interface UserContentParams {
-  userId: string
-  tab: UserContentTab
-  page: number
-  limit?: number
+  userId: string;
+  tab: UserContentTab;
+  page: number;
+  limit?: number;
   /** 收藏栏目专用：公开 / 私密收藏，缺省为公开 */
-  bookmarkRest?: BookmarkRest
+  bookmarkRest?: BookmarkRest;
   /** 收藏栏目专用：只取该标签下的收藏，留空为全部 */
-  bookmarkTag?: string
+  bookmarkTag?: string;
 }
 
 export interface UserContentResult {
   /** 插画 / 漫画 / 收藏的作品 */
-  works: SearchWork[]
+  works: SearchWork[];
   /** 小说栏目 */
-  novels: NovelWork[]
-  total: number
-  hasMore: boolean
+  novels: NovelWork[];
+  total: number;
+  hasMore: boolean;
 }
 
 /**
@@ -1158,194 +1184,217 @@ export type UpdateStatus =
   | { state: 'downloaded'; version: string }
   | { state: 'up-to-date'; version: string }
   | { state: 'error'; message: string }
-  | { state: 'unsupported' }
+  | { state: 'unsupported' };
 
 export interface PixivApi {
-  getConfig: () => Promise<AppConfig>
-  setConfig: (patch: Partial<AppConfig>) => Promise<AppConfig>
-  getCookie: () => Promise<CookieStatus>
-  setCookie: (raw: string) => Promise<CookieStatus>
+  getConfig: () => Promise<AppConfig>;
+  setConfig: (patch: Partial<AppConfig>) => Promise<AppConfig>;
+  getCookie: () => Promise<CookieStatus>;
+  setCookie: (raw: string) => Promise<CookieStatus>;
   /**
    * 打开应用内 pixiv 登录窗口，登录成功后自动抓取会话 Cookie 并保存。
    * 用户取消或直接关窗时返回 null。
    */
-  loginPixiv: () => Promise<CookieStatus | null>
+  loginPixiv: () => Promise<CookieStatus | null>;
   /** 清除已保存的 Cookie，并重置应用内登录窗口的会话 */
-  clearCookie: () => Promise<CookieStatus>
+  clearCookie: () => Promise<CookieStatus>;
   /** App API 连接状态（写操作凭据） */
-  getOAuthStatus: () => Promise<OAuthStatus>
+  getOAuthStatus: () => Promise<OAuthStatus>;
   /** 保存并校验凭据：立即刷新一次，失败则不落盘 */
-  saveOAuthCredentials: (credentials: OAuthCredentials) => Promise<OAuthStatus>
+  saveOAuthCredentials: (credentials: OAuthCredentials) => Promise<OAuthStatus>;
   /**
    * 打开 pixiv 授权页登录，用 PKCE 授权码自动换取并保存 refresh_token。
    * 用户关闭窗口或拒绝授权时返回 null。
    */
-  loginOAuth: (client?: OAuthClientInput) => Promise<OAuthStatus | null>
+  loginOAuth: (client?: OAuthClientInput) => Promise<OAuthStatus | null>;
   /** 清除 OAuth 凭据（不影响 Cookie） */
-  clearOAuth: () => Promise<OAuthStatus>
+  clearOAuth: () => Promise<OAuthStatus>;
   /**
    * Cookie 体检：主动打一次 pixiv 接口判断是否还有效。
    * 未配置 Cookie 时返回 'expired'。
    */
-  checkCookieHealth: () => Promise<CookieHealth>
+  checkCookieHealth: () => Promise<CookieHealth>;
   /**
    * 订阅「接口返回 401/403」的通知。
    * 业务进行中 Cookie 才失效时，靠这个把提醒推给界面。
    * 返回取消订阅函数。
    */
-  onCookieInvalid: (handler: () => void) => () => void
+  onCookieInvalid: (handler: () => void) => () => void;
   /** 订阅凭据状态变化（例如登录后静默完成的授权） */
-  onOAuthChanged: (handler: (status: OAuthStatus) => void) => () => void
-  pickDir: () => Promise<string | null>
-  openDir: (dir: string) => Promise<void>
-  collectWorks: (params: CollectParams) => Promise<CollectResult>
-  getSelfUser: () => Promise<SelfUser | null>
-  getFollowing: (params: FollowingParams) => Promise<FollowingResult>
-  exportWorks: (params: WorkExportParams) => Promise<string | null>
-  getWorkPages: (illustId: string) => Promise<WorkPage[]>
+  onOAuthChanged: (handler: (status: OAuthStatus) => void) => () => void;
+  pickDir: () => Promise<string | null>;
+  openDir: (dir: string) => Promise<void>;
+  collectWorks: (params: CollectParams) => Promise<CollectResult>;
+  getSelfUser: () => Promise<SelfUser | null>;
+  getFollowing: (params: FollowingParams) => Promise<FollowingResult>;
+  exportWorks: (params: WorkExportParams) => Promise<string | null>;
+  getWorkPages: (illustId: string) => Promise<WorkPage[]>;
   /**
    * 动图帧：按 id 取回解压后的帧序列，供应用内播放。
    * 首次会下载 zip 并解压，之后同一次会话内走内存缓存。
    */
-  getUgoiraFrames: (illustId: string) => Promise<UgoiraFrames>
+  getUgoiraFrames: (illustId: string) => Promise<UgoiraFrames>;
   /** 本地已下载的动图 zip：给 id 时用线上元数据校正每帧时长，取不到就按默认时长播放 */
-  readLocalUgoiraFrames: (filePath: string, illustId?: string) => Promise<UgoiraFrames>
+  readLocalUgoiraFrames: (
+    filePath: string,
+    illustId?: string
+  ) => Promise<UgoiraFrames>;
   /** 读取保存目录内的媒体文件字节（mp4 / webm 这类要靠 <video> 播的东西） */
-  readLocalMedia: (filePath: string) => Promise<{ bytes: Uint8Array; mime: string }>
+  readLocalMedia: (
+    filePath: string
+  ) => Promise<{ bytes: Uint8Array; mime: string }>;
   /**
    * 动图作品的首帧缩略图：返回缓存文件绝对路径（可直接用 pixivfile:// 取），失败返回空串。
    * 用于给没有静态封面的动图卡片补一张图。
    */
-  getUgoiraCover: (filePath: string) => Promise<string>
+  getUgoiraCover: (filePath: string) => Promise<string>;
   /** 只有作品 id 时按 id 补全详情（标题/作者/标签等），失败返回 null */
-  getWorkDetail: (illustId: string) => Promise<SearchWork | null>
+  getWorkDetail: (illustId: string) => Promise<SearchWork | null>;
   /** 搜索框下拉用的热门标签 */
-  getTrendingTags: () => Promise<TagSuggestion[]>
+  getTrendingTags: () => Promise<TagSuggestion[]>;
   /** 官方排行榜：插画 / 漫画 × 日 / 周 / 月 / 新人 / 原创 / 男性向 / 女性向 */
-  listRanking: (params: RankingParams) => Promise<RankingResult>
+  listRanking: (params: RankingParams) => Promise<RankingResult>;
   /** 推荐作品：已连接 App API 时个性化推荐，否则网页发现兜底 */
-  listRecommendedWorks: (params: RecommendWorksParams) => Promise<RecommendWorksResult>
+  listRecommendedWorks: (
+    params: RecommendWorksParams
+  ) => Promise<RecommendWorksResult>;
   /** 推荐画师：走 App API，需要 OAuth 凭据 */
-  listRecommendedUsers: (params: RecommendUsersParams) => Promise<RecommendUsersResult>
-  suggestTags: (word: string) => Promise<TagSuggestion[]>
+  listRecommendedUsers: (
+    params: RecommendUsersParams
+  ) => Promise<RecommendUsersResult>;
+  suggestTags: (word: string) => Promise<TagSuggestion[]>;
   /** 某位作者用过的标签；content 决定取插画 / 漫画 / 两者合并，供标签筛选弹窗使用 */
-  userTags: (userId: string, content?: WorkContent) => Promise<UserTag[]>
+  userTags: (userId: string, content?: WorkContent) => Promise<UserTag[]>;
   /** 扫描本地图库（下载目录），返回按作品聚合的结果；force 为 true 时忽略缓存 */
-  listLibrary: (force?: boolean) => Promise<LibraryResult>
+  listLibrary: (force?: boolean) => Promise<LibraryResult>;
   /** 打开本地图库中某作品所在的文件夹 */
-  openLibraryDir: (dir: string) => Promise<void>
+  openLibraryDir: (dir: string) => Promise<void>;
   /** 删除本地图库文件（仅限保存目录内），返回重新扫描后的图库 */
-  deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>
+  deleteLibraryFiles: (paths: string[]) => Promise<LibraryResult>;
   /** 按需读取若干作品的文件列表（列表接口不带绝对路径） */
-  getLibraryFiles: (keys: LibraryWorkKey[]) => Promise<LibraryWorkFiles[]>
+  getLibraryFiles: (keys: LibraryWorkKey[]) => Promise<LibraryWorkFiles[]>;
   /** 浏览记录：按最近浏览时间倒序，同一作品只保留最后一条 */
-  listViewHistory: () => Promise<ViewHistoryEntry[]>
+  listViewHistory: () => Promise<ViewHistoryEntry[]>;
   /** 记录一次作品浏览；只有作品 ID 与作者齐全时才写入 */
-  recordView: (entry: ViewRecordInput) => Promise<void>
+  recordView: (entry: ViewRecordInput) => Promise<void>;
   /** 清空浏览记录，返回清空后的列表 */
-  clearViewHistory: () => Promise<ViewHistoryEntry[]>
+  clearViewHistory: () => Promise<ViewHistoryEntry[]>;
   /** 稍后看：按加入时间倒序 */
-  listWatchLater: () => Promise<WatchLaterEntry[]>
+  listWatchLater: () => Promise<WatchLaterEntry[]>;
   /** 该作品是否已在稍后看列表里 */
-  isWatchLater: (id: string) => Promise<boolean>
+  isWatchLater: (id: string) => Promise<boolean>;
   /** 加入稍后看，返回更新后的完整列表（已存在则不重复加入） */
-  addWatchLater: (entry: ViewRecordInput) => Promise<WatchLaterEntry[]>
+  addWatchLater: (entry: ViewRecordInput) => Promise<WatchLaterEntry[]>;
   /** 从稍后看移除，返回更新后的完整列表 */
-  removeWatchLater: (id: string) => Promise<WatchLaterEntry[]>
+  removeWatchLater: (id: string) => Promise<WatchLaterEntry[]>;
   /** 清空稍后看，返回空列表 */
-  clearWatchLater: () => Promise<WatchLaterEntry[]>
+  clearWatchLater: () => Promise<WatchLaterEntry[]>;
   /** 读取作品收藏状态（App API） */
-  getBookmarkState: (workId: string) => Promise<BookmarkState>
+  getBookmarkState: (workId: string) => Promise<BookmarkState>;
   /** 收藏 / 取消收藏作品，返回最新状态 */
-  setBookmark: (workId: string, input: BookmarkInput) => Promise<BookmarkState>
+  setBookmark: (workId: string, input: BookmarkInput) => Promise<BookmarkState>;
   /** 读取是否已关注该画师（App API） */
-  getFollowState: (userId: string) => Promise<boolean>
+  getFollowState: (userId: string) => Promise<boolean>;
   /** 关注 / 取关画师，返回最新状态 */
-  setFollow: (userId: string, input: FollowInput) => Promise<boolean>
+  setFollow: (userId: string, input: FollowInput) => Promise<boolean>;
   /** 漫画 / 插画系列详情：已连接 App API 时取完整列表，否则用网页作品页的系列信息兜底 */
-  getWorkSeries: (params: WorkSeriesParams) => Promise<SeriesDetail>
+  getWorkSeries: (params: WorkSeriesParams) => Promise<SeriesDetail>;
   /** 加入 / 退出系列的追更列表（App API 的 manga watchlist），需 OAuth 凭据 */
-  setSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>
+  setSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>;
   /** 读取小说收藏状态（App API）；需 OAuth 凭据 */
-  getNovelBookmarkState: (novelId: string) => Promise<BookmarkState>
+  getNovelBookmarkState: (novelId: string) => Promise<BookmarkState>;
   /** 收藏 / 取消收藏小说，返回最新状态 */
-  setNovelBookmark: (novelId: string, input: BookmarkInput) => Promise<BookmarkState>
+  setNovelBookmark: (
+    novelId: string,
+    input: BookmarkInput
+  ) => Promise<BookmarkState>;
   /** 读取小说系列是否已追更（App API）；未连接凭据时恒为 false */
-  getNovelSeriesWatchState: (seriesId: string) => Promise<boolean>
+  getNovelSeriesWatchState: (seriesId: string) => Promise<boolean>;
   /** 加入 / 退出小说系列的追更列表（App API 的 novel watchlist） */
-  setNovelSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>
-  checkDownloaded: (params: DownloadedParams) => Promise<string[]>
+  setNovelSeriesWatch: (seriesId: string, watch: boolean) => Promise<void>;
+  checkDownloaded: (params: DownloadedParams) => Promise<string[]>;
   /** 加入下载队列：立即返回队列快照，任务由主进程按并行额度自动启动 */
-  enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>
+  enqueueDownload: (params: DownloadParams) => Promise<QueueSummary[]>;
   /** 批量同步：选中多位画师，按当前标签与过滤规则逐个「抓取 → 下载」 */
-  batchSync: (params: BatchSyncParams) => Promise<BatchSyncSummary>
-  cancelDownload: () => Promise<boolean>
+  batchSync: (params: BatchSyncParams) => Promise<BatchSyncSummary>;
+  cancelDownload: () => Promise<boolean>;
   /** 只中止批量同步，不影响队列里的普通任务 */
-  cancelBatch: () => Promise<boolean>
-  onBatchProgress: (callback: (progress: BatchSyncProgress) => void) => () => void
-  listQueue: () => Promise<QueueSummary[]>
+  cancelBatch: () => Promise<boolean>;
+  onBatchProgress: (
+    callback: (progress: BatchSyncProgress) => void
+  ) => () => void;
+  listQueue: () => Promise<QueueSummary[]>;
   /** 把未完成任务重新放回队列（排队等待额度） */
-  resumeQueue: (id: string) => Promise<QueueSummary[]>
+  resumeQueue: (id: string) => Promise<QueueSummary[]>;
   /** 暂停单个任务：运行中立即中止，排队中直接转为未完成 */
-  pauseQueue: (id: string) => Promise<QueueSummary[]>
+  pauseQueue: (id: string) => Promise<QueueSummary[]>;
   /** 取消单个任务：保留已下载文件，任务留在列表里显示「已取消」，可重新开始 */
-  cancelQueue: (id: string) => Promise<QueueSummary[]>
-  removeQueue: (id: string) => Promise<QueueSummary[]>
-  listFailures: (jobId: string) => Promise<FailureItem[]>
+  cancelQueue: (id: string) => Promise<QueueSummary[]>;
+  removeQueue: (id: string) => Promise<QueueSummary[]>;
+  listFailures: (jobId: string) => Promise<FailureItem[]>;
   /** 重试失败清单中的单条（图片或作品解析），其余失败项保持不变 */
-  retryFailure: (jobId: string, item: FailureItem) => Promise<QueueSummary[]>
-  exportFailures: (jobId: string) => Promise<string | null>
-  getThrottle: () => Promise<ThrottleState[]>
+  retryFailure: (jobId: string, item: FailureItem) => Promise<QueueSummary[]>;
+  exportFailures: (jobId: string) => Promise<string | null>;
+  getThrottle: () => Promise<ThrottleState[]>;
   /** 读取当前代理配置与生效状态 */
-  getProxy: () => Promise<ProxyState>
+  getProxy: () => Promise<ProxyState>;
   /**
    * 保存并立即应用代理设置。
    * `password` 传 undefined 表示保持已保存的密码，传空串表示清除密码。
    */
-  setProxy: (patch: Partial<ProxyConfig>, password?: string) => Promise<ProxyState>
+  setProxy: (
+    patch: Partial<ProxyConfig>,
+    password?: string
+  ) => Promise<ProxyState>;
   /** 通过当前代理请求一次 pixiv 首页，用于验证连通性 */
-  testProxy: () => Promise<ProxyTestResult>
-  onQueueChanged: (callback: (jobs: QueueSummary[]) => void) => () => void
+  testProxy: () => Promise<ProxyTestResult>;
+  onQueueChanged: (callback: (jobs: QueueSummary[]) => void) => () => void;
   /** 队列任务自动启动失败（如 Cookie 失效、目录非法）时通知界面 */
-  onQueueError: (callback: (message: string) => void) => () => void
-  onThrottle: (callback: (state: ThrottleState) => void) => () => void
+  onQueueError: (callback: (message: string) => void) => () => void;
+  onThrottle: (callback: (state: ThrottleState) => void) => () => void;
   /** 保存目录被外部增删文件时触发，用于自动刷新图库 */
-  onLibraryChanged: (callback: () => void) => () => void
-  onCollectProgress: (callback: (progress: CollectProgress) => void) => () => void
-  onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
-  onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void
-  onDownloadDone: (callback: (summary: DownloadSummary) => void) => () => void
+  onLibraryChanged: (callback: () => void) => () => void;
+  onCollectProgress: (
+    callback: (progress: CollectProgress) => void
+  ) => () => void;
+  onDownloadProgress: (
+    callback: (progress: DownloadProgress) => void
+  ) => () => void;
+  onDownloadItem: (callback: (item: DownloadItemEvent) => void) => () => void;
+  onDownloadDone: (callback: (summary: DownloadSummary) => void) => () => void;
   /** 作品搜索（插画 / 漫画） */
-  searchWorks: (params: WorkSearchParams) => Promise<WorkSearchResult>
+  searchWorks: (params: WorkSearchParams) => Promise<WorkSearchResult>;
   /** 用户搜索 */
-  searchUsers: (params: UserSearchParams) => Promise<UserSearchResult>
+  searchUsers: (params: UserSearchParams) => Promise<UserSearchResult>;
   /** 用户主页基础信息与各栏目作品数 */
-  getUserProfile: (userId: string) => Promise<UserProfile>
+  getUserProfile: (userId: string) => Promise<UserProfile>;
   /** 用户主页各栏目的作品列表 */
-  getUserContent: (params: UserContentParams) => Promise<UserContentResult>
+  getUserContent: (params: UserContentParams) => Promise<UserContentResult>;
   /** 小说搜索：关键词/标签，支持排序、分级与翻页 */
-  searchNovels: (params: NovelSearchParams) => Promise<NovelSearchResult>
+  searchNovels: (params: NovelSearchParams) => Promise<NovelSearchResult>;
   /** 小说详情（含正文原始标记文本） */
-  getNovelDetail: (novelId: string) => Promise<NovelDetail>
+  getNovelDetail: (novelId: string) => Promise<NovelDetail>;
   /** 小说系列详情与章节目录 */
-  getNovelSeries: (seriesId: string) => Promise<NovelSeriesDetail>
+  getNovelSeries: (seriesId: string) => Promise<NovelSeriesDetail>;
   /** 保存小说为 TXT：传 novelId 存单篇，传 seriesId 存整部系列 */
-  downloadNovel: (params: NovelDownloadParams) => Promise<NovelDownloadResult>
+  downloadNovel: (params: NovelDownloadParams) => Promise<NovelDownloadResult>;
   /** 订阅整部系列保存进度，返回取消订阅函数 */
-  onNovelDownloadProgress: (callback: (progress: NovelDownloadProgress) => void) => () => void
+  onNovelDownloadProgress: (
+    callback: (progress: NovelDownloadProgress) => void
+  ) => () => void;
   /** 扫描保存目录下的小说书库；force 为 true 时忽略缓存 */
   /** 在已下载小说的正文里检索关键词 */
-  searchNovelLibrary: (keyword: string) => Promise<NovelTextSearchResult>
+  searchNovelLibrary: (keyword: string) => Promise<NovelTextSearchResult>;
   /** 读取本地小说 TXT 内容，用于应用内阅读 */
-  readNovelLibraryFile: (filePath: string) => Promise<string>
+  readNovelLibraryFile: (filePath: string) => Promise<string>;
   /** 当前应用版本号，如 0.2.2 */
-  getVersion: () => Promise<string>
+  getVersion: () => Promise<string>;
   /** 读取最近一次更新状态（事件可能在界面订阅之前就已发生） */
-  getUpdateStatus: () => Promise<UpdateStatus>
+  getUpdateStatus: () => Promise<UpdateStatus>;
   /** 手动检查更新，返回检查后的状态；新版本由主进程自动在后台下载 */
-  checkForUpdates: () => Promise<UpdateStatus>
+  checkForUpdates: () => Promise<UpdateStatus>;
   /** 重启并安装已下载的更新；返回 false 表示当前没有可安装的更新 */
-  installUpdate: () => Promise<boolean>
+  installUpdate: () => Promise<boolean>;
   /** 订阅更新状态变化，返回取消订阅函数 */
-  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
 }

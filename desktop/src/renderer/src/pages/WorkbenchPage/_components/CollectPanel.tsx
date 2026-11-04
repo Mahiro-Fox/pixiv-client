@@ -1,3 +1,26 @@
+import { FormField } from '@renderer/components/shared/FormField';
+import { SelectMenu } from '@renderer/components/shared/SelectMenu';
+import { Button } from '@renderer/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@renderer/components/ui/card';
+import { Input } from '@renderer/components/ui/input';
+import { Separator } from '@renderer/components/ui/separator';
+import { useI18n } from '@renderer/i18n';
+import type { MessageKey } from '@renderer/i18n';
+import { cn } from '@renderer/utils/ui';
+import { validateTemplate } from '@shared/template';
+import type {
+  AppConfig,
+  BookmarkRest,
+  ImageQuality,
+  SelfUser,
+  TagMode,
+  TagSuggestion,
+} from '@shared/types';
 import {
   Download,
   Gem,
@@ -6,41 +29,23 @@ import {
   RefreshCw,
   Sparkles,
   Tags,
-  X
-} from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type * as React from 'react'
-import type {
-  AppConfig,
-  BookmarkRest,
-  ImageQuality,
-  SelfUser,
-  TagMode,
-  TagSuggestion
-} from '@shared/types'
-import { validateTemplate } from '@shared/template'
-import { cn } from '@renderer/utils/ui'
-import { useI18n } from '@renderer/i18n'
-import type { MessageKey } from '@renderer/i18n'
-import { Button } from '@renderer/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@renderer/components/ui/card'
-import { FormField } from '@renderer/components/shared/FormField'
-import { SelectMenu } from '@renderer/components/shared/SelectMenu'
-import { Input } from '@renderer/components/ui/input'
-import { Separator } from '@renderer/components/ui/separator'
+  X,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
 
 interface CollectPanelProps {
-  config: AppConfig
-  selfUser: SelfUser | null
-  hasCookie: boolean
-  collecting: boolean
+  config: AppConfig;
+  selfUser: SelfUser | null;
+  hasCookie: boolean;
+  collecting: boolean;
   /** 队列里是否已有未完成任务：决定按钮文案是「下载」还是「添加到任务队列」 */
-  queued: boolean
-  selectedCount: number
-  onConfigChange: (patch: Partial<AppConfig>) => void
-  onCollect: () => void
-  onDownload: () => void
-  onSuggestTags: (word: string) => Promise<TagSuggestion[]>
+  queued: boolean;
+  selectedCount: number;
+  onConfigChange: (patch: Partial<AppConfig>) => void;
+  onCollect: () => void;
+  onDownload: () => void;
+  onSuggestTags: (word: string) => Promise<TagSuggestion[]>;
 }
 
 /** 把「逗号/空格/顿号」分隔的标签串拆成列表（与主进程解析规则一致） */
@@ -48,99 +53,105 @@ function splitTags(value: string): string[] {
   return (value || '')
     .split(/[,，、\s]+/)
     .map((tag) => tag.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
 interface TagInputProps {
-  value: string
-  onChange: (value: string) => void
-  onSuggest: (word: string) => Promise<TagSuggestion[]>
+  value: string;
+  onChange: (value: string) => void;
+  onSuggest: (word: string) => Promise<TagSuggestion[]>;
 }
 
 /** 带搜索建议的标签输入框：防抖 350ms 请求 pixiv 关联标签，支持键盘上下选择 */
-function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Element {
-  const { t } = useI18n()
-  const [items, setItems] = useState<TagSuggestion[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [active, setActive] = useState(-1)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const seq = useRef(0)
-  const box = useRef<HTMLDivElement | null>(null)
+function TagInput({
+  value,
+  onChange,
+  onSuggest,
+}: TagInputProps): React.JSX.Element {
+  const { t } = useI18n();
+  const [items, setItems] = useState<TagSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(-1);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0);
+  const box = useRef<HTMLDivElement | null>(null);
 
   const close = (): void => {
-    setOpen(false)
-    setActive(-1)
-  }
+    setOpen(false);
+    setActive(-1);
+  };
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent): void => {
-      if (box.current && !box.current.contains(event.target as Node)) close()
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [])
+      if (box.current && !box.current.contains(event.target as Node)) close();
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
 
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current)
+      if (timer.current) clearTimeout(timer.current);
     },
     []
-  )
+  );
 
   const request = (word: string): void => {
-    if (timer.current) clearTimeout(timer.current)
+    if (timer.current) clearTimeout(timer.current);
     if (word.trim().length < 2) {
-      setItems([])
-      close()
-      return
+      setItems([]);
+      close();
+      return;
     }
 
     timer.current = setTimeout(() => {
-      const id = seq.current + 1
-      seq.current = id
-      setLoading(true)
+      const id = seq.current + 1;
+      seq.current = id;
+      setLoading(true);
       void onSuggest(word)
         .then((result) => {
-          if (seq.current !== id) return
-          setItems(result)
-          setOpen(result.length > 0)
-          setActive(-1)
+          if (seq.current !== id) return;
+          setItems(result);
+          setOpen(result.length > 0);
+          setActive(-1);
         })
         .catch(() => {
-          if (seq.current === id) setItems([])
+          if (seq.current === id) setItems([]);
         })
         .finally(() => {
-          if (seq.current === id) setLoading(false)
-        })
-    }, 350)
-  }
+          if (seq.current === id) setLoading(false);
+        });
+    }, 350);
+  };
 
   const apply = (suggestion: TagSuggestion): void => {
-    onChange(suggestion.tag)
-    setItems([])
-    close()
-  }
+    onChange(suggestion.tag);
+    setItems([]);
+    close();
+  };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (!open || items.length === 0) {
-      if (event.key === 'ArrowDown' && items.length > 0) setOpen(true)
-      return
+      if (event.key === 'ArrowDown' && items.length > 0) setOpen(true);
+      return;
     }
     if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      setActive((previous) => (previous + 1) % items.length)
+      event.preventDefault();
+      setActive((previous) => (previous + 1) % items.length);
     } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      setActive((previous) => (previous <= 0 ? items.length - 1 : previous - 1))
+      event.preventDefault();
+      setActive((previous) =>
+        previous <= 0 ? items.length - 1 : previous - 1
+      );
     } else if (event.key === 'Enter') {
-      event.preventDefault()
-      const target = items[active >= 0 ? active : 0]
-      if (target) apply(target)
+      event.preventDefault();
+      const target = items[active >= 0 ? active : 0];
+      if (target) apply(target);
     } else if (event.key === 'Escape') {
-      close()
+      close();
     }
-  }
+  };
 
   return (
     <div ref={box} className="relative">
@@ -148,12 +159,12 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
         value={value}
         placeholder="R-18"
         onChange={(event) => {
-          onChange(event.target.value)
-          request(event.target.value)
+          onChange(event.target.value);
+          request(event.target.value);
         }}
         onFocus={() => {
-          if (items.length > 0) setOpen(true)
-          else request(value)
+          if (items.length > 0) setOpen(true);
+          else request(value);
         }}
         onKeyDown={onKeyDown}
         autoComplete="off"
@@ -178,7 +189,9 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
               onClick={() => apply(item)}
               className={cn(
                 'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors',
-                index === active ? 'bg-secondary text-foreground' : 'text-foreground/85'
+                index === active
+                  ? 'bg-secondary text-foreground'
+                  : 'text-foreground/85'
               )}
             >
               <span className="truncate">{item.tag}</span>
@@ -192,14 +205,14 @@ function TagInput({ value, onChange, onSuggest }: TagInputProps): React.JSX.Elem
         </div>
       ) : null}
     </div>
-  )
+  );
 }
 
 interface TagListInputProps {
-  value: string
-  onChange: (value: string) => void
-  onSuggest: (word: string) => Promise<TagSuggestion[]>
-  placeholder?: string
+  value: string;
+  onChange: (value: string) => void;
+  onSuggest: (word: string) => Promise<TagSuggestion[]>;
+  placeholder?: string;
 }
 
 /**
@@ -210,108 +223,116 @@ function TagListInput({
   value,
   onChange,
   onSuggest,
-  placeholder
+  placeholder,
 }: TagListInputProps): React.JSX.Element {
-  const { t } = useI18n()
-  const chips = splitTags(value)
-  const [draft, setDraft] = useState('')
-  const [items, setItems] = useState<TagSuggestion[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [active, setActive] = useState(-1)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const seq = useRef(0)
-  const box = useRef<HTMLDivElement | null>(null)
+  const { t } = useI18n();
+  const chips = splitTags(value);
+  const [draft, setDraft] = useState('');
+  const [items, setItems] = useState<TagSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(-1);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0);
+  const box = useRef<HTMLDivElement | null>(null);
 
   const close = (): void => {
-    setOpen(false)
-    setActive(-1)
-  }
+    setOpen(false);
+    setActive(-1);
+  };
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent): void => {
-      if (box.current && !box.current.contains(event.target as Node)) close()
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [])
+      if (box.current && !box.current.contains(event.target as Node)) close();
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
 
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current)
+      if (timer.current) clearTimeout(timer.current);
     },
     []
-  )
+  );
 
   const commit = (tag: string): void => {
-    const next = tag.trim()
-    if (next && !chips.some((chip) => chip.toLowerCase() === next.toLowerCase())) {
-      onChange([...chips, next].join(', '))
+    const next = tag.trim();
+    if (
+      next &&
+      !chips.some((chip) => chip.toLowerCase() === next.toLowerCase())
+    ) {
+      onChange([...chips, next].join(', '));
     }
-    setDraft('')
-    setItems([])
-    close()
-  }
+    setDraft('');
+    setItems([]);
+    close();
+  };
 
   const remove = (tag: string): void => {
-    onChange(chips.filter((chip) => chip !== tag).join(', '))
-  }
+    onChange(chips.filter((chip) => chip !== tag).join(', '));
+  };
 
   const request = (word: string): void => {
-    if (timer.current) clearTimeout(timer.current)
+    if (timer.current) clearTimeout(timer.current);
     if (word.trim().length < 2) {
-      setItems([])
-      close()
-      return
+      setItems([]);
+      close();
+      return;
     }
 
     timer.current = setTimeout(() => {
-      const id = seq.current + 1
-      seq.current = id
-      setLoading(true)
+      const id = seq.current + 1;
+      seq.current = id;
+      setLoading(true);
       void onSuggest(word)
         .then((result) => {
-          if (seq.current !== id) return
+          if (seq.current !== id) return;
           const remaining = result.filter(
-            (item) => !chips.some((chip) => chip.toLowerCase() === item.tag.toLowerCase())
-          )
-          setItems(remaining)
-          setOpen(remaining.length > 0)
-          setActive(-1)
+            (item) =>
+              !chips.some(
+                (chip) => chip.toLowerCase() === item.tag.toLowerCase()
+              )
+          );
+          setItems(remaining);
+          setOpen(remaining.length > 0);
+          setActive(-1);
         })
         .catch(() => {
-          if (seq.current === id) setItems([])
+          if (seq.current === id) setItems([]);
         })
         .finally(() => {
-          if (seq.current === id) setLoading(false)
-        })
-    }, 350)
-  }
+          if (seq.current === id) setLoading(false);
+        });
+    }, 350);
+  };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Enter' || event.key === ',') {
-      event.preventDefault()
-      if (open && active >= 0 && items[active]) commit(items[active].tag)
-      else commit(draft)
-      return
+      event.preventDefault();
+      if (open && active >= 0 && items[active]) commit(items[active].tag);
+      else commit(draft);
+      return;
     }
     if (event.key === 'Backspace' && !draft && chips.length > 0) {
-      event.preventDefault()
-      const last = chips[chips.length - 1]
-      if (last) remove(last)
-      return
+      event.preventDefault();
+      const last = chips[chips.length - 1];
+      if (last) remove(last);
+      return;
     }
-    if (!open || items.length === 0) return
+    if (!open || items.length === 0) return;
     if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      setActive((previous) => (previous + 1) % items.length)
+      event.preventDefault();
+      setActive((previous) => (previous + 1) % items.length);
     } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      setActive((previous) => (previous <= 0 ? items.length - 1 : previous - 1))
+      event.preventDefault();
+      setActive((previous) =>
+        previous <= 0 ? items.length - 1 : previous - 1
+      );
     } else if (event.key === 'Escape') {
-      close()
+      close();
     }
-  }
+  };
 
   return (
     <div ref={box} className="relative">
@@ -335,27 +356,31 @@ function TagListInput({
         <input
           value={draft}
           onChange={(event) => {
-            const next = event.target.value
+            const next = event.target.value;
             // 输入逗号时把草稿转为芯片；支持一次粘贴多个标签
             if (next.includes(',') || next.includes('，')) {
-              const merged = [...chips]
+              const merged = [...chips];
               splitTags(next).forEach((tag) => {
-                if (!merged.some((chip) => chip.toLowerCase() === tag.toLowerCase())) {
-                  merged.push(tag)
+                if (
+                  !merged.some(
+                    (chip) => chip.toLowerCase() === tag.toLowerCase()
+                  )
+                ) {
+                  merged.push(tag);
                 }
-              })
-              onChange(merged.join(', '))
-              setDraft('')
-              setItems([])
-              close()
-              return
+              });
+              onChange(merged.join(', '));
+              setDraft('');
+              setItems([]);
+              close();
+              return;
             }
-            setDraft(next)
-            request(next)
+            setDraft(next);
+            request(next);
           }}
           onFocus={() => {
-            if (items.length > 0) setOpen(true)
-            else request(draft)
+            if (items.length > 0) setOpen(true);
+            else request(draft);
           }}
           onKeyDown={onKeyDown}
           placeholder={chips.length === 0 ? placeholder : undefined}
@@ -383,7 +408,9 @@ function TagListInput({
               onClick={() => commit(item.tag)}
               className={cn(
                 'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors',
-                index === active ? 'bg-secondary text-foreground' : 'text-foreground/85'
+                index === active
+                  ? 'bg-secondary text-foreground'
+                  : 'text-foreground/85'
               )}
             >
               <span className="truncate">{item.tag}</span>
@@ -397,19 +424,19 @@ function TagListInput({
         </div>
       ) : null}
     </div>
-  )
+  );
 }
 
 /** 左栏抓取面板：只放与「抓取作品」直接相关的参数与操作 */
 export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
-  const { t } = useI18n()
-  const { config, selfUser, hasCookie } = props
+  const { t } = useI18n();
+  const { config, selfUser, hasCookie } = props;
 
   // 模板非法时禁用下载，避免生成无法解析的文件名
-  const templateError = validateTemplate(config.fileNameTemplate)
+  const templateError = validateTemplate(config.fileNameTemplate);
 
   /** 收藏栏目：与前三栏共用同一个「用户 ID」，只是取的是这位用户的收藏夹 */
-  const isBookmarks = config.contentKind === 'bookmarks'
+  const isBookmarks = config.contentKind === 'bookmarks';
 
   /**
    * 填了别人的用户 ID 时，私密收藏必然拿不到（pixiv 返回 403 没权限），
@@ -420,27 +447,38 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
   const otherUserId =
     config.userId.trim() !== '' &&
     Boolean(selfUser?.id) &&
-    config.userId.trim() !== selfUser?.id
+    config.userId.trim() !== selfUser?.id;
 
   useEffect(() => {
     if (isBookmarks && otherUserId && config.bookmarkRest !== 'show') {
-      props.onConfigChange({ bookmarkRest: 'show' })
+      props.onConfigChange({ bookmarkRest: 'show' });
     }
-  }, [isBookmarks, otherUserId, config.bookmarkRest, props])
+  }, [isBookmarks, otherUserId, config.bookmarkRest, props]);
 
-  const setTagMode = (mode: TagMode): void => props.onConfigChange({ tagMode: mode })
+  const setTagMode = (mode: TagMode): void =>
+    props.onConfigChange({ tagMode: mode });
 
   /** 下载质量：常规图（约 1200px）与高清原图；动图格式在设置弹窗里调整 */
   const qualityOptions: {
-    value: ImageQuality
-    labelKey: MessageKey
-    icon: React.JSX.Element
+    value: ImageQuality;
+    labelKey: MessageKey;
+    icon: React.JSX.Element;
   }[] = [
-    { value: 'regular', labelKey: 'collect.qualityRegular', icon: <ImageIcon className="h-4 w-4" /> },
-    { value: 'original', labelKey: 'collect.qualityOriginal', icon: <Gem className="h-4 w-4" /> }
-  ]
+    {
+      value: 'regular',
+      labelKey: 'collect.qualityRegular',
+      icon: <ImageIcon className="h-4 w-4" />,
+    },
+    {
+      value: 'original',
+      labelKey: 'collect.qualityOriginal',
+      icon: <Gem className="h-4 w-4" />,
+    },
+  ];
   const qualityLabelKey: MessageKey =
-    config.imageQuality === 'original' ? 'collect.qualityOriginal' : 'collect.qualityRegular'
+    config.imageQuality === 'original'
+      ? 'collect.qualityOriginal'
+      : 'collect.qualityRegular';
 
   return (
     <div className="flex h-full flex-col" data-tour="collect-panel">
@@ -457,30 +495,45 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                 hint={
                   isBookmarks
                     ? selfUser
-                      ? t('collect.currentUser', { name: selfUser.name, id: selfUser.id })
+                      ? t('collect.currentUser', {
+                          name: selfUser.name,
+                          id: selfUser.id,
+                        })
                       : t('collect.bookmarkLoginHint')
                     : undefined
                 }
               >
                 <Input
                   value={config.userId}
-                  onChange={(event) => props.onConfigChange({ userId: event.target.value })}
-                  placeholder={isBookmarks ? (selfUser?.id ?? '114638697') : '114638697'}
+                  onChange={(event) =>
+                    props.onConfigChange({ userId: event.target.value })
+                  }
+                  placeholder={
+                    isBookmarks ? (selfUser?.id ?? '114638697') : '114638697'
+                  }
                 />
               </FormField>
               {isBookmarks ? (
                 <FormField
                   label={t('collect.bookmarkType')}
-                  hint={otherUserId ? t('collect.bookmarkOtherUserHint') : undefined}
+                  hint={
+                    otherUserId ? t('collect.bookmarkOtherUserHint') : undefined
+                  }
                 >
                   <SelectMenu
                     value={config.bookmarkRest}
                     onChange={(value) =>
-                      props.onConfigChange({ bookmarkRest: value as BookmarkRest })
+                      props.onConfigChange({
+                        bookmarkRest: value as BookmarkRest,
+                      })
                     }
                     options={[
                       { value: 'show', label: t('collect.bookmarkShow') },
-                      { value: 'hide', label: t('collect.bookmarkHide'), disabled: otherUserId }
+                      {
+                        value: 'hide',
+                        label: t('collect.bookmarkHide'),
+                        disabled: otherUserId,
+                      },
                     ]}
                   />
                 </FormField>
@@ -496,7 +549,10 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             </div>
 
             {isBookmarks ? (
-              <FormField label={t('collect.bookmarkTag')} hint={t('collect.bookmarkTagHint')}>
+              <FormField
+                label={t('collect.bookmarkTag')}
+                hint={t('collect.bookmarkTagHint')}
+              >
                 <TagInput
                   value={config.tag}
                   onChange={(value) => props.onConfigChange({ tag: value })}
@@ -515,7 +571,7 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   {(
                     [
                       { value: 'and', labelKey: 'collect.tagModeAnd' },
-                      { value: 'or', labelKey: 'collect.tagModeOr' }
+                      { value: 'or', labelKey: 'collect.tagModeOr' },
                     ] as { value: TagMode; labelKey: MessageKey }[]
                   ).map((item) => (
                     <button
@@ -546,15 +602,22 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
               >
                 <TagListInput
                   value={config.tagExtra}
-                  onChange={(value) => props.onConfigChange({ tagExtra: value })}
+                  onChange={(value) =>
+                    props.onConfigChange({ tagExtra: value })
+                  }
                   onSuggest={props.onSuggestTags}
                   placeholder={t('collect.tagExtraPlaceholder')}
                 />
               </FormField>
-              <FormField label={t('collect.tagExclude')} hint={t('collect.tagExcludeHint')}>
+              <FormField
+                label={t('collect.tagExclude')}
+                hint={t('collect.tagExcludeHint')}
+              >
                 <TagListInput
                   value={config.tagExclude}
-                  onChange={(value) => props.onConfigChange({ tagExclude: value })}
+                  onChange={(value) =>
+                    props.onConfigChange({ tagExclude: value })
+                  }
                   onSuggest={props.onSuggestTags}
                   placeholder={t('collect.tagExcludePlaceholder')}
                 />
@@ -568,11 +631,16 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   min={0}
                   value={config.offset}
                   onChange={(event) =>
-                    props.onConfigChange({ offset: Math.max(0, Number(event.target.value) || 0) })
+                    props.onConfigChange({
+                      offset: Math.max(0, Number(event.target.value) || 0),
+                    })
                   }
                 />
               </FormField>
-              <FormField label={t('collect.limit')} hint={t('collect.limitHint')}>
+              <FormField
+                label={t('collect.limit')}
+                hint={t('collect.limitHint')}
+              >
                 <Input
                   type="number"
                   min={1}
@@ -580,14 +648,20 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   value={config.limit}
                   onChange={(event) =>
                     props.onConfigChange({
-                      limit: Math.max(1, Math.min(100, Number(event.target.value) || 1))
+                      limit: Math.max(
+                        1,
+                        Math.min(100, Number(event.target.value) || 1)
+                      ),
                     })
                   }
                 />
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <FormField label={t('collect.workers')} hint={t('collect.workersHint')}>
+              <FormField
+                label={t('collect.workers')}
+                hint={t('collect.workersHint')}
+              >
                 <Input
                   type="number"
                   min={1}
@@ -595,7 +669,10 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   value={config.workers}
                   onChange={(event) =>
                     props.onConfigChange({
-                      workers: Math.max(1, Math.min(32, Number(event.target.value) || 1))
+                      workers: Math.max(
+                        1,
+                        Math.min(32, Number(event.target.value) || 1)
+                      ),
                     })
                   }
                 />
@@ -609,7 +686,10 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
                   value={config.delay}
                   onChange={(event) =>
                     props.onConfigChange({
-                      delay: Math.max(0, Math.min(5, Number(event.target.value) || 0))
+                      delay: Math.max(
+                        0,
+                        Math.min(5, Number(event.target.value) || 0)
+                      ),
                     })
                   }
                 />
@@ -617,7 +697,6 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
             </div>
           </CardContent>
         </Card>
-
       </div>
 
       <Separator className="my-3" />
@@ -629,23 +708,35 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           disabled={
             props.collecting ||
             // 收藏栏留空会用当前登录账号，所以只有连登录状态都没有时才拦
-            (isBookmarks ? !hasCookie && !config.userId.trim() : !config.userId.trim())
+            (isBookmarks
+              ? !hasCookie && !config.userId.trim()
+              : !config.userId.trim())
           }
           onClick={props.onCollect}
         >
-          {props.collecting ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-          {props.collecting ? t('collect.collectingWorks') : t('collect.collectWorks')}
+          {props.collecting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          {props.collecting
+            ? t('collect.collectingWorks')
+            : t('collect.collectWorks')}
         </Button>
 
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/10 p-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">{t('collect.quality')}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {t('collect.quality')}
+            </span>
             <div className="flex items-center gap-0.5 rounded-md bg-secondary/60 p-0.5">
               {qualityOptions.map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => props.onConfigChange({ imageQuality: option.value })}
+                  onClick={() =>
+                    props.onConfigChange({ imageQuality: option.value })
+                  }
                   className={cn(
                     'flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors',
                     config.imageQuality === option.value
@@ -662,14 +753,20 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
           <Button
             className="w-full"
             disabled={
-              props.collecting || props.selectedCount === 0 || !hasCookie || Boolean(templateError)
+              props.collecting ||
+              props.selectedCount === 0 ||
+              !hasCookie ||
+              Boolean(templateError)
             }
             onClick={props.onDownload}
           >
             <Download />
             {props.queued
               ? t('collect.enqueue', { count: props.selectedCount })
-              : t('collect.download', { quality: t(qualityLabelKey), count: props.selectedCount })}
+              : t('collect.download', {
+                  quality: t(qualityLabelKey),
+                  count: props.selectedCount,
+                })}
           </Button>
           <p className="text-[10px] leading-4 text-muted-foreground/70">
             {t('collect.qualityNote')}
@@ -682,5 +779,5 @@ export function CollectPanel(props: CollectPanelProps): React.JSX.Element {
         ) : null}
       </div>
     </div>
-  )
+  );
 }

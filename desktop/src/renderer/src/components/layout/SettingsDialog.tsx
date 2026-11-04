@@ -1,3 +1,29 @@
+import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n';
+import type { Translate } from '@renderer/i18n';
+import { toast } from '@renderer/utils/toast';
+import {
+  DEFAULT_FILE_TEMPLATE,
+  renderFileName,
+  TEMPLATE_TOKENS,
+  validateTemplate,
+} from '@shared/template';
+import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle';
+import type {
+  AppConfig,
+  CookieStatus,
+  ImageQuality,
+  Locale,
+  OAuthCredentials,
+  OAuthStatus,
+  ProxyConfig,
+  ProxyProtocol,
+  ProxyState,
+  ProxyTestResult,
+  SelfUser,
+  ThemeMode,
+  UgoiraFormat,
+  UpdateStatus,
+} from '@shared/types';
 import {
   AppWindow,
   Cookie,
@@ -21,108 +47,90 @@ import {
   RefreshCw,
   Settings2,
   Sun,
-  Trash2
-} from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type * as React from 'react'
-import type {
-  AppConfig,
-  CookieStatus,
-  ImageQuality,
-  Locale,
-  OAuthCredentials,
-  OAuthStatus,
-  ProxyConfig,
-  ProxyProtocol,
-  ProxyState,
-  ProxyTestResult,
-  SelfUser,
-  ThemeMode,
-  UgoiraFormat,
-  UpdateStatus
-} from '@shared/types'
-import {
-  DEFAULT_FILE_TEMPLATE,
-  TEMPLATE_TOKENS,
-  renderFileName,
-  validateTemplate
-} from '@shared/template'
-import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle'
-import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n'
-import type { Translate } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
-import { DialogShell } from '../shared/DialogShell'
-import { FormField } from '../shared/FormField'
-import { SelectMenu } from '../shared/SelectMenu'
-
-import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
+import { DialogShell } from '../shared/DialogShell';
+import { FormField } from '../shared/FormField';
+import { SelectMenu } from '../shared/SelectMenu';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 
 interface SettingsDialogProps {
-  config: AppConfig
-  cookie: CookieStatus | null
-  selfUser: SelfUser | null
+  config: AppConfig;
+  cookie: CookieStatus | null;
+  selfUser: SelfUser | null;
   /** 代理配置与生效状态；密码本身不会传给渲染层 */
-  proxy: ProxyState | null
-  onConfigChange: (patch: Partial<AppConfig>) => void
+  proxy: ProxyState | null;
+  onConfigChange: (patch: Partial<AppConfig>) => void;
   /** 托盘设置改完要立刻生效（图标出现 / 消失不该等到关弹窗），由上层即时落盘 */
-  onTrayChange: (patch: Partial<AppConfig>) => void
+  onTrayChange: (patch: Partial<AppConfig>) => void;
   /** 切换界面语言：落盘后整页刷新，交由上层处理，弹窗只负责触发 */
-  onChangeLocale: (locale: Locale) => void
+  onChangeLocale: (locale: Locale) => void;
   /** 保存并立即应用代理；password 传 undefined 表示保持原密码，空串表示清除 */
-  onSaveProxy: (patch: Partial<ProxyConfig>, password?: string) => Promise<ProxyState>
-  onTestProxy: () => Promise<ProxyTestResult>
-  onSaveCookie: (raw: string) => Promise<void>
+  onSaveProxy: (
+    patch: Partial<ProxyConfig>,
+    password?: string
+  ) => Promise<ProxyState>;
+  onTestProxy: () => Promise<ProxyTestResult>;
+  onSaveCookie: (raw: string) => Promise<void>;
   /** 打开应用内 pixiv 登录窗口；返回 false 表示用户取消了登录 */
-  onLogin: () => Promise<boolean>
+  onLogin: () => Promise<boolean>;
   /** 清除已保存的 Cookie，并重置登录窗口的会话 */
-  onClearCookie: () => Promise<void>
+  onClearCookie: () => Promise<void>;
   /** App API（OAuth）连接状态；写操作需要它 */
-  oauth: OAuthStatus | null
+  oauth: OAuthStatus | null;
   /** 保存并校验凭据：主进程会先刷新一次，失败不落盘 */
-  onSaveOAuth: (credentials: OAuthCredentials) => Promise<void>
+  onSaveOAuth: (credentials: OAuthCredentials) => Promise<void>;
   /** 打开 pixiv 授权页，用 PKCE 自动换取 refresh_token；返回 false 表示用户取消 */
-  onLoginOAuth: (clientId: string, clientSecret: string) => Promise<boolean>
-  onClearOAuth: () => Promise<void>
-  onPickDir: () => void
-  onOpenDir: () => void
-  onClose: () => void
+  onLoginOAuth: (clientId: string, clientSecret: string) => Promise<boolean>;
+  onClearOAuth: () => Promise<void>;
+  onPickDir: () => void;
+  onOpenDir: () => void;
+  onClose: () => void;
 }
 
 /** 模板预览里的 {tag}：与下载任务携带的标签一致，收藏栏固定为「收藏夹」 */
 function worksTagOf(config: AppConfig): string {
-  return config.contentKind === 'bookmarks' ? '收藏夹' : config.tag
+  return config.contentKind === 'bookmarks' ? '收藏夹' : config.tag;
 }
 
-function cookieSourceLabel(t: Translate, source: CookieStatus['source']): string {
-  if (source === 'env') return t('settings.cookie.sourceEnv')
-  if (source === 'file') return t('settings.cookie.sourceFile')
-  return t('settings.cookie.sourceNone')
+function cookieSourceLabel(
+  t: Translate,
+  source: CookieStatus['source']
+): string {
+  if (source === 'env') return t('settings.cookie.sourceEnv');
+  if (source === 'file') return t('settings.cookie.sourceFile');
+  return t('settings.cookie.sourceNone');
 }
 
 /** 更新状态 → 界面文案 */
 function updateText(t: Translate, status: UpdateStatus): string {
-  if (status.state === 'checking') return t('settings.update.checking')
-  if (status.state === 'available') return t('settings.update.available', { version: status.version })
+  if (status.state === 'checking') return t('settings.update.checking');
+  if (status.state === 'available')
+    return t('settings.update.available', { version: status.version });
   if (status.state === 'downloading') {
-    return t('settings.update.downloading', { percent: status.percent })
+    return t('settings.update.downloading', { percent: status.percent });
   }
-  if (status.state === 'downloaded') return t('settings.update.downloaded', { version: status.version })
-  if (status.state === 'up-to-date') return t('settings.update.upToDate')
-  if (status.state === 'error') return t('settings.update.error', { message: status.message })
-  if (status.state === 'unsupported') return t('settings.update.unsupported')
-  return t('settings.update.idle')
+  if (status.state === 'downloaded')
+    return t('settings.update.downloaded', { version: status.version });
+  if (status.state === 'up-to-date') return t('settings.update.upToDate');
+  if (status.state === 'error')
+    return t('settings.update.error', { message: status.message });
+  if (status.state === 'unsupported') return t('settings.update.unsupported');
+  return t('settings.update.idle');
 }
 
 /** 单选卡片：主题、语言、质量、动图格式共用一套样式 */
 function OptionCard(props: {
-  active: boolean
-  icon: React.JSX.Element
-  label: string
-  hint?: string
-  onClick: () => void
+  active: boolean;
+  icon: React.JSX.Element;
+  label: string;
+  hint?: string;
+  onClick: () => void;
 }): React.JSX.Element {
   return (
     <button
@@ -143,19 +151,21 @@ function OptionCard(props: {
         {props.label}
       </span>
       {props.hint ? (
-        <span className="text-[10px] leading-4 text-muted-foreground">{props.hint}</span>
+        <span className="text-[10px] leading-4 text-muted-foreground">
+          {props.hint}
+        </span>
       ) : null}
     </button>
-  )
+  );
 }
 
 /** 开关行：设置里的布尔项（托盘、提醒等）共用，右侧拨动开关 */
 function SwitchRow(props: {
-  label: string
-  hint: string
-  checked: boolean
-  disabled?: boolean
-  onChange: (next: boolean) => void
+  label: string;
+  hint: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
 }): React.JSX.Element {
   return (
     <div
@@ -165,7 +175,9 @@ function SwitchRow(props: {
     >
       <div className="min-w-0">
         <p className="text-xs font-medium">{props.label}</p>
-        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground/70">{props.hint}</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground/70">
+          {props.hint}
+        </p>
       </div>
       <button
         type="button"
@@ -185,31 +197,34 @@ function SwitchRow(props: {
         />
       </button>
     </div>
-  )
+  );
 }
 
 /** 限流参数加减器：只走合法区间内的步进，避免输入框被清空时写入 0 */
 function NumberStepper(props: {
-  label: string
-  hint: string
-  decreaseLabel: string
-  increaseLabel: string
-  value: number
-  unit: string
-  min: number
-  max: number
-  step: number
-  onChange: (value: number) => void
+  label: string;
+  hint: string;
+  decreaseLabel: string;
+  increaseLabel: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
 }): React.JSX.Element {
-  const clamp = (next: number): number => Math.max(props.min, Math.min(props.max, next))
+  const clamp = (next: number): number =>
+    Math.max(props.min, Math.min(props.max, next));
   const buttonClass =
-    'flex h-5 w-5 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
+    'flex h-5 w-5 items-center justify-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 px-2.5 py-2">
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{props.label}</p>
-        <p className="truncate text-[10px] text-muted-foreground">{props.hint}</p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {props.hint}
+        </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button
@@ -223,7 +238,9 @@ function NumberStepper(props: {
         </button>
         <span className="w-14 text-center text-xs tabular-nums">
           {props.value}
-          <span className="text-[10px] text-muted-foreground">{props.unit}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {props.unit}
+          </span>
         </span>
         <button
           type="button"
@@ -236,82 +253,93 @@ function NumberStepper(props: {
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 /** 设置弹窗：主题、语言、下载质量、保存目录、文件名模板与 Cookie 等全局设置 */
 export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
-  const { config } = props
-  const { t } = useI18n()
-  const templateRef = useRef<HTMLInputElement | null>(null)
-  const [cookieInput, setCookieInput] = useState('')
-  const [savingCookie, setSavingCookie] = useState(false)
-  const [loggingIn, setLoggingIn] = useState(false)
-  const [confirmingClear, setConfirmingClear] = useState(false)
-  const [clearing, setClearing] = useState(false)
+  const { config } = props;
+  const { t } = useI18n();
+  const templateRef = useRef<HTMLInputElement | null>(null);
+  const [cookieInput, setCookieInput] = useState('');
+  const [savingCookie, setSavingCookie] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
   /** App API 凭据表单：一次填三项，保存时主进程会先刷新校验 */
   const [oauthForm, setOAuthForm] = useState<OAuthCredentials>({
     clientId: '',
     clientSecret: '',
-    refreshToken: ''
-  })
-  const [savingOAuth, setSavingOAuth] = useState(false)
+    refreshToken: '',
+  });
+  const [savingOAuth, setSavingOAuth] = useState(false);
   /** 授权登录的结果提示（成功 / 取消），与错误分开显示 */
-  const [confirmingOAuthClear, setConfirmingOAuthClear] = useState(false)
+  const [confirmingOAuthClear, setConfirmingOAuthClear] = useState(false);
 
   // 版本与更新：主进程在启动后会自动检查，这里只负责展示与手动触发
-  const [version, setVersion] = useState('')
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [version, setVersion] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    state: 'idle',
+  });
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   // 后台下载期间不禁用「检查更新」：下载可能持续一阵，没必要让按钮一直转圈；
   // 此时点它只会拿到当前状态，主进程不会重复触发下载
-  const updateBusy = checkingUpdate || updateStatus.state === 'checking'
+  const updateBusy = checkingUpdate || updateStatus.state === 'checking';
 
   useEffect(() => {
-    let alive = true
+    let alive = true;
     void window.pixiv.getVersion().then((value) => {
-      if (alive) setVersion(value)
-    })
+      if (alive) setVersion(value);
+    });
     void window.pixiv.getUpdateStatus().then((value) => {
-      if (alive) setUpdateStatus(value)
-    })
-    const unsubscribe = window.pixiv.onUpdateStatus((value) => setUpdateStatus(value))
+      if (alive) setUpdateStatus(value);
+    });
+    const unsubscribe = window.pixiv.onUpdateStatus((value) =>
+      setUpdateStatus(value)
+    );
     return () => {
-      alive = false
-      unsubscribe()
-    }
-  }, [])
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
 
   const checkUpdate = async (): Promise<void> => {
-    setCheckingUpdate(true)
+    setCheckingUpdate(true);
     try {
-      setUpdateStatus(await window.pixiv.checkForUpdates())
+      setUpdateStatus(await window.pixiv.checkForUpdates());
     } finally {
-      setCheckingUpdate(false)
+      setCheckingUpdate(false);
     }
-  }
+  };
 
   // 代理表单：文本框在失焦时提交，避免每敲一个字符就重设一次 session
-  const proxyConfig = props.proxy?.config ?? config.proxy
+  const proxyConfig = props.proxy?.config ?? config.proxy;
   const proxyIsSocks =
-    proxyConfig.protocol === 'socks4' || proxyConfig.protocol === 'socks5'
-  const [proxyHost, setProxyHost] = useState(proxyConfig.host)
-  const [proxyPort, setProxyPort] = useState(proxyConfig.port ? String(proxyConfig.port) : '')
-  const [proxyUsername, setProxyUsername] = useState(proxyConfig.username)
-  const [proxyBypass, setProxyBypass] = useState(proxyConfig.bypassRules)
-  const [proxyPassword, setProxyPassword] = useState('')
-  const [proxyBusy, setProxyBusy] = useState(false)
-  const [proxyTesting, setProxyTesting] = useState(false)
+    proxyConfig.protocol === 'socks4' || proxyConfig.protocol === 'socks5';
+  const [proxyHost, setProxyHost] = useState(proxyConfig.host);
+  const [proxyPort, setProxyPort] = useState(
+    proxyConfig.port ? String(proxyConfig.port) : ''
+  );
+  const [proxyUsername, setProxyUsername] = useState(proxyConfig.username);
+  const [proxyBypass, setProxyBypass] = useState(proxyConfig.bypassRules);
+  const [proxyPassword, setProxyPassword] = useState('');
+  const [proxyBusy, setProxyBusy] = useState(false);
+  const [proxyTesting, setProxyTesting] = useState(false);
 
-  const proxyQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const proxyQueue = useRef<Promise<unknown>>(Promise.resolve());
 
   // 主进程应用后会把规范化的值回传，这里跟着同步一次
   useEffect(() => {
-    setProxyHost(proxyConfig.host)
-    setProxyPort(proxyConfig.port ? String(proxyConfig.port) : '')
-    setProxyUsername(proxyConfig.username)
-    setProxyBypass(proxyConfig.bypassRules)
-  }, [proxyConfig.host, proxyConfig.port, proxyConfig.username, proxyConfig.bypassRules])
+    setProxyHost(proxyConfig.host);
+    setProxyPort(proxyConfig.port ? String(proxyConfig.port) : '');
+    setProxyUsername(proxyConfig.username);
+    setProxyBypass(proxyConfig.bypassRules);
+  }, [
+    proxyConfig.host,
+    proxyConfig.port,
+    proxyConfig.username,
+    proxyConfig.bypassRules,
+  ]);
 
   /**
    * 串行提交：失焦与开关点击可能几乎同时触发，两个「读-改-写」
@@ -322,221 +350,246 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
     password?: string
   ): Promise<void> => {
     const task = proxyQueue.current.then(async () => {
-      setProxyBusy(true)
+      setProxyBusy(true);
       try {
-        await props.onSaveProxy(patch, password)
+        await props.onSaveProxy(patch, password);
       } catch (reason) {
-        toast.error(reason instanceof Error ? reason.message : String(reason))
+        toast.error(reason instanceof Error ? reason.message : String(reason));
       } finally {
-        setProxyBusy(false)
+        setProxyBusy(false);
       }
-    })
-    proxyQueue.current = task
-    return task
-  }
+    });
+    proxyQueue.current = task;
+    return task;
+  };
 
   /** 密码留空视为不修改，避免用户只是路过输入框就把已保存的密码清掉 */
   const commitProxyPassword = (): void => {
-    const value = proxyPassword.trim()
-    if (!value) return
-    setProxyPassword('')
-    void commitProxy({}, value)
-  }
+    const value = proxyPassword.trim();
+    if (!value) return;
+    setProxyPassword('');
+    void commitProxy({}, value);
+  };
 
   const runProxyTest = async (): Promise<void> => {
     // 表单没填全时只在点按钮后提示，不在表单下方一直挂一行黄字
     if (proxyConfig.enabled && proxyIncomplete) {
-      toast.error(t('settings.proxy.invalid'))
-      return
+      toast.error(t('settings.proxy.invalid'));
+      return;
     }
-    setProxyTesting(true)
+    setProxyTesting(true);
     try {
-      const result = await props.onTestProxy()
-      if (!result.ok) toast.error(t('settings.proxy.testFail', { message: result.message }))
+      const result = await props.onTestProxy();
+      if (!result.ok)
+        toast.error(t('settings.proxy.testFail', { message: result.message }));
       else if (result.status && result.status >= 400)
-        toast.info(t('settings.proxy.testWarn', { status: result.status, ms: result.latencyMs }))
-      else toast.success(t('settings.proxy.testOk', { ms: result.latencyMs }))
+        toast.info(
+          t('settings.proxy.testWarn', {
+            status: result.status,
+            ms: result.latencyMs,
+          })
+        );
+      else toast.success(t('settings.proxy.testOk', { ms: result.latencyMs }));
     } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : String(reason))
+      toast.error(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      setProxyTesting(false)
+      setProxyTesting(false);
     }
-  }
+  };
 
-  const proxyIncomplete = !proxyConfig.host || proxyConfig.port <= 0
+  const proxyIncomplete = !proxyConfig.host || proxyConfig.port <= 0;
 
   // Cookie 存在且能解析出账号，才算真正「已登录」
-  const loggedIn = Boolean(props.cookie?.hasCookie && props.selfUser)
+  const loggedIn = Boolean(props.cookie?.hasCookie && props.selfUser);
 
   useEffect(() => {
-    if (!props.cookie?.hasCookie) setCookieInput('')
-  }, [props.cookie?.hasCookie])
+    if (!props.cookie?.hasCookie) setCookieInput('');
+  }, [props.cookie?.hasCookie]);
 
   const saveCookie = async (): Promise<void> => {
-    if (!cookieInput.trim()) return
-    setSavingCookie(true)
+    if (!cookieInput.trim()) return;
+    setSavingCookie(true);
     try {
-      await props.onSaveCookie(cookieInput)
-      setCookieInput('')
+      await props.onSaveCookie(cookieInput);
+      setCookieInput('');
     } finally {
-      setSavingCookie(false)
+      setSavingCookie(false);
     }
-  }
+  };
 
   const login = async (): Promise<void> => {
-    setLoggingIn(true)
+    setLoggingIn(true);
     try {
       // 登录窗口是独立窗口，用户在那边输完密码；这里只负责等待结果
-      const ok = await props.onLogin()
-      if (!ok) toast.info(t('settings.cookie.loginCancelled'))
+      const ok = await props.onLogin();
+      if (!ok) toast.info(t('settings.cookie.loginCancelled'));
     } finally {
-      setLoggingIn(false)
+      setLoggingIn(false);
     }
-  }
+  };
 
   const clearCookie = async (): Promise<void> => {
-    setClearing(true)
+    setClearing(true);
     try {
-      await props.onClearCookie()
-      setConfirmingClear(false)
+      await props.onClearCookie();
+      setConfirmingClear(false);
     } finally {
-      setClearing(false)
+      setClearing(false);
     }
-  }
+  };
 
   const saveOAuth = async (): Promise<void> => {
-    setSavingOAuth(true)
+    setSavingOAuth(true);
     try {
-      await props.onSaveOAuth(oauthForm)
+      await props.onSaveOAuth(oauthForm);
       // 保存成功后清空表单，避免密钥长时间留在界面里
-      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
-      toast.success(t('settings.oauth.saved'))
+      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' });
+      toast.success(t('settings.oauth.saved'));
     } catch (reason) {
-      toast.error(String(reason instanceof Error ? reason.message : reason))
+      toast.error(String(reason instanceof Error ? reason.message : reason));
     } finally {
-      setSavingOAuth(false)
+      setSavingOAuth(false);
     }
-  }
+  };
 
   /** 打开 pixiv 授权页登录：把 code 换成的 refresh_token 直接落盘，无需手填 */
   const loginOAuth = async (): Promise<void> => {
-    setSavingOAuth(true)
+    setSavingOAuth(true);
     try {
       const ok = await props.onLoginOAuth(
         oauthForm.clientId.trim(),
         oauthForm.clientSecret.trim()
-      )
+      );
       if (!ok) {
-        toast.info(t('settings.oauth.loginCanceled'))
-        return
+        toast.info(t('settings.oauth.loginCanceled'));
+        return;
       }
-      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' })
-      toast.success(t('settings.oauth.loginDone'))
+      setOAuthForm({ clientId: '', clientSecret: '', refreshToken: '' });
+      toast.success(t('settings.oauth.loginDone'));
     } catch (reason) {
-      toast.error(String(reason instanceof Error ? reason.message : reason))
+      toast.error(String(reason instanceof Error ? reason.message : reason));
     } finally {
-      setSavingOAuth(false)
+      setSavingOAuth(false);
     }
-  }
+  };
 
   const clearOAuth = async (): Promise<void> => {
-    setSavingOAuth(true)
+    setSavingOAuth(true);
     try {
-      await props.onClearOAuth()
-      setConfirmingOAuthClear(false)
+      await props.onClearOAuth();
+      setConfirmingOAuthClear(false);
     } finally {
-      setSavingOAuth(false)
+      setSavingOAuth(false);
     }
-  }
+  };
 
-  const themeOptions: { value: ThemeMode; label: string; icon: React.JSX.Element }[] = [
-    { value: 'light', label: t('theme.light'), icon: <Sun className="h-4 w-4" /> },
-    { value: 'dark', label: t('theme.dark'), icon: <Moon className="h-4 w-4" /> },
-    { value: 'system', label: t('theme.system'), icon: <Monitor className="h-4 w-4" /> }
-  ]
+  const themeOptions: {
+    value: ThemeMode;
+    label: string;
+    icon: React.JSX.Element;
+  }[] = [
+    {
+      value: 'light',
+      label: t('theme.light'),
+      icon: <Sun className="h-4 w-4" />,
+    },
+    {
+      value: 'dark',
+      label: t('theme.dark'),
+      icon: <Moon className="h-4 w-4" />,
+    },
+    {
+      value: 'system',
+      label: t('theme.system'),
+      icon: <Monitor className="h-4 w-4" />,
+    },
+  ];
   const localeOptions: { value: Locale; label: string }[] = [
     { value: 'zh-CN', label: '简体中文' },
     { value: 'en', label: 'English' },
-    { value: 'ja', label: '日本語' }
-  ]
+    { value: 'ja', label: '日本語' },
+  ];
 
   const qualityOptions: {
-    value: ImageQuality
-    label: string
-    hint: string
-    icon: React.JSX.Element
+    value: ImageQuality;
+    label: string;
+    hint: string;
+    icon: React.JSX.Element;
   }[] = [
     {
       value: 'regular',
       label: t('settings.quality.regular'),
       hint: t('settings.quality.regularHint'),
-      icon: <ImageIcon className="h-4 w-4" />
+      icon: <ImageIcon className="h-4 w-4" />,
     },
     {
       value: 'original',
       label: t('settings.quality.original'),
       hint: t('settings.quality.originalHint'),
-      icon: <Gem className="h-4 w-4" />
-    }
-  ]
+      icon: <Gem className="h-4 w-4" />,
+    },
+  ];
 
   const ugoiraOptions: {
-    value: UgoiraFormat
-    label: string
-    hint: string
-    icon: React.JSX.Element
+    value: UgoiraFormat;
+    label: string;
+    hint: string;
+    icon: React.JSX.Element;
   }[] = [
     {
       value: 'mp4',
       label: t('settings.ugoira.mp4'),
       hint: t('settings.ugoira.mp4Hint'),
-      icon: <Film className="h-4 w-4" />
+      icon: <Film className="h-4 w-4" />,
     },
     {
       value: 'gif',
       label: t('settings.ugoira.gif'),
       hint: t('settings.ugoira.gifHint'),
-      icon: <ImageIcon className="h-4 w-4" />
+      icon: <ImageIcon className="h-4 w-4" />,
     },
     {
       value: 'zip',
       label: t('settings.ugoira.zip'),
       hint: t('settings.ugoira.zipHint'),
-      icon: <FileArchive className="h-4 w-4" />
-    }
-  ]
+      icon: <FileArchive className="h-4 w-4" />,
+    },
+  ];
 
-  const templateError = validateTemplate(config.fileNameTemplate)
-  const templatePreview = renderFileName(config.fileNameTemplate || DEFAULT_FILE_TEMPLATE, {
-    id: '122784064',
-    title: t('settings.template.sampleTitle'),
-    author: props.selfUser?.name || t('settings.template.sampleAuthor'),
-    userid: config.userId || '114638697',
-    tag: worksTagOf(config),
-    page: 1,
-    date: '2026-01-02T03:04:05+09:00',
-    quality: config.imageQuality,
-    ext: '.jpg'
-  })
+  const templateError = validateTemplate(config.fileNameTemplate);
+  const templatePreview = renderFileName(
+    config.fileNameTemplate || DEFAULT_FILE_TEMPLATE,
+    {
+      id: '122784064',
+      title: t('settings.template.sampleTitle'),
+      author: props.selfUser?.name || t('settings.template.sampleAuthor'),
+      userid: config.userId || '114638697',
+      tag: worksTagOf(config),
+      page: 1,
+      date: '2026-01-02T03:04:05+09:00',
+      quality: config.imageQuality,
+      ext: '.jpg',
+    }
+  );
 
   /** 点击变量按钮：在光标处插入占位符，保持用户正在编辑的位置 */
   const insertToken = (token: string): void => {
-    const input = templateRef.current
-    const current = config.fileNameTemplate
+    const input = templateRef.current;
+    const current = config.fileNameTemplate;
     if (!input) {
-      props.onConfigChange({ fileNameTemplate: `${current}${token}` })
-      return
+      props.onConfigChange({ fileNameTemplate: `${current}${token}` });
+      return;
     }
-    const start = input.selectionStart ?? current.length
-    const end = input.selectionEnd ?? current.length
-    const next = `${current.slice(0, start)}${token}${current.slice(end)}`
-    props.onConfigChange({ fileNameTemplate: next })
+    const start = input.selectionStart ?? current.length;
+    const end = input.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${token}${current.slice(end)}`;
+    props.onConfigChange({ fileNameTemplate: next });
     requestAnimationFrame(() => {
-      input.focus()
-      const caret = start + token.length
-      input.setSelectionRange(caret, caret)
-    })
-  }
+      input.focus();
+      const caret = start + token.length;
+      input.setSelectionRange(caret, caret);
+    });
+  };
 
   return (
     <DialogShell
@@ -563,7 +616,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-[11px] text-muted-foreground">{t('settings.appearance.theme')}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {t('settings.appearance.theme')}
+            </p>
             <div className="grid grid-cols-3 gap-2">
               {themeOptions.map((option) => (
                 <OptionCard
@@ -649,7 +704,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">{t('settings.quality.title')}</h3>
+            <h3 className="text-sm font-medium">
+              {t('settings.quality.title')}
+            </h3>
             <span className="text-[11px] text-muted-foreground">
               {t('settings.quality.hint')}
             </span>
@@ -662,7 +719,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 icon={option.icon}
                 label={option.label}
                 hint={option.hint}
-                onClick={() => props.onConfigChange({ imageQuality: option.value })}
+                onClick={() =>
+                  props.onConfigChange({ imageQuality: option.value })
+                }
               />
             ))}
           </div>
@@ -673,8 +732,12 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">{t('settings.ugoira.title')}</h3>
-            <span className="text-[11px] text-muted-foreground">{t('settings.ugoira.hint')}</span>
+            <h3 className="text-sm font-medium">
+              {t('settings.ugoira.title')}
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.ugoira.hint')}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {ugoiraOptions.map((option) => (
@@ -684,7 +747,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 icon={option.icon}
                 label={option.label}
                 hint={option.hint}
-                onClick={() => props.onConfigChange({ ugoiraFormat: option.value })}
+                onClick={() =>
+                  props.onConfigChange({ ugoiraFormat: option.value })
+                }
               />
             ))}
           </div>
@@ -705,12 +770,14 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               className="h-6 px-2 text-[11px]"
               onClick={() =>
                 props.onConfigChange({
-                  throttleApiConcurrency: DEFAULT_THROTTLE_LIMITS.apiConcurrency,
+                  throttleApiConcurrency:
+                    DEFAULT_THROTTLE_LIMITS.apiConcurrency,
                   throttleApiInterval: DEFAULT_THROTTLE_LIMITS.apiInterval,
-                  throttleCdnConcurrency: DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
+                  throttleCdnConcurrency:
+                    DEFAULT_THROTTLE_LIMITS.cdnConcurrency,
                   throttleCdnInterval: DEFAULT_THROTTLE_LIMITS.cdnInterval,
                   // 与主进程默认配置保持一致
-                  parallelJobs: 2
+                  parallelJobs: 2,
                 })
               }
             >
@@ -722,81 +789,91 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               label={t('settings.throttle.parallelJobs')}
               hint={t('settings.throttle.parallelJobsHint')}
               decreaseLabel={t('settings.step.decrease', {
-                label: t('settings.throttle.parallelJobs')
+                label: t('settings.throttle.parallelJobs'),
               })}
               increaseLabel={t('settings.step.increase', {
-                label: t('settings.throttle.parallelJobs')
+                label: t('settings.throttle.parallelJobs'),
               })}
               value={config.parallelJobs}
               unit=""
               min={1}
               max={4}
               step={1}
-              onChange={(value) => props.onConfigChange({ parallelJobs: value })}
+              onChange={(value) =>
+                props.onConfigChange({ parallelJobs: value })
+              }
             />
             <NumberStepper
               label={t('settings.throttle.apiConcurrency')}
               hint={t('settings.throttle.apiConcurrencyHint')}
               decreaseLabel={t('settings.step.decrease', {
-                label: t('settings.throttle.apiConcurrency')
+                label: t('settings.throttle.apiConcurrency'),
               })}
               increaseLabel={t('settings.step.increase', {
-                label: t('settings.throttle.apiConcurrency')
+                label: t('settings.throttle.apiConcurrency'),
               })}
               value={config.throttleApiConcurrency}
               unit=""
               min={THROTTLE_RANGES.apiConcurrency.min}
               max={THROTTLE_RANGES.apiConcurrency.max}
               step={THROTTLE_RANGES.apiConcurrency.step}
-              onChange={(value) => props.onConfigChange({ throttleApiConcurrency: value })}
+              onChange={(value) =>
+                props.onConfigChange({ throttleApiConcurrency: value })
+              }
             />
             <NumberStepper
               label={t('settings.throttle.apiInterval')}
               hint={t('settings.throttle.intervalHint')}
               decreaseLabel={t('settings.step.decrease', {
-                label: t('settings.throttle.apiInterval')
+                label: t('settings.throttle.apiInterval'),
               })}
               increaseLabel={t('settings.step.increase', {
-                label: t('settings.throttle.apiInterval')
+                label: t('settings.throttle.apiInterval'),
               })}
               value={config.throttleApiInterval}
               unit="ms"
               min={THROTTLE_RANGES.apiInterval.min}
               max={THROTTLE_RANGES.apiInterval.max}
               step={THROTTLE_RANGES.apiInterval.step}
-              onChange={(value) => props.onConfigChange({ throttleApiInterval: value })}
+              onChange={(value) =>
+                props.onConfigChange({ throttleApiInterval: value })
+              }
             />
             <NumberStepper
               label={t('settings.throttle.cdnConcurrency')}
               hint={t('settings.throttle.cdnConcurrencyHint')}
               decreaseLabel={t('settings.step.decrease', {
-                label: t('settings.throttle.cdnConcurrency')
+                label: t('settings.throttle.cdnConcurrency'),
               })}
               increaseLabel={t('settings.step.increase', {
-                label: t('settings.throttle.cdnConcurrency')
+                label: t('settings.throttle.cdnConcurrency'),
               })}
               value={config.throttleCdnConcurrency}
               unit=""
               min={THROTTLE_RANGES.cdnConcurrency.min}
               max={THROTTLE_RANGES.cdnConcurrency.max}
               step={THROTTLE_RANGES.cdnConcurrency.step}
-              onChange={(value) => props.onConfigChange({ throttleCdnConcurrency: value })}
+              onChange={(value) =>
+                props.onConfigChange({ throttleCdnConcurrency: value })
+              }
             />
             <NumberStepper
               label={t('settings.throttle.cdnInterval')}
               hint={t('settings.throttle.intervalHint')}
               decreaseLabel={t('settings.step.decrease', {
-                label: t('settings.throttle.cdnInterval')
+                label: t('settings.throttle.cdnInterval'),
               })}
               increaseLabel={t('settings.step.increase', {
-                label: t('settings.throttle.cdnInterval')
+                label: t('settings.throttle.cdnInterval'),
               })}
               value={config.throttleCdnInterval}
               unit="ms"
               min={THROTTLE_RANGES.cdnInterval.min}
               max={THROTTLE_RANGES.cdnInterval.max}
               step={THROTTLE_RANGES.cdnInterval.step}
-              onChange={(value) => props.onConfigChange({ throttleCdnInterval: value })}
+              onChange={(value) =>
+                props.onConfigChange({ throttleCdnInterval: value })
+              }
             />
           </div>
           <p className="text-[11px] leading-4 text-muted-foreground/70">
@@ -806,18 +883,32 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">{t('settings.outDir.title')}</h3>
-            <span className="text-[11px] text-muted-foreground">{t('settings.outDir.hint')}</span>
+            <h3 className="text-sm font-medium">
+              {t('settings.outDir.title')}
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {t('settings.outDir.hint')}
+            </span>
           </div>
-          <div className="rounded-md border border-border/70 bg-background/60 px-3 py-2 text-[11px] leading-5 text-muted-foreground break-all">
+          <div className="break-all rounded-md border border-border/70 bg-background/60 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
             {config.outDir}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={props.onPickDir}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={props.onPickDir}
+            >
               <FolderSearch className="h-4 w-4" />
               {t('settings.outDir.pick')}
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={props.onOpenDir}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={props.onOpenDir}
+            >
               <FolderOpen className="h-4 w-4" />
               {t('settings.outDir.open')}
             </Button>
@@ -826,12 +917,18 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
 
         <section className="space-y-2 border-t border-border/60 pt-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">{t('settings.template.title')}</h3>
+            <h3 className="text-sm font-medium">
+              {t('settings.template.title')}
+            </h3>
             <Button
               variant="ghost"
               size="sm"
               className="h-6 px-2 text-[11px]"
-              onClick={() => props.onConfigChange({ fileNameTemplate: DEFAULT_FILE_TEMPLATE })}
+              onClick={() =>
+                props.onConfigChange({
+                  fileNameTemplate: DEFAULT_FILE_TEMPLATE,
+                })
+              }
             >
               {t('settings.template.reset')}
             </Button>
@@ -841,23 +938,28 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             value={config.fileNameTemplate}
             spellCheck={false}
             placeholder={DEFAULT_FILE_TEMPLATE}
-            onChange={(event) => props.onConfigChange({ fileNameTemplate: event.target.value })}
+            onChange={(event) =>
+              props.onConfigChange({ fileNameTemplate: event.target.value })
+            }
           />
           <div className="flex flex-wrap gap-1">
             {TEMPLATE_TOKENS.map((item) => {
-              const labelKey = TOKEN_LABEL_KEYS[item.token]
-              const label = labelKey ? t(labelKey) : item.label
+              const labelKey = TOKEN_LABEL_KEYS[item.token];
+              const label = labelKey ? t(labelKey) : item.label;
               return (
                 <button
                   key={item.token}
                   type="button"
-                  title={t('settings.template.tooltip', { label, example: item.example })}
+                  title={t('settings.template.tooltip', {
+                    label,
+                    example: item.example,
+                  })}
                   onClick={() => insertToken(item.token)}
                   className="rounded border border-border/70 bg-secondary/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
                 >
                   {item.token}
                 </button>
-              )
+              );
             })}
           </div>
           <p className="break-all rounded-md border border-border/70 bg-background/60 px-2 py-1.5 text-[11px] leading-5 text-muted-foreground">
@@ -865,7 +967,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             <span className="text-foreground/90">{templatePreview}</span>
           </p>
           {templateError ? (
-            <p className="text-[11px] leading-4 text-destructive">{templateError}</p>
+            <p className="text-[11px] leading-4 text-destructive">
+              {templateError}
+            </p>
           ) : (
             <p className="text-[11px] leading-4 text-muted-foreground/70">
               {t('settings.template.note')}
@@ -881,7 +985,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             </h3>
             <div className="flex items-center gap-2">
               {proxyConfig.enabled ? (
-                <Badge variant={props.proxy?.applied ? 'success' : 'destructive'}>
+                <Badge
+                  variant={props.proxy?.applied ? 'success' : 'destructive'}
+                >
                   {props.proxy?.applied
                     ? t('settings.proxy.applied')
                     : t('settings.proxy.notApplied')}
@@ -892,7 +998,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 role="switch"
                 aria-checked={proxyConfig.enabled}
                 aria-label={t('settings.proxy.enable')}
-                onClick={() => void commitProxy({ enabled: !proxyConfig.enabled })}
+                onClick={() =>
+                  void commitProxy({ enabled: !proxyConfig.enabled })
+                }
                 className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
                   proxyConfig.enabled ? 'bg-primary' : 'bg-border'
                 }`}
@@ -921,7 +1029,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 onChange={(value) =>
                   void commitProxy({ protocol: value as ProxyProtocol })
                 }
-                 options={[
+                options={[
                   { value: 'http', label: 'http' },
                   { value: 'https', label: 'https' },
                   { value: 'socks4', label: 'SOCKS4' },
@@ -937,8 +1045,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   placeholder="127.0.0.1"
                   onChange={(event) => setProxyHost(event.target.value)}
                   onBlur={() => {
-                    const value = proxyHost.trim()
-                    if (value !== proxyConfig.host) void commitProxy({ host: value })
+                    const value = proxyHost.trim();
+                    if (value !== proxyConfig.host)
+                      void commitProxy({ host: value });
                   }}
                 />
               </FormField>
@@ -956,10 +1065,16 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 value={proxyPort}
                 inputMode="numeric"
                 placeholder="7890"
-                onChange={(event) => setProxyPort(event.target.value.replace(/[^\d]/g, ''))}
+                onChange={(event) =>
+                  setProxyPort(event.target.value.replace(/[^\d]/g, ''))
+                }
                 onBlur={() => {
-                  const value = Math.max(0, Math.min(65535, Number(proxyPort) || 0))
-                  if (value !== proxyConfig.port) void commitProxy({ port: value })
+                  const value = Math.max(
+                    0,
+                    Math.min(65535, Number(proxyPort) || 0)
+                  );
+                  if (value !== proxyConfig.port)
+                    void commitProxy({ port: value });
                 }}
               />
             </FormField>
@@ -970,8 +1085,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={proxyIsSocks}
                 onChange={(event) => setProxyUsername(event.target.value)}
                 onBlur={() => {
-                  const value = proxyUsername.trim()
-                  if (value !== proxyConfig.username) void commitProxy({ username: value })
+                  const value = proxyUsername.trim();
+                  if (value !== proxyConfig.username)
+                    void commitProxy({ username: value });
                 }}
               />
             </FormField>
@@ -988,7 +1104,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 onChange={(event) => setProxyPassword(event.target.value)}
                 onBlur={commitProxyPassword}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitProxyPassword()
+                  if (event.key === 'Enter') commitProxyPassword();
                 }}
               />
             </FormField>
@@ -999,15 +1115,19 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             </p>
           ) : null}
 
-          <FormField label={t('settings.proxy.bypass')} hint={t('settings.proxy.bypassHint')}>
+          <FormField
+            label={t('settings.proxy.bypass')}
+            hint={t('settings.proxy.bypassHint')}
+          >
             <Input
               value={proxyBypass}
               spellCheck={false}
               placeholder="localhost, 127.0.0.1, <local>"
               onChange={(event) => setProxyBypass(event.target.value)}
               onBlur={() => {
-                const value = proxyBypass.trim()
-                if (value !== proxyConfig.bypassRules) void commitProxy({ bypassRules: value })
+                const value = proxyBypass.trim();
+                if (value !== proxyConfig.bypassRules)
+                  void commitProxy({ bypassRules: value });
               }}
             />
           </FormField>
@@ -1020,8 +1140,14 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               disabled={proxyTesting || proxyBusy}
               onClick={() => void runProxyTest()}
             >
-              {proxyTesting ? <Loader2 className="animate-spin h-4 w-4" /> : <Globe className="h-4 w-4" />}
-              {proxyTesting ? t('settings.proxy.testing') : t('settings.proxy.test')}
+              {proxyTesting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Globe className="h-4 w-4" />
+              )}
+              {proxyTesting
+                ? t('settings.proxy.testing')
+                : t('settings.proxy.test')}
             </Button>
             {props.proxy?.hasPassword ? (
               <Button
@@ -1043,7 +1169,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               <Cookie className="h-4 w-4 text-primary" />
               {t('settings.cookie.title')}
             </h3>
-            <Badge variant={props.cookie?.hasCookie ? 'success' : 'destructive'}>
+            <Badge
+              variant={props.cookie?.hasCookie ? 'success' : 'destructive'}
+            >
               {props.cookie?.hasCookie
                 ? t('settings.cookie.configured')
                 : t('settings.cookie.notConfigured')}
@@ -1058,7 +1186,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             <p className="text-[11px] leading-4 text-muted-foreground/80">
               {t('settings.cookie.currentUser', {
                 name: props.selfUser.name,
-                id: props.selfUser.id
+                id: props.selfUser.id,
               })}
             </p>
           ) : null}
@@ -1076,8 +1204,14 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={loggingIn}
                   onClick={() => void login()}
                 >
-                  {loggingIn ? <Loader2 className="animate-spin h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-                  {loggingIn ? t('settings.cookie.loggingIn') : t('settings.cookie.login')}
+                  {loggingIn ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogIn className="h-4 w-4" />
+                  )}
+                  {loggingIn
+                    ? t('settings.cookie.loggingIn')
+                    : t('settings.cookie.login')}
                 </Button>
               </div>
               <p className="text-[11px] leading-4 text-muted-foreground/70">
@@ -1100,7 +1234,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={clearing}
                   onClick={() => void clearCookie()}
                 >
-                  {clearing ? <Loader2 className="animate-spin h-4 w-4" /> : null}
+                  {clearing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
                   {t('settings.cookie.clearOk')}
                 </Button>
                 <Button
@@ -1142,7 +1278,11 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             disabled={!cookieInput.trim() || savingCookie}
             onClick={() => void saveCookie()}
           >
-            {savingCookie ? <Loader2 className="animate-spin h-4 w-4" /> : <Cookie className="h-4 w-4" />}
+            {savingCookie ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Cookie className="h-4 w-4" />
+            )}
             {t('settings.cookie.save')}
           </Button>
         </section>
@@ -1163,7 +1303,7 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
             {props.oauth?.connected
               ? t('settings.oauth.connectedHint', {
                   userId: props.oauth.userId ?? '-',
-                  tail: props.oauth.tail
+                  tail: props.oauth.tail,
                 })
               : t('settings.oauth.hint')}
           </p>
@@ -1179,7 +1319,9 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                   disabled={savingOAuth}
                   onClick={() => void clearOAuth()}
                 >
-                  {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : null}
+                  {savingOAuth ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
                   {t('settings.oauth.clearOk')}
                 </Button>
                 <Button
@@ -1207,7 +1349,10 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               <Input
                 value={oauthForm.clientId}
                 onChange={(event) =>
-                  setOAuthForm((previous) => ({ ...previous, clientId: event.target.value }))
+                  setOAuthForm((previous) => ({
+                    ...previous,
+                    clientId: event.target.value,
+                  }))
                 }
                 placeholder={t('settings.oauth.clientId')}
                 spellCheck={false}
@@ -1216,7 +1361,10 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 type="password"
                 value={oauthForm.clientSecret}
                 onChange={(event) =>
-                  setOAuthForm((previous) => ({ ...previous, clientSecret: event.target.value }))
+                  setOAuthForm((previous) => ({
+                    ...previous,
+                    clientSecret: event.target.value,
+                  }))
                 }
                 placeholder={t('settings.oauth.clientSecret')}
                 spellCheck={false}
@@ -1224,7 +1372,10 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               <Textarea
                 value={oauthForm.refreshToken}
                 onChange={(event) =>
-                  setOAuthForm((previous) => ({ ...previous, refreshToken: event.target.value }))
+                  setOAuthForm((previous) => ({
+                    ...previous,
+                    refreshToken: event.target.value,
+                  }))
                 }
                 placeholder={t('settings.oauth.refreshToken')}
                 spellCheck={false}
@@ -1236,7 +1387,11 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={savingOAuth || !oauthForm.refreshToken.trim()}
                 onClick={() => void saveOAuth()}
               >
-                {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
+                {savingOAuth ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
                 {t('settings.oauth.save')}
               </Button>
               <Button
@@ -1246,7 +1401,11 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
                 disabled={savingOAuth}
                 onClick={() => void loginOAuth()}
               >
-                {savingOAuth ? <Loader2 className="animate-spin h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+                {savingOAuth ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogIn className="h-4 w-4" />
+                )}
                 {t('settings.oauth.login')}
               </Button>
               <p className="text-[11px] leading-4 text-muted-foreground">
@@ -1274,7 +1433,11 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
               disabled={updateBusy}
               onClick={() => void checkUpdate()}
             >
-              {updateBusy ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+              {updateBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               {t('settings.update.check')}
             </Button>
             {updateStatus.state === 'downloaded' ? (
@@ -1305,5 +1468,5 @@ export function SettingsDialog(props: SettingsDialogProps): React.JSX.Element {
         </section>
       </div>
     </DialogShell>
-  )
+  );
 }

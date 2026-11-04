@@ -1,3 +1,21 @@
+import { FilteredHint } from '@renderer/components/shared/FilteredHint';
+import { SelectMenu } from '@renderer/components/shared/SelectMenu';
+import { Badge } from '@renderer/components/ui/badge';
+import { Button } from '@renderer/components/ui/button';
+import { useFilteredNovels } from '@renderer/hooks/useFilterContext';
+import { usePageActive } from '@renderer/hooks/usePageActive';
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory';
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit';
+import { useI18n } from '@renderer/i18n';
+import { readingMinutes } from '@renderer/utils/novel';
+import { toast } from '@renderer/utils/toast';
+import type {
+  NovelOrder,
+  NovelSearchMode,
+  NovelSearchResult,
+  NovelSearchTarget,
+  NovelWork,
+} from '@shared/types';
 import {
   BookOpen,
   ChevronLeft,
@@ -8,45 +26,33 @@ import {
   Search,
   Sparkles,
   Timer,
-  User
-} from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type * as React from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import type {
-  NovelOrder,
-  NovelSearchMode,
-  NovelSearchResult,
-  NovelSearchTarget,
-  NovelWork
-} from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { FilteredHint } from '@renderer/components/shared/FilteredHint'
-import { useFilteredNovels } from '@renderer/hooks/useFilterContext'
-import { toast } from '@renderer/utils/toast'
-import { readingMinutes } from '@renderer/utils/novel'
-import { usePageActive } from '@renderer/hooks/usePageActive'
-import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
-import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
-import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
-import { SelectMenu } from '@renderer/components/shared/SelectMenu'
+  User,
+} from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
 
-const ORDERS: NovelOrder[] = ['date_d', 'date', 'popular_d', 'popular_male_d', 'popular_female_d']
-const TARGETS: NovelSearchTarget[] = ['s_tag_full', 's_tag', 's_tc']
+const ORDERS: NovelOrder[] = [
+  'date_d',
+  'date',
+  'popular_d',
+  'popular_male_d',
+  'popular_female_d',
+];
+const TARGETS: NovelSearchTarget[] = ['s_tag_full', 's_tag', 's_tc'];
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 function NovelRow(props: {
-  novel: NovelWork
-  onOpen: (id: string) => void
-  onSeries: (id: string) => void
+  novel: NovelWork;
+  onOpen: (id: string) => void;
+  onSeries: (id: string) => void;
 }): React.JSX.Element {
-  const { t } = useI18n()
-  const { novel } = props
+  const { t } = useI18n();
+  const { novel } = props;
   return (
     <article
       role="button"
@@ -54,8 +60,8 @@ function NovelRow(props: {
       onClick={() => props.onOpen(novel.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          props.onOpen(novel.id)
+          event.preventDefault();
+          props.onOpen(novel.id);
         }
       }}
       className="group flex cursor-pointer gap-4 rounded-xl border border-border/60 bg-card/40 p-3 transition-colors hover:border-border hover:bg-card/70"
@@ -69,7 +75,7 @@ function NovelRow(props: {
             decoding="async"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             onError={(event) => {
-              event.currentTarget.style.visibility = 'hidden'
+              event.currentTarget.style.visibility = 'hidden';
             }}
           />
         ) : (
@@ -78,7 +84,10 @@ function NovelRow(props: {
           </div>
         )}
         {novel.xRestrict >= 1 ? (
-          <Badge variant="destructive" className="absolute left-1 top-1 bg-red-500/85 text-white">
+          <Badge
+            variant="destructive"
+            className="absolute left-1 top-1 bg-red-500/85 text-white"
+          >
             R-18
           </Badge>
         ) : null}
@@ -86,13 +95,15 @@ function NovelRow(props: {
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start gap-2">
-          <h3 className="line-clamp-2 flex-1 text-sm font-medium leading-5">{novel.title}</h3>
+          <h3 className="line-clamp-2 flex-1 text-sm font-medium leading-5">
+            {novel.title}
+          </h3>
           {novel.seriesId ? (
             <button
               type="button"
               onClick={(event) => {
-                event.stopPropagation()
-                props.onSeries(novel.seriesId as string)
+                event.stopPropagation();
+                props.onSeries(novel.seriesId as string);
               }}
               className="shrink-0 rounded-full border border-primary/40 px-2 py-0.5 text-[10px] text-primary transition-colors hover:bg-primary/10"
             >
@@ -104,7 +115,9 @@ function NovelRow(props: {
         <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
           <User className="h-4 w-4 shrink-0" />
           {novel.userName}
-          {novel.seriesTitle ? <span className="truncate">· {novel.seriesTitle}</span> : null}
+          {novel.seriesTitle ? (
+            <span className="truncate">· {novel.seriesTitle}</span>
+          ) : null}
         </p>
 
         {novel.description ? (
@@ -128,112 +141,123 @@ function NovelRow(props: {
           <span>{t('novel.chars', { count: novel.textCount })}</span>
           <span className="flex items-center gap-1">
             <Timer className="h-4 w-4" />
-            {t('novel.readTime', { minutes: readingMinutes(novel.readingTime) })}
+            {t('novel.readTime', {
+              minutes: readingMinutes(novel.readingTime),
+            })}
           </span>
           <span>{t('novel.bookmarks', { count: novel.bookmarkCount })}</span>
           {novel.aiType === 2 ? (
-            <Badge className="bg-violet-500/80 px-1 py-0 text-[10px] text-white">AI</Badge>
+            <Badge className="bg-violet-500/80 px-1 py-0 text-[10px] text-white">
+              AI
+            </Badge>
           ) : null}
         </div>
       </div>
     </article>
-  )
+  );
 }
 
 export function NovelSearchPage(): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
-  const word = params.get('word') || ''
+  const word = params.get('word') || '';
   const order = (
-    ORDERS.includes(params.get('order') as NovelOrder) ? params.get('order') : 'date_d'
-  ) as NovelOrder
-  const mode = (params.get('mode') === 'safe' ? 'safe' : 'all') as NovelSearchMode
+    ORDERS.includes(params.get('order') as NovelOrder)
+      ? params.get('order')
+      : 'date_d'
+  ) as NovelOrder;
+  const mode = (
+    params.get('mode') === 'safe' ? 'safe' : 'all'
+  ) as NovelSearchMode;
   const target = (
     TARGETS.includes(params.get('target') as NovelSearchTarget)
       ? params.get('target')
       : 's_tag_full'
-  ) as NovelSearchTarget
-  const page = Math.max(1, Math.min(10, Number(params.get('page') || 1) || 1))
+  ) as NovelSearchTarget;
+  const page = Math.max(1, Math.min(10, Number(params.get('page') || 1) || 1));
 
-  const [input, setInput] = useState(word)
-  const [result, setResult] = useState<NovelSearchResult | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [input, setInput] = useState(word);
+  const [result, setResult] = useState<NovelSearchResult | null>(null);
+  const [loading, setLoading] = useState(false);
 
   /** 顶栏回车提交的序号：同一个关键词再提交一次也要刷新 */
-  const submitVersion = useSearchSubmitVersion()
+  const submitVersion = useSearchSubmitVersion();
   /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
-  const scroll = useKeepAliveScroll<HTMLDivElement>('novels')
+  const scroll = useKeepAliveScroll<HTMLDivElement>('novels');
   /** 后台时不读全局 URL 参数（进详情页会被算成空值），effect 里直接忽略 */
-  const active = usePageActive()
+  const active = usePageActive();
   /** 已取到数据的条件签名：一致就不再请求，从详情页回来才不会被重取 */
-  const loadedSig = useRef('')
+  const loadedSig = useRef('');
 
   // 后台时 URL 会被算成空值，不能让它把本地输入框清掉
   useEffect(() => {
-    if (!active) return
-    setInput(word)
-  }, [active, word])
+    if (!active) return;
+    setInput(word);
+  }, [active, word]);
 
   useEffect(() => {
-    if (!active) return
+    if (!active) return;
     if (!word) {
-      setResult(null)
-      loadedSig.current = ''
-      return
+      setResult(null);
+      loadedSig.current = '';
+      return;
     }
-    const sig = [word, order, mode, target, page, submitVersion].join('|')
-    if (loadedSig.current === sig) return
+    const sig = [word, order, mode, target, page, submitVersion].join('|');
+    if (loadedSig.current === sig) return;
 
-    let alive = true
+    let alive = true;
     // 参数变了就是换了内容，位置回顶
-    scroll.reset()
-    setLoading(true)
+    scroll.reset();
+    setLoading(true);
     void window.pixiv
       .searchNovels({ word, order, mode, target, page })
       .then((data) => {
-        if (!alive) return
-        loadedSig.current = sig
-        setResult(data)
+        if (!alive) return;
+        loadedSig.current = sig;
+        setResult(data);
       })
       .catch((reason: unknown) => {
         if (alive) {
           // 失败就清掉签名，下次激活（或下次参数变化）允许重新请求
-          loadedSig.current = ''
-          setResult(null)
-          toast.error(messageOf(reason))
+          loadedSig.current = '';
+          setResult(null);
+          toast.error(messageOf(reason));
         }
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [active, word, order, mode, target, page, submitVersion])
+      alive = false;
+    };
+  }, [active, word, order, mode, target, page, submitVersion]);
 
   const apply = (patch: Record<string, string>): void => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([key, value]) => {
-      if (value) next.set(key, value)
-      else next.delete(key)
-    })
-    setParams(next)
-  }
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    setParams(next);
+  };
 
   const submit = (): void => {
-    const keyword = input.trim()
-    apply({ word: keyword, order, mode, target, page: '1' })
-  }
+    const keyword = input.trim();
+    apply({ word: keyword, order, mode, target, page: '1' });
+  };
 
   const relatedTags = useMemo(
-    () => (result?.relatedTags || []).filter((tag) => tag && tag !== word).slice(0, 24),
+    () =>
+      (result?.relatedTags || [])
+        .filter((tag) => tag && tag !== word)
+        .slice(0, 24),
     [result, word]
-  )
+  );
 
   // 小说同样吃顶栏那套规则（分级 / 标签 / 关键词 / 屏蔽），页数与尺寸规则不适用
-  const filtered = useFilteredNovels(result?.novels ?? [])
+  const filtered = useFilteredNovels(result?.novels ?? []);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 py-4">
@@ -244,7 +268,7 @@ export function NovelSearchPage(): React.JSX.Element {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') submit()
+              if (event.key === 'Enter') submit();
             }}
             placeholder={t('novel.searchPlaceholder')}
             className="h-9 w-full rounded-lg border border-border/60 bg-secondary/40 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary/60"
@@ -266,7 +290,7 @@ export function NovelSearchPage(): React.JSX.Element {
           options={[
             { value: 's_tag_full', label: t('novel.targetTagFull') },
             { value: 's_tag', label: t('novel.targetTag') },
-            { value: 's_tc', label: t('novel.targetTitle') }
+            { value: 's_tc', label: t('novel.targetTitle') },
           ]}
         />
         <span className="ml-2">{t('novel.order')}</span>
@@ -280,7 +304,7 @@ export function NovelSearchPage(): React.JSX.Element {
             { value: 'date', label: t('novel.orderDateAsc') },
             { value: 'popular_d', label: t('novel.orderPopular') },
             { value: 'popular_male_d', label: t('novel.orderPopularMale') },
-            { value: 'popular_female_d', label: t('novel.orderPopularFemale') }
+            { value: 'popular_female_d', label: t('novel.orderPopularFemale') },
           ]}
         />
         <span className="ml-2">{t('novel.mode')}</span>
@@ -291,11 +315,13 @@ export function NovelSearchPage(): React.JSX.Element {
           onChange={(value) => apply({ mode: value, page: '1' })}
           options={[
             { value: 'all', label: t('novel.modeAll') },
-            { value: 'safe', label: t('novel.modeSafe') }
+            { value: 'safe', label: t('novel.modeSafe') },
           ]}
         />
         {result && word ? (
-          <span className="ml-auto text-[11px]">{t('novel.total', { total: result.total })}</span>
+          <span className="ml-auto text-[11px]">
+            {t('novel.total', { total: result.total })}
+          </span>
         ) : null}
       </div>
 
@@ -312,17 +338,19 @@ export function NovelSearchPage(): React.JSX.Element {
               className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
             >
               {loading ? (
-                <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="h-42 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('novel.loading')}
                 </div>
               ) : null}
               {!loading && result && result.novels.length === 0 ? (
-                <div className="flex h-42 items-center justify-center text-sm text-muted-foreground">
+                <div className="h-42 flex items-center justify-center text-sm text-muted-foreground">
                   {t('novel.noResult')}
                 </div>
               ) : null}
-              {!loading && filtered.hidden > 0 && filtered.items.length === 0 ? (
+              {!loading &&
+              filtered.hidden > 0 &&
+              filtered.items.length === 0 ? (
                 <FilteredHint count={filtered.hidden} />
               ) : null}
               {!loading
@@ -374,8 +402,8 @@ export function NovelSearchPage(): React.JSX.Element {
                     key={tag}
                     type="button"
                     onClick={() => {
-                      setInput(tag)
-                      apply({ word: tag, target: 's_tag_full', page: '1' })
+                      setInput(tag);
+                      apply({ word: tag, target: 's_tag_full', page: '1' });
                     }}
                     className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
                   >
@@ -393,5 +421,5 @@ export function NovelSearchPage(): React.JSX.Element {
         </div>
       )}
     </main>
-  )
+  );
 }

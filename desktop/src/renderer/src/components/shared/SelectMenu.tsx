@@ -1,24 +1,30 @@
-import * as React from 'react'
-import { cn } from '@renderer/utils/ui'
-import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { cn } from '@renderer/utils/ui';
+import * as React from 'react';
+import {
+  SelectContent,
+  SelectItem,
+  Select as SelectRoot,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 
 export interface SelectOption {
-  value: string
-  label: React.ReactNode
-  disabled?: boolean
+  value: string;
+  label: React.ReactNode;
+  disabled?: boolean;
 }
 
 interface SelectMenuProps {
-  value: string
-  onChange: (value: string) => void
-  options: SelectOption[]
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
   /** 值为空时的占位文案 */
-  placeholder?: string
-  disabled?: boolean
+  placeholder?: string;
+  disabled?: boolean;
   /** sm 用于工具栏，md 用于表单 */
-  size?: 'sm' | 'md'
-  className?: string
-  ariaLabel?: string
+  size?: 'sm' | 'md';
+  className?: string;
+  ariaLabel?: string;
 }
 
 /**
@@ -29,7 +35,16 @@ interface SelectMenuProps {
  * 所以保留原来的数组式 API，只在尺寸上区分工具栏与表单两种规格。
  */
 export function SelectMenu(props: SelectMenuProps): React.JSX.Element {
-  const { value, onChange, options, placeholder, disabled, size = 'md', className, ariaLabel } = props
+  const {
+    value,
+    onChange,
+    options,
+    placeholder,
+    disabled,
+    size = 'md',
+    className,
+    ariaLabel,
+  } = props;
 
   return (
     <SelectRoot
@@ -40,7 +55,10 @@ export function SelectMenu(props: SelectMenuProps): React.JSX.Element {
     >
       <SelectTrigger
         aria-label={ariaLabel}
-        className={cn(size === 'sm' ? 'h-7 px-2 text-xs' : 'h-9 px-2.5 text-sm', className)}
+        className={cn(
+          size === 'sm' ? 'h-7 px-2 text-xs' : 'h-9 px-2.5 text-sm',
+          className
+        )}
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -57,5 +75,5 @@ export function SelectMenu(props: SelectMenuProps): React.JSX.Element {
         ))}
       </SelectContent>
     </SelectRoot>
-  )
+  );
 }

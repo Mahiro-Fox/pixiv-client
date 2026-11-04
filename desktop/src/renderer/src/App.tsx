@@ -1,23 +1,22 @@
+import type { PixivWork } from '@shared/types';
+import { KeepAlive } from 'keepalive-for-react';
 import {
   BookOpen,
   CircleHelp,
   Clock3,
   Compass,
   Download,
-  FolderOpen,
   Filter,
+  FolderOpen,
   Images,
   Library,
   Loader2,
   ScrollText,
+  Settings,
   Trophy,
   Users,
-  Settings
-} from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
-import type * as React from 'react'
-import { KeepAlive } from 'keepalive-for-react'
-import { motion, useReducedMotion } from 'motion/react'
+} from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   Navigate,
   NavLink,
@@ -25,50 +24,51 @@ import {
   Routes,
   useLocation,
   useNavigate,
-  useOutlet
-} from 'react-router-dom'
-import type { PixivWork } from '@shared/types'
-import { countActiveFilters } from './utils/filters'
-import { useAppSettings, bootLocale } from './hooks/useAppSettings'
-import { useCookieSession } from './hooks/useCookieSession'
-import { useDownloadEvents } from './hooks/useDownloadEvents'
-import { useQueueActions } from './hooks/useQueueActions'
-import { useTopbarSearch } from './hooks/useTopbarSearch'
-import { useWorkCollection } from './hooks/useWorkCollection'
-import { WorkPreviewHost } from './hooks/useWorkPreview'
-import { I18nProvider, translate } from './i18n'
-import type { Translate } from './i18n'
-import { FilterDialog } from './components/layout/FilterDialog'
-import { UserTagDialog } from './components/UserTagDialog'
-import { FilterProvider } from './hooks/useFilterContext'
-import { ErrorBoundary } from './components/layout/ErrorBoundary'
-import { TourProvider, startTour } from './hooks/useTour'
-import { ImagePreviewProvider } from './components/layout/ImagePreview'
-import { LibraryPage } from './pages/LibraryPage'
-import { SettingsDialog } from './components/layout/SettingsDialog'
-import { WorkDetailDialog } from './components/shared/WorkDetailDialog'
-import { UpdateDialog } from './components/layout/UpdateDialog'
-import { AccountMenu } from './components/layout/AccountMenu'
-import { SearchBox } from './components/layout/SearchBox'
-import { NovelSearchPage } from './pages/NovelSearchPage'
-import { NovelSeriesPage } from './pages/NovelSeriesPage'
-import { SeriesPage } from './pages/SeriesPage'
-import { NovelReaderPage } from './pages/NovelReaderPage'
-import { NovelLocalReaderPage } from './pages/NovelLocalReaderPage'
-import { WorksSearchPage } from './pages/WorksSearchPage'
-import { UsersPage } from './pages/UsersPage'
-import { UsersFollowingPage } from './pages/UsersFollowingPage'
-import { UserDetailPage } from './pages/UserDetailPage'
-import { WorkbenchPage, type WorkbenchPageProps } from './pages/WorkbenchPage'
-import { FavoritesPage } from './pages/FavoritesPage'
-import { HistoryPage } from './pages/HistoryPage'
-import { WatchLaterPage } from './pages/WatchLaterPage'
-import { RankingPage } from './pages/RankingPage'
-import { RecommendPage } from './pages/RecommendPage'
-import { Button } from './components/ui/button'
-import { Toaster } from './components/ui/sonner'
-import { messageOf } from './utils/errors'
-import { toast } from './utils/toast'
+  useOutlet,
+} from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import type * as React from 'react';
+import { AccountMenu } from './components/layout/AccountMenu';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
+import { FilterDialog } from './components/layout/FilterDialog';
+import { ImagePreviewProvider } from './components/layout/ImagePreview';
+import { SearchBox } from './components/layout/SearchBox';
+import { SettingsDialog } from './components/layout/SettingsDialog';
+import { UpdateDialog } from './components/layout/UpdateDialog';
+import { WorkDetailDialog } from './components/shared/WorkDetailDialog';
+import { Button } from './components/ui/button';
+import { Toaster } from './components/ui/sonner';
+import { UserTagDialog } from './components/UserTagDialog';
+import { bootLocale, useAppSettings } from './hooks/useAppSettings';
+import { useCookieSession } from './hooks/useCookieSession';
+import { useDownloadEvents } from './hooks/useDownloadEvents';
+import { FilterProvider } from './hooks/useFilterContext';
+import { useQueueActions } from './hooks/useQueueActions';
+import { useTopbarSearch } from './hooks/useTopbarSearch';
+import { startTour, TourProvider } from './hooks/useTour';
+import { useWorkCollection } from './hooks/useWorkCollection';
+import { WorkPreviewHost } from './hooks/useWorkPreview';
+import { I18nProvider, translate } from './i18n';
+import type { Translate } from './i18n';
+import { FavoritesPage } from './pages/FavoritesPage';
+import { HistoryPage } from './pages/HistoryPage';
+import { LibraryPage } from './pages/LibraryPage';
+import { NovelLocalReaderPage } from './pages/NovelLocalReaderPage';
+import { NovelReaderPage } from './pages/NovelReaderPage';
+import { NovelSearchPage } from './pages/NovelSearchPage';
+import { NovelSeriesPage } from './pages/NovelSeriesPage';
+import { RankingPage } from './pages/RankingPage';
+import { RecommendPage } from './pages/RecommendPage';
+import { SeriesPage } from './pages/SeriesPage';
+import { UserDetailPage } from './pages/UserDetailPage';
+import { UsersFollowingPage } from './pages/UsersFollowingPage';
+import { UsersPage } from './pages/UsersPage';
+import { WatchLaterPage } from './pages/WatchLaterPage';
+import { WorkbenchPage, type WorkbenchPageProps } from './pages/WorkbenchPage';
+import { WorksSearchPage } from './pages/WorksSearchPage';
+import { messageOf } from './utils/errors';
+import { countActiveFilters } from './utils/filters';
+import { toast } from './utils/toast';
 
 /**
  * 缓存范围：用户点名的六个浏览页。
@@ -83,11 +83,11 @@ const KEEP_ALIVE_ROUTES = [
   /^\/novel$/,
   /^\/ranking$/,
   /^\/users$/,
-  /^\/users\/following$/
-]
+  /^\/users\/following$/,
+];
 
 /** 非缓存路由共用一个占位缓存键，避免每个详情页都在缓存表里留一条 */
-const OFF_CACHE_KEY = '/(off)'
+const OFF_CACHE_KEY = '/(off)';
 
 /**
  * 路由缓存宿主。
@@ -105,10 +105,12 @@ const OFF_CACHE_KEY = '/(off)'
  * 反而会闪一下；而且恢复滚动位置时整页位移会让人眼看着位置跳。
  */
 function KeepAliveOutlet(): React.JSX.Element {
-  const location = useLocation()
-  const outlet = useOutlet()
-  const reduce = useReducedMotion()
-  const cached = KEEP_ALIVE_ROUTES.some((pattern) => pattern.test(location.pathname))
+  const location = useLocation();
+  const outlet = useOutlet();
+  const reduce = useReducedMotion();
+  const cached = KEEP_ALIVE_ROUTES.some((pattern) =>
+    pattern.test(location.pathname)
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -140,42 +142,42 @@ function KeepAliveOutlet(): React.JSX.Element {
         </motion.div>
       )}
     </div>
-  )
+  );
 }
 
 export default function App(): React.JSX.Element {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const reduce = useReducedMotion()
-  const [preview, setPreview] = useState<PixivWork | null>(null)
-  const [filterOpen, setFilterOpen] = useState(false)
+  const location = useLocation();
+  const navigate = useNavigate();
+  const reduce = useReducedMotion();
+  const [preview, setPreview] = useState<PixivWork | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
   /**
    * 打开过滤弹窗的回调必须稳定：它进 FilterProvider 的 context value，
    * 写成内联箭头的话每次 App 渲染都会产生新引用，让所有列表页跟着重渲染
    * （下载进度一秒几十次，页面就会被动重绘几十次）。
    */
-  const openFilter = useCallback(() => setFilterOpen(true), [])
-  const [tagsOpen, setTagsOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openFilter = useCallback(() => setFilterOpen(true), []);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   /**
    * 全应用只有这一处把「要告诉用户的话」变成轻提示：
    * 以前是顶部一条可关闭的错误条 / 成功条，占版面且要手动关，
    * 现在统一走 toast，空字符串（原「清空」调用）自然不弹。
    */
   const reportError = useCallback((message: string) => {
-    if (message) toast.error(message)
-  }, [])
+    if (message) toast.error(message);
+  }, []);
   const reportNotice = useCallback((message: string) => {
-    if (message) toast.success(message)
-  }, [])
-  const [tab, setTab] = useState('works')
+    if (message) toast.success(message);
+  }, []);
+  const [tab, setTab] = useState('works');
   /** 顶栏搜索：关键词同步、栏目查询串还原与回车提交 */
-  const { keyword, setKeyword, submitSearch, linkWithWord } = useTopbarSearch()
+  const { keyword, setKeyword, submitSearch, linkWithWord } = useTopbarSearch();
 
   /** 下载与队列事件只在这里订阅：下载状态、日志、并行任务、队列、限速 */
-  const downloadEvents = useDownloadEvents(reportError)
+  const downloadEvents = useDownloadEvents(reportError);
   /** Cookie / OAuth 会话：账号识别与体检都由它派生 */
-  const session = useCookieSession(reportError)
+  const session = useCookieSession(reportError);
   /** 作品采集与浏览状态：抓取、筛选排序分页、选择与导出 */
   const collection = useWorkCollection({
     setError: reportError,
@@ -187,8 +189,8 @@ export default function App(): React.JSX.Element {
     setPreview,
     running: downloadEvents.running,
     download: downloadEvents.download,
-    session
-  })
+    session,
+  });
   /** 下载队列操作 */
   const queueActions = useQueueActions({
     config: collection.config,
@@ -197,14 +199,14 @@ export default function App(): React.JSX.Element {
     setItems: downloadEvents.setItems,
     setError: reportError,
     setNotice: reportNotice,
-    setTab
-  })
+    setTab,
+  });
   /** 外壳设置：主题语言、代理、自动更新、下载目录 */
   const settings = useAppSettings({
     config: collection.config,
     updateConfig: collection.updateConfig,
-    setError: reportError
-  })
+    setError: reportError,
+  });
   const {
     proxy,
     updateStatus,
@@ -215,8 +217,8 @@ export default function App(): React.JSX.Element {
     saveTrayConfig,
     changeLocale,
     pickDir,
-    openDir
-  } = settings
+    openDir,
+  } = settings;
 
   const {
     config,
@@ -244,19 +246,21 @@ export default function App(): React.JSX.Element {
     toggleOnlyNew,
     changeSort,
     changePage,
-    exportWorks
-  } = collection
+    exportWorks,
+  } = collection;
 
   // 徽标显示「当前页生效」的规则数：推荐页不适用内容分级，别把它算进去
-  const onRecommend = location.pathname.startsWith('/recommend')
+  const onRecommend = location.pathname.startsWith('/recommend');
   const activeFilterCount = useMemo(
-    () => (config ? countActiveFilters(config, { ignoreRating: onRecommend }) : 0),
+    () =>
+      config ? countActiveFilters(config, { ignoreRating: onRecommend }) : 0,
     [config, onRecommend]
-  )
+  );
 
   // App 自身的函数体在 I18nProvider 之上，useI18n 取不到配置里的语言，
   // 所以这里直接用纯函数按 locale 取文案（config 未就绪时退回本地缓存）
-  const t: Translate = (key, params) => translate(config?.locale ?? bootLocale(), key, params)
+  const t: Translate = (key, params) =>
+    translate(config?.locale ?? bootLocale(), key, params);
 
   if (!config) {
     return (
@@ -264,7 +268,7 @@ export default function App(): React.JSX.Element {
         <Loader2 className="h-4 w-4 animate-spin" />
         {t('app.loadingConfig')}
       </div>
-    )
+    );
   }
 
   const collectText =
@@ -273,17 +277,19 @@ export default function App(): React.JSX.Element {
           loaded: collectProgress.loaded,
           total: collectProgress.total,
           done: collectProgress.pagesDone,
-          pages: collectProgress.pagesTotal
+          pages: collectProgress.pagesTotal,
         })
-      : null
+      : null;
 
-  const cookieExpired = session.cookieExpired
+  const cookieExpired = session.cookieExpired;
 
   /** 顶栏导航项统一样式 */
   const navClass = (isActive: boolean): string =>
     `flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-      isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary/50'
-    }`
+      isActive
+        ? 'bg-primary/15 text-primary'
+        : 'text-muted-foreground hover:bg-secondary/50'
+    }`;
 
   /**
    * 主栏目导航项：高亮底色交给 layoutId 的滑动块，这里只负责文字颜色。
@@ -292,16 +298,20 @@ export default function App(): React.JSX.Element {
   const navClassMain = (isActive: boolean): string =>
     `relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
       isActive ? 'text-primary' : 'text-muted-foreground hover:bg-secondary/50'
-    }`
+    }`;
 
   /** 主栏目高亮的滑动块：同一个 layoutId 让它从旧位置滑到新位置 */
   const navPill = (
     <motion.span
       layoutId="nav-active-pill"
       className="absolute inset-0 rounded-md bg-primary/15"
-      transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }}
+      transition={
+        reduce
+          ? { duration: 0 }
+          : { type: 'spring', stiffness: 420, damping: 34 }
+      }
     />
-  )
+  );
 
   /**
    * 工作台的入参。
@@ -369,10 +379,12 @@ export default function App(): React.JSX.Element {
     onRetryFailure: queueActions.retryFailure,
     onExportFailures: (id) => void queueActions.exportFailures(id),
     onOpenDir: (dir) =>
-      void window.pixiv.openDir(dir).catch((reason: unknown) => reportError(messageOf(reason))),
+      void window.pixiv
+        .openDir(dir)
+        .catch((reason: unknown) => reportError(messageOf(reason))),
     items: downloadEvents.items,
-    running: downloadEvents.running
-  }
+    running: downloadEvents.running,
+  };
 
   return (
     <I18nProvider locale={config.locale}>
@@ -390,7 +402,10 @@ export default function App(): React.JSX.Element {
 
             {/* 插画 / 漫画 / 小说 / 用户：切换栏目时保留搜索框里的关键词 */}
             <nav className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
-              <NavLink to="/recommend" className={({ isActive }) => navClassMain(isActive)}>
+              <NavLink
+                to="/recommend"
+                className={({ isActive }) => navClassMain(isActive)}
+              >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
@@ -399,7 +414,10 @@ export default function App(): React.JSX.Element {
                   </>
                 )}
               </NavLink>
-              <NavLink to="/ranking" className={({ isActive }) => navClassMain(isActive)}>
+              <NavLink
+                to="/ranking"
+                className={({ isActive }) => navClassMain(isActive)}
+              >
                 {({ isActive }) => (
                   <>
                     {isActive ? navPill : null}
@@ -518,11 +536,21 @@ export default function App(): React.JSX.Element {
                   </span>
                 ) : null}
               </Button>
-              <Button variant="outline" size="sm" title={t('app.openDir')} onClick={openDir}>
+              <Button
+                variant="outline"
+                size="sm"
+                title={t('app.openDir')}
+                onClick={openDir}
+              >
                 <FolderOpen className="h-4 w-4" />
               </Button>
               {/* 产品引导：第一次启动自动播放，看过之后从这里可以随时重看 */}
-              <Button variant="outline" size="sm" title={t('tour.replay')} onClick={startTour}>
+              <Button
+                variant="outline"
+                size="sm"
+                title={t('tour.replay')}
+                onClick={startTour}
+              >
                 <CircleHelp className="h-4 w-4" />
               </Button>
               <Button
@@ -543,38 +571,72 @@ export default function App(): React.JSX.Element {
               <Routes>
                 <Route element={<KeepAliveOutlet />}>
                   {/* 下载工作台保持原来的四标签结构，路由迁到 /workbench */}
-                  <Route path="/workbench" element={<WorkbenchPage {...workbench} />} />
-                  <Route path="/illust" element={<WorksSearchPage kind="illust" />} />
-                  <Route path="/manga" element={<WorksSearchPage kind="manga" />} />
+                  <Route
+                    path="/workbench"
+                    element={<WorkbenchPage {...workbench} />}
+                  />
+                  <Route
+                    path="/illust"
+                    element={<WorksSearchPage kind="illust" />}
+                  />
+                  <Route
+                    path="/manga"
+                    element={<WorksSearchPage kind="manga" />}
+                  />
                   <Route path="/novel" element={<NovelSearchPage />} />
-                  <Route path="/novel/series/:seriesId" element={<NovelSeriesPage />} />
-                  <Route path="/novel/local" element={<NovelLocalReaderPage />} />
-                  <Route path="/series/:seriesId" element={<SeriesPage oauth={session.oauth} />} />
-                  <Route path="/users" element={<UsersPage cookie={session.cookie} />} />
-                  <Route path="/users/following" element={<UsersFollowingPage />} />
+                  <Route
+                    path="/novel/series/:seriesId"
+                    element={<NovelSeriesPage />}
+                  />
+                  <Route
+                    path="/novel/local"
+                    element={<NovelLocalReaderPage />}
+                  />
+                  <Route
+                    path="/series/:seriesId"
+                    element={<SeriesPage oauth={session.oauth} />}
+                  />
+                  <Route
+                    path="/users"
+                    element={<UsersPage cookie={session.cookie} />}
+                  />
+                  <Route
+                    path="/users/following"
+                    element={<UsersFollowingPage />}
+                  />
                   <Route
                     path="/user/:userId"
                     element={
-                      <UserDetailPage oauth={session.oauth} onDownloadAuthor={openAuthorDownload} />
+                      <UserDetailPage
+                        oauth={session.oauth}
+                        onDownloadAuthor={openAuthorDownload}
+                      />
                     }
                   />
                   <Route path="/favorites" element={<FavoritesPage />} />
-                  <Route path="/ranking" element={<RankingPage />} />
-                  <Route path="/recommend" element={<RecommendPage oauth={session.oauth} />} />
+                  <Route
+                    path="/ranking"
+                    element={<RankingPage oauth={session.oauth} />}
+                  />
+                  <Route
+                    path="/recommend"
+                    element={<RecommendPage oauth={session.oauth} />}
+                  />
                   <Route path="/history" element={<HistoryPage />} />
                   <Route path="/watch-later" element={<WatchLaterPage />} />
                   {/* 本地图库独立成页，不再塞在插画的标签里 */}
-                  <Route
-                    path="/gallery"
-                    element={
-                        <LibraryPage />
-                    }
-                  />
+                  <Route path="/gallery" element={<LibraryPage />} />
                   {/* 旧书库页并入图库：小说现在是作者页下的第三个栏目，老链接直接转过去 */}
-                  <Route path="/library" element={<Navigate to="/gallery" replace />} />
+                  <Route
+                    path="/library"
+                    element={<Navigate to="/gallery" replace />}
+                  />
                   <Route path="/novel/:novelId" element={<NovelReaderPage />} />
                   {/* 未匹配的路由，重定向到推荐页 */}
-                  <Route path="*" element={<Navigate to="/recommend" replace />} />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/recommend" replace />}
+                  />
                 </Route>
               </Routes>
             </FilterProvider>
@@ -601,12 +663,12 @@ export default function App(): React.JSX.Element {
               busy={collecting}
               onClose={() => setTagsOpen(false)}
               onSelect={(tag) => {
-                setTagsOpen(false)
-                const next = tag ?? ''
+                setTagsOpen(false);
+                const next = tag ?? '';
                 // 选的是同一个标签且本来就在第一页：没必要再打一轮全量请求
-                if (next === config.tag && config.offset === 0) return
+                if (next === config.tag && config.offset === 0) return;
                 // 换标签等于换一次查询：回到第一页重新抓取
-                void collect({ tag: next, offset: 0 })
+                void collect({ tag: next, offset: 0 });
               }}
             />
           ) : null}
@@ -616,14 +678,17 @@ export default function App(): React.JSX.Element {
               config={config}
               onConfigChange={updateConfig}
               onClose={() => {
-                setFilterOpen(false)
-                persistConfig()
+                setFilterOpen(false);
+                persistConfig();
               }}
             />
           ) : null}
 
           {updateOpen && updateStatus ? (
-            <UpdateDialog status={updateStatus} onClose={() => setUpdateOpen(false)} />
+            <UpdateDialog
+              status={updateStatus}
+              onClose={() => setUpdateOpen(false)}
+            />
           ) : null}
 
           {settingsOpen ? (
@@ -647,16 +712,24 @@ export default function App(): React.JSX.Element {
               onPickDir={() => void pickDir()}
               onOpenDir={openDir}
               onClose={() => {
-                setSettingsOpen(false)
-                persistConfig()
+                setSettingsOpen(false);
+                persistConfig();
               }}
             />
           ) : null}
         </div>
-        <TourProvider blocked={settingsOpen || filterOpen || tagsOpen || updateOpen || Boolean(preview)} />
+        <TourProvider
+          blocked={
+            settingsOpen ||
+            filterOpen ||
+            tagsOpen ||
+            updateOpen ||
+            Boolean(preview)
+          }
+        />
         {/* 位置与可关闭沿用旧提示条的习惯：底部居中、最多同时 3 条 */}
         <Toaster position="bottom-center" closeButton visibleToasts={3} />
       </ImagePreviewProvider>
     </I18nProvider>
-  )
+  );
 }

@@ -1,63 +1,64 @@
-import { Bookmark, Loader2, Search, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { BookmarkRest, SelfUser, UserContentResult } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
-import { Input } from '@renderer/components/ui/input'
-import { Pager } from '@renderer/components/shared/Pager'
-import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
-import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
+import { Pager } from '@renderer/components/shared/Pager';
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid';
+import { Badge } from '@renderer/components/ui/badge';
+import { Button } from '@renderer/components/ui/button';
+import { Input } from '@renderer/components/ui/input';
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery';
+import { useI18n } from '@renderer/i18n';
+import type { BookmarkRest, SelfUser, UserContentResult } from '@shared/types';
+import { Bookmark, Loader2, Search, UserRound } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import type * as React from 'react';
 
-const PAGE_SIZE = 48
+const PAGE_SIZE = 48;
 
 /**
  * 收藏浏览页：只看不下载，便于按标签翻自己的或别人的公开收藏。
  * 用户 ID 留空时默认用当前登录账号；私密收藏只有本人可见。
  */
 export function FavoritesPage(): React.JSX.Element {
-  const { t } = useI18n()
-  const [params, setParams] = useSearchParams()
+  const { t } = useI18n();
+  const [params, setParams] = useSearchParams();
 
-  const [self, setSelf] = useState<SelfUser | null>(null)
-  const [cookieReady, setCookieReady] = useState(false)
+  const [self, setSelf] = useState<SelfUser | null>(null);
+  const [cookieReady, setCookieReady] = useState(false);
   /** 输入框单独维护，回车/点搜索才提交到 URL，避免逐字符请求 */
-  const [input, setInput] = useState(params.get('userId') || '')
+  const [input, setInput] = useState(params.get('userId') || '');
 
-  const userId = (params.get('userId') || '').trim()
-  const rest: BookmarkRest = params.get('rest') === 'hide' ? 'hide' : 'show'
-  const tag = (params.get('tag') || '').trim()
-  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
+  const userId = (params.get('userId') || '').trim();
+  const rest: BookmarkRest = params.get('rest') === 'hide' ? 'hide' : 'show';
+  const tag = (params.get('tag') || '').trim();
+  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1));
 
   /** 私密收藏只有本人能看，其它用户直接给提示，不发请求 */
-  const privateBlocked = rest === 'hide' && Boolean(self) && userId !== self?.id
+  const privateBlocked =
+    rest === 'hide' && Boolean(self) && userId !== self?.id;
 
   // 首次挂载取一次登录信息；URL 没指定用户时直接落到自己的公开收藏，省一次点击
   useEffect(() => {
-    let alive = true
+    let alive = true;
     void window.pixiv
       .getSelfUser()
       .then((user) => {
-        if (!alive) return
-        setSelf(user)
+        if (!alive) return;
+        setSelf(user);
         if (user && !params.get('userId')) {
-          setInput(user.id)
-          const next = new URLSearchParams(params)
-          next.set('userId', user.id)
-          setParams(next, { replace: true })
+          setInput(user.id);
+          const next = new URLSearchParams(params);
+          next.set('userId', user.id);
+          setParams(next, { replace: true });
         }
       })
       .finally(() => {
-        if (alive) setCookieReady(true)
-      })
+        if (alive) setCookieReady(true);
+      });
     return () => {
-      alive = false
-    }
+      alive = false;
+    };
     // 只在首次挂载时取一次登录信息
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   const { data: content, loading } = usePagedQuery<UserContentResult>({
     page,
@@ -71,25 +72,25 @@ export function FavoritesPage(): React.JSX.Element {
         page: next,
         limit: PAGE_SIZE,
         bookmarkRest: rest,
-        bookmarkTag: tag
-      })
-  })
+        bookmarkTag: tag,
+      }),
+  });
 
   const apply = (patch: Record<string, string>): void => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([key, value]) => {
-      if (value) next.set(key, value)
-      else next.delete(key)
-    })
-    setParams(next)
-  }
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    setParams(next);
+  };
 
   const submitUser = (): void => {
-    apply({ userId: input.trim(), page: '' })
-  }
+    apply({ userId: input.trim(), page: '' });
+  };
 
-  const total = content?.total || 0
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const total = content?.total || 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <main className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
@@ -98,7 +99,9 @@ export function FavoritesPage(): React.JSX.Element {
           <Bookmark className="h-4 w-4 text-primary" />
           {t('favorites.title')}
         </h2>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{t('favorites.hint')}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {t('favorites.hint')}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5">
@@ -109,7 +112,7 @@ export function FavoritesPage(): React.JSX.Element {
             placeholder={t('favorites.userIdPlaceholder')}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') submitUser()
+              if (event.key === 'Enter') submitUser();
             }}
             className="h-8 w-40 text-xs"
           />
@@ -124,8 +127,8 @@ export function FavoritesPage(): React.JSX.Element {
             size="sm"
             className="h-8 text-xs"
             onClick={() => {
-              setInput(self.id)
-              apply({ userId: self.id, rest: '', page: '' })
+              setInput(self.id);
+              apply({ userId: self.id, rest: '', page: '' });
             }}
           >
             {t('favorites.mine', { name: self.name })}
@@ -138,14 +141,18 @@ export function FavoritesPage(): React.JSX.Element {
               <button
                 key={key}
                 type="button"
-                onClick={() => apply({ rest: key === 'hide' ? 'hide' : '', page: '' })}
+                onClick={() =>
+                  apply({ rest: key === 'hide' ? 'hide' : '', page: '' })
+                }
                 className={
                   rest === key
                     ? 'bg-primary/15 px-2.5 py-1 text-[11px] font-medium text-primary'
                     : 'px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/50'
                 }
               >
-                {key === 'show' ? t('favorites.public') : t('favorites.private')}
+                {key === 'show'
+                  ? t('favorites.public')
+                  : t('favorites.private')}
               </button>
             ))}
           </div>
@@ -153,17 +160,23 @@ export function FavoritesPage(): React.JSX.Element {
       </div>
 
       {!cookieReady ? null : !userId ? (
-        <div className="flex h-42 flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 text-center">
+        <div className="h-42 flex flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 text-center">
           <Bookmark className="h-6 w-6 text-muted-foreground/60" />
-          <p className="text-xs text-muted-foreground">{t('favorites.needUser')}</p>
-          <p className="text-[11px] text-muted-foreground/70">{t('favorites.needUserHint')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('favorites.needUser')}
+          </p>
+          <p className="text-[11px] text-muted-foreground/70">
+            {t('favorites.needUserHint')}
+          </p>
         </div>
       ) : null}
 
       {privateBlocked ? (
         <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/20 px-4 py-8 text-center">
           <Bookmark className="h-6 w-6 text-muted-foreground/60" />
-          <p className="text-xs text-muted-foreground">{t('favorites.privateHint')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('favorites.privateHint')}
+          </p>
         </div>
       ) : null}
 
@@ -178,7 +191,7 @@ export function FavoritesPage(): React.JSX.Element {
           </div>
 
           {loading ? (
-            <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="h-42 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('works.loading')}
             </div>
@@ -205,5 +218,5 @@ export function FavoritesPage(): React.JSX.Element {
         </>
       )}
     </main>
-  )
+  );
 }

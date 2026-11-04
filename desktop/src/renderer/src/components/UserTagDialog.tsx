@@ -1,34 +1,34 @@
-import { Check, Loader2, RefreshCw, Search, Tags } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type * as React from 'react'
-import type { UserTag, WorkContent } from '@shared/types'
-import { cn } from '@renderer/utils/ui'
-import { messageOf } from '@renderer/utils/errors'
-import { readUserTags, writeUserTags } from '@renderer/utils/dialogCache'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { Button } from './ui/button'
-import { DialogShell } from './shared/DialogShell'
-import { Input } from './ui/input'
+import { useI18n } from '@renderer/i18n';
+import { readUserTags, writeUserTags } from '@renderer/utils/dialogCache';
+import { messageOf } from '@renderer/utils/errors';
+import { toast } from '@renderer/utils/toast';
+import { cn } from '@renderer/utils/ui';
+import type { UserTag, WorkContent } from '@shared/types';
+import { Check, Loader2, RefreshCw, Search, Tags } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
+import { DialogShell } from './shared/DialogShell';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface UserTagDialogProps {
   /** 当前抓取的作者；为空时提示先填 ID */
-  userId: string
+  userId: string;
   /** 作品列表当前栏目：决定标签只取插画 / 只取漫画 / 两者合并 */
-  content: WorkContent
+  content: WorkContent;
   /** 已在生效的标签，空串表示「全部作品」 */
-  activeTag: string
+  activeTag: string;
   /** 正在抓取：此时切换标签不会生效，先挡住点击 */
-  busy?: boolean
+  busy?: boolean;
   /** 选中某个标签；传 null 表示回到「全部作品」 */
-  onSelect: (tag: string | null) => void
-  onClose: () => void
+  onSelect: (tag: string | null) => void;
+  onClose: () => void;
 }
 
 type LoadState =
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
-  | { phase: 'ready'; tags: UserTag[] }
+  | { phase: 'ready'; tags: UserTag[] };
 
 /**
  * 按标签筛选作品（对齐 pixiv 作者主页的「高级搜索」）。
@@ -38,71 +38,71 @@ type LoadState =
  * pixiv 本身一次只支持一个标签，所以这里也是单选。
  */
 export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
-  const { t } = useI18n()
-  const userId = props.userId.trim()
-  const content = props.content
+  const { t } = useI18n();
+  const userId = props.userId.trim();
+  const content = props.content;
   // 首次打开优先命中缓存：直接渲染标签，不再闪一次 loading
   const [state, setState] = useState<LoadState>(() => {
-    const cached = userId ? readUserTags(userId, content) : null
-    return cached ? { phase: 'ready', tags: cached } : { phase: 'loading' }
-  })
-  const [keyword, setKeyword] = useState('')
+    const cached = userId ? readUserTags(userId, content) : null;
+    return cached ? { phase: 'ready', tags: cached } : { phase: 'loading' };
+  });
+  const [keyword, setKeyword] = useState('');
   /** 每次手动刷新 +1；0 表示首次加载（允许读缓存） */
-  const [reloadTick, setReloadTick] = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
-  const hasTags = useRef(false)
-  hasTags.current = state.phase === 'ready'
+  const [reloadTick, setReloadTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasTags = useRef(false);
+  hasTags.current = state.phase === 'ready';
 
   useEffect(() => {
     if (!userId) {
-      toast.error(t('tags.needUser'))
-      setState({ phase: 'error', message: '' })
-      return
+      toast.error(t('tags.needUser'));
+      setState({ phase: 'error', message: '' });
+      return;
     }
-    let alive = true
+    let alive = true;
     // 手动刷新走强制请求；首次打开才读缓存
-    const cached = reloadTick > 0 ? null : readUserTags(userId, content)
+    const cached = reloadTick > 0 ? null : readUserTags(userId, content);
     if (cached) {
-      setState({ phase: 'ready', tags: cached })
-      return
+      setState({ phase: 'ready', tags: cached });
+      return;
     }
     // 已有数据时刷新不清空列表，只转小圈；没有数据（首次加载 / 重试）才走 loading
-    if (hasTags.current) setRefreshing(true)
-    else setState({ phase: 'loading' })
+    if (hasTags.current) setRefreshing(true);
+    else setState({ phase: 'loading' });
 
     window.pixiv
       .userTags(userId, content)
       .then((tags) => {
-        if (!alive) return
-        writeUserTags(userId, tags, content)
-        setState({ phase: 'ready', tags })
-        setRefreshing(false)
+        if (!alive) return;
+        writeUserTags(userId, tags, content);
+        setState({ phase: 'ready', tags });
+        setRefreshing(false);
       })
       .catch((reason: unknown) => {
-        if (!alive) return
-        setRefreshing(false)
-        const message = messageOf(reason)
+        if (!alive) return;
+        setRefreshing(false);
+        const message = messageOf(reason);
         // 刷新失败不该把已经拿到的标签弄丢
         // 刷新失败不该把已经拿到的标签弄丢，原因用轻提示说明
-        toast.error(message)
-        if (!hasTags.current) setState({ phase: 'error', message })
-      })
+        toast.error(message);
+        if (!hasTags.current) setState({ phase: 'error', message });
+      });
     return () => {
-      alive = false
-    }
-  }, [userId, content, reloadTick, t])
+      alive = false;
+    };
+  }, [userId, content, reloadTick, t]);
 
   const visible = useMemo(() => {
-    if (state.phase !== 'ready') return []
-    const word = keyword.trim().toLowerCase()
-    if (!word) return state.tags
+    if (state.phase !== 'ready') return [];
+    const word = keyword.trim().toLowerCase();
+    if (!word) return state.tags;
     return state.tags.filter(
       (item) =>
         item.tag.toLowerCase().includes(word) ||
         (item.translation || '').toLowerCase().includes(word) ||
         (item.reading || '').toLowerCase().includes(word)
-    )
-  }, [state, keyword])
+    );
+  }, [state, keyword]);
 
   return (
     <DialogShell
@@ -159,7 +159,9 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                 refreshing ? 'text-primary' : ''
               )}
             >
-              <RefreshCw className={cn('h-4 w-4', refreshing ? 'animate-spin' : '')} />
+              <RefreshCw
+                className={cn('h-4 w-4', refreshing ? 'animate-spin' : '')}
+              />
               {t('tags.refresh')}
             </button>
           </span>
@@ -194,17 +196,23 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
           ) : null}
 
           {state.phase === 'ready' && state.tags.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted-foreground">{t('tags.empty')}</p>
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {t('tags.empty')}
+            </p>
           ) : null}
 
-          {state.phase === 'ready' && state.tags.length > 0 && visible.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted-foreground">{t('tags.noMatch')}</p>
+          {state.phase === 'ready' &&
+          state.tags.length > 0 &&
+          visible.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {t('tags.noMatch')}
+            </p>
           ) : null}
 
           <div className="space-y-0.5">
             {visible.map((item) => {
-              const active = item.tag === props.activeTag
-              const subtitle = item.translation || item.reading || ''
+              const active = item.tag === props.activeTag;
+              const subtitle = item.translation || item.reading || '';
               return (
                 <button
                   key={item.tag}
@@ -232,11 +240,11 @@ export function UserTagDialog(props: UserTagDialogProps): React.JSX.Element {
                   </span>
                   {active ? <Check className="h-4 w-4 shrink-0" /> : null}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
       </div>
     </DialogShell>
-  )
+  );
 }

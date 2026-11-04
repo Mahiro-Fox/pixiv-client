@@ -1,4 +1,4 @@
-import type { AbortReason } from '../../shared/types'
+import type { AbortReason } from '../../shared/types';
 
 /**
  * 下载/解析错误的分类与重试策略。
@@ -28,42 +28,42 @@ export type ErrorKind =
   | 'missing'
   /** 用户中止 */
   | 'cancelled'
-  | 'unknown'
+  | 'unknown';
 
 export interface ErrorHint {
-  kind: ErrorKind
-  retryable: boolean
-  waitMs: number
+  kind: ErrorKind;
+  retryable: boolean;
+  waitMs: number;
 }
 
 /** 单个文件最多尝试几次（含首次）。传输层内部已经重试过，这里不再叠加太多 */
-export const TASK_MAX_ATTEMPTS = 3
+export const TASK_MAX_ATTEMPTS = 3;
 
 /**
  * 连续失败熔断阈值。
  * 正常网络抖动是零星失败；连续 8 条都失败说明是系统性问题
  * （Cookie 失效、代理挂了、磁盘写不进去），继续跑只会拖垮剩余任务。
  */
-export const CONSECUTIVE_FAILURE_LIMIT = 8
+export const CONSECUTIVE_FAILURE_LIMIT = 8;
 
 /** 任务级退避表：第 1 次重试等 2s，第 2 次等 5s；限流时优先用服务端给的冷却时间 */
-const TASK_BACKOFF_MS = [2_000, 5_000]
+const TASK_BACKOFF_MS = [2_000, 5_000];
 
 export function taskBackoffMs(attempt: number, hint: ErrorHint): number {
-  if (hint.waitMs > 0) return hint.waitMs
-  const index = Math.min(Math.max(attempt, 1), TASK_BACKOFF_MS.length) - 1
-  return TASK_BACKOFF_MS[index] ?? 5_000
+  if (hint.waitMs > 0) return hint.waitMs;
+  const index = Math.min(Math.max(attempt, 1), TASK_BACKOFF_MS.length) - 1;
+  return TASK_BACKOFF_MS[index] ?? 5_000;
 }
 
 /** 可重试错误只值得再试一次，不重试的错误直接放弃 */
 export function shouldRetryTask(hint: ErrorHint, attempt: number): boolean {
-  return hint.retryable && attempt < TASK_MAX_ATTEMPTS
+  return hint.retryable && attempt < TASK_MAX_ATTEMPTS;
 }
 
 interface Carried {
-  retryable?: boolean
-  waitMs?: number
-  kind?: ErrorKind
+  retryable?: boolean;
+  waitMs?: number;
+  kind?: ErrorKind;
 }
 
 /**
@@ -72,32 +72,40 @@ interface Carried {
  * 这里对没有元数据的错误（转码失败、磁盘错误等）按文案兜底。
  */
 export function classifyError(error: unknown): ErrorHint {
-  const carried = (error ?? {}) as Carried
-  const message = error instanceof Error ? error.message : String(error ?? '')
-  const waitMs = Number(carried.waitMs ?? 0)
+  const carried = (error ?? {}) as Carried;
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const waitMs = Number(carried.waitMs ?? 0);
 
   if (carried.kind) {
-    return { kind: carried.kind, retryable: carried.retryable !== false, waitMs }
+    return {
+      kind: carried.kind,
+      retryable: carried.retryable !== false,
+      waitMs,
+    };
   }
 
   if (carried.retryable === false) {
-    return { kind: 'unknown', retryable: false, waitMs }
+    return { kind: 'unknown', retryable: false, waitMs };
   }
-  if (/已取消/.test(message)) return { kind: 'cancelled', retryable: false, waitMs }
+  if (/已取消/.test(message))
+    return { kind: 'cancelled', retryable: false, waitMs };
   if (/HTTP 401|请重新登录|Cookie 已失效/.test(message)) {
-    return { kind: 'auth', retryable: false, waitMs }
+    return { kind: 'auth', retryable: false, waitMs };
   }
-  if (/HTTP 403|没有权限/.test(message)) return { kind: 'forbidden', retryable: false, waitMs }
+  if (/HTTP 403|没有权限/.test(message))
+    return { kind: 'forbidden', retryable: false, waitMs };
   if (/HTTP 40[48]|HTTP 410|作品不存在|已删除/.test(message)) {
-    return { kind: 'missing', retryable: false, waitMs }
+    return { kind: 'missing', retryable: false, waitMs };
   }
-  if (/HTTP 429|限流/.test(message)) return { kind: 'rate-limit', retryable: true, waitMs }
-  if (/HTTP 5\d\d/.test(message)) return { kind: 'server', retryable: true, waitMs }
+  if (/HTTP 429|限流/.test(message))
+    return { kind: 'rate-limit', retryable: true, waitMs };
+  if (/HTTP 5\d\d/.test(message))
+    return { kind: 'server', retryable: true, waitMs };
   if (/超时|连接中断|net::ERR|代理/.test(message)) {
-    return { kind: 'network', retryable: true, waitMs }
+    return { kind: 'network', retryable: true, waitMs };
   }
   // 不认识的多半是确定性失败（转码、磁盘、路径非法），重试只会白白拖时间
-  return { kind: 'unknown', retryable: carried.retryable === true, waitMs }
+  return { kind: 'unknown', retryable: carried.retryable === true, waitMs };
 }
 
 /**
@@ -106,7 +114,7 @@ export function classifyError(error: unknown): ErrorHint {
  * `abort('shutdown')` 是退出前收尾（下次启动仍按「未完成」继续）。
  */
 export function abortReasonOf(signal: AbortSignal): AbortReason {
-  const reason = signal.reason
-  if (reason === 'cancel' || reason === 'shutdown') return reason
-  return 'pause'
+  const reason = signal.reason;
+  if (reason === 'cancel' || reason === 'shutdown') return reason;
+  return 'pause';
 }

@@ -1,8 +1,8 @@
-import { FilterX } from 'lucide-react'
-import type * as React from 'react'
-import { useI18n } from '@renderer/i18n'
-import { useFilterContext } from '@renderer/hooks/useFilterContext'
-import { Button } from '../ui/button'
+import { useFilterContext } from '@renderer/hooks/useFilterContext';
+import { useI18n } from '@renderer/i18n';
+import { FilterX } from 'lucide-react';
+import type * as React from 'react';
+import { Button } from '../ui/button';
 
 /**
  * 整页结果都被过滤规则隐藏时的占位。
@@ -11,8 +11,8 @@ import { Button } from '../ui/button'
  * 它不会给出空态，只剩空白网格——这里补一句说明并给个直达规则的入口。
  */
 export function FilteredHint(props: { count: number }): React.JSX.Element {
-  const { t } = useI18n()
-  const { onOpenFilter } = useFilterContext()
+  const { t } = useI18n();
+  const { onOpenFilter } = useFilterContext();
 
   return (
     <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 text-xs text-muted-foreground">
@@ -24,5 +24,5 @@ export function FilteredHint(props: { count: number }): React.JSX.Element {
         </Button>
       ) : null}
     </div>
-  )
+  );
 }

@@ -1,27 +1,7 @@
-import {
-  ArrowLeft,
-  Bookmark,
-  BookmarkCheck,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  FileDown,
-  Loader2,
-  List,
-  X
-} from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type * as React from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import type {
-  BookmarkInput,
-  BookmarkPrivacy,
-  BookmarkState,
-  NovelDetail,
-  NovelSeriesDetail
-} from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
+import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings';
+import { Badge } from '@renderer/components/ui/badge';
+import { Button } from '@renderer/components/ui/button';
+import { useI18n } from '@renderer/i18n';
 import {
   loadReaderSettings,
   loadReadingProgress,
@@ -33,189 +13,215 @@ import {
   saveReadingProgress,
   saveSeriesPosition,
   splitNovelPages,
-  type ReaderSettings
-} from '@renderer/utils/novel'
-import { Badge } from '@renderer/components/ui/badge'
-import { Button } from '@renderer/components/ui/button'
-import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
+  type ReaderSettings,
+} from '@renderer/utils/novel';
+import { toast } from '@renderer/utils/toast';
+import type {
+  BookmarkInput,
+  BookmarkPrivacy,
+  BookmarkState,
+  NovelDetail,
+  NovelSeriesDetail,
+} from '@shared/types';
+import {
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
+  List,
+  Loader2,
+  X,
+} from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 function dirOf(file: string): string {
-  const index = Math.max(file.lastIndexOf('\\'), file.lastIndexOf('/'))
-  return index > 0 ? file.slice(0, index) : file
+  const index = Math.max(file.lastIndexOf('\\'), file.lastIndexOf('/'));
+  return index > 0 ? file.slice(0, index) : file;
 }
 
 export function NovelReaderPage(): React.JSX.Element {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const { novelId = '' } = useParams()
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { novelId = '' } = useParams();
 
-  const [detail, setDetail] = useState<NovelDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
-  const [percent, setPercent] = useState(0)
-  const [tocOpen, setTocOpen] = useState(false)
-  const [series, setSeries] = useState<NovelSeriesDetail | null>(null)
-  const [downloading, setDownloading] = useState(false)
-  const [bookmark, setBookmark] = useState<BookmarkState | null>(null)
-  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public')
-  const [bookmarkBusy, setBookmarkBusy] = useState(false)
-  const [oauthConnected, setOauthConnected] = useState(false)
+  const [detail, setDetail] = useState<NovelDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<ReaderSettings>(() =>
+    loadReaderSettings()
+  );
+  const [percent, setPercent] = useState(0);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [series, setSeries] = useState<NovelSeriesDetail | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [bookmark, setBookmark] = useState<BookmarkState | null>(null);
+  const [privacy, setPrivacy] = useState<BookmarkPrivacy>('public');
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [oauthConnected, setOauthConnected] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const restoredRef = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
 
   useEffect(() => {
-    if (!novelId) return
-    let alive = true
-    setLoading(true)
-    setDetail(null)
-    restoredRef.current = false
-    setSeries(null)
+    if (!novelId) return;
+    let alive = true;
+    setLoading(true);
+    setDetail(null);
+    restoredRef.current = false;
+    setSeries(null);
     void window.pixiv
       .getNovelDetail(novelId)
       .then((data) => {
-        if (!alive) return
-        setDetail(data)
-        markNovelRead(data.id)
-        const sid = data.series?.id || data.seriesId
-        if (sid) saveSeriesPosition(sid, data.id)
+        if (!alive) return;
+        setDetail(data);
+        markNovelRead(data.id);
+        const sid = data.series?.id || data.seriesId;
+        if (sid) saveSeriesPosition(sid, data.id);
       })
       .catch((reason: unknown) => {
-        if (alive) toast.error(messageOf(reason))
+        if (alive) toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [novelId])
+      alive = false;
+    };
+  }, [novelId]);
 
   // 收藏按钮依赖 App API 凭据：未连接时不渲染，也不发请求
   useEffect(() => {
-    if (!novelId) return
-    let alive = true
-    setBookmark(null)
+    if (!novelId) return;
+    let alive = true;
+    setBookmark(null);
     void (async () => {
       try {
-        const status = await window.pixiv.getOAuthStatus()
-        if (!alive) return
-        setOauthConnected(Boolean(status.connected))
-        if (!status.connected) return
-        const state = await window.pixiv.getNovelBookmarkState(novelId)
-        if (!alive) return
-        setBookmark(state)
-        setPrivacy(state.restrict)
+        const status = await window.pixiv.getOAuthStatus();
+        if (!alive) return;
+        setOauthConnected(Boolean(status.connected));
+        if (!status.connected) return;
+        const state = await window.pixiv.getNovelBookmarkState(novelId);
+        if (!alive) return;
+        setBookmark(state);
+        setPrivacy(state.restrict);
       } catch {
         // 读不到状态时保持「未收藏」，按钮仍可点（收藏接口是幂等的）
       }
-    })()
+    })();
     return () => {
-      alive = false
-    }
-  }, [novelId])
+      alive = false;
+    };
+  }, [novelId]);
 
   // 正文渲染完成后再恢复上次的滚动位置；图片加载会改变高度，这里做一次近似定位
   useEffect(() => {
-    if (!detail || restoredRef.current) return
-    const el = scrollRef.current
-    if (!el) return
-    restoredRef.current = true
-    const saved = loadReadingProgress(detail.id)
-    if (saved <= 0) return
+    if (!detail || restoredRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    restoredRef.current = true;
+    const saved = loadReadingProgress(detail.id);
+    if (saved <= 0) return;
     requestAnimationFrame(() => {
-      el.scrollTop = saved * Math.max(0, el.scrollHeight - el.clientHeight)
-      setPercent(Math.round(saved * 100))
-    })
-  }, [detail])
+      el.scrollTop = saved * Math.max(0, el.scrollHeight - el.clientHeight);
+      setPercent(Math.round(saved * 100));
+    });
+  }, [detail]);
 
   // 阅读进度延迟落盘，避免滚动时频繁写 localStorage
   useEffect(() => {
-    if (!detail) return
+    if (!detail) return;
     const timer = window.setTimeout(() => {
-      saveReadingProgress(detail.id, percent / 100)
-    }, 600)
-    return () => window.clearTimeout(timer)
-  }, [detail, percent])
+      saveReadingProgress(detail.id, percent / 100);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [detail, percent]);
 
   useEffect(() => {
-    saveReaderSettings(settings)
-  }, [settings])
+    saveReaderSettings(settings);
+  }, [settings]);
 
-  const seriesId = detail ? detail.series?.id || detail.seriesId || '' : ''
-  const position = seriesId ? loadSeriesPosition(seriesId) : ''
+  const seriesId = detail ? detail.series?.id || detail.seriesId || '' : '';
+  const position = seriesId ? loadSeriesPosition(seriesId) : '';
 
   // 目录按需加载：单篇阅读时不必多打一次系列接口
   useEffect(() => {
-    if (!tocOpen || !seriesId || series) return
-    let alive = true
+    if (!tocOpen || !seriesId || series) return;
+    let alive = true;
     void window.pixiv
       .getNovelSeries(seriesId)
       .then((data) => {
-        if (alive) setSeries(data)
+        if (alive) setSeries(data);
       })
-      .catch(() => undefined)
+      .catch(() => undefined);
     return () => {
-      alive = false
-    }
-  }, [tocOpen, seriesId, series])
+      alive = false;
+    };
+  }, [tocOpen, seriesId, series]);
 
-  const pages = useMemo(() => (detail ? splitNovelPages(detail.content) : []), [detail])
+  const pages = useMemo(
+    () => (detail ? splitNovelPages(detail.content) : []),
+    [detail]
+  );
 
   const download = async (): Promise<void> => {
-    if (!detail || downloading) return
-    setDownloading(true)
+    if (!detail || downloading) return;
+    setDownloading(true);
     try {
-      const result = await window.pixiv.downloadNovel({ novelId: detail.id })
+      const result = await window.pixiv.downloadNovel({ novelId: detail.id });
       toast.success(t('novel.saved', { path: result.path }), {
         action: {
           label: t('novel.openDir'),
-          onClick: () => void window.pixiv.openDir(dirOf(result.path))
-        }
-      })
+          onClick: () => void window.pixiv.openDir(dirOf(result.path)),
+        },
+      });
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setDownloading(false)
+      setDownloading(false);
     }
-  }
+  };
 
   const applyBookmark = async (input: BookmarkInput): Promise<void> => {
-    const id = detail?.id || novelId
-    if (!id || bookmarkBusy) return
-    setBookmarkBusy(true)
+    const id = detail?.id || novelId;
+    if (!id || bookmarkBusy) return;
+    setBookmarkBusy(true);
     try {
-      const next = await window.pixiv.setNovelBookmark(id, input)
-      setBookmark(next)
-      setPrivacy(next.restrict)
+      const next = await window.pixiv.setNovelBookmark(id, input);
+      setBookmark(next);
+      setPrivacy(next.restrict);
     } catch (reason) {
-      toast.error(messageOf(reason))
+      toast.error(messageOf(reason));
     } finally {
-      setBookmarkBusy(false)
+      setBookmarkBusy(false);
     }
-  }
+  };
 
   /** 未收藏时只记住选择；已收藏时切换可见性要重新提交一次 */
   const choosePrivacy = (value: BookmarkPrivacy): void => {
-    if (privacy === value) return
-    setPrivacy(value)
-    if (bookmark?.bookmarked) void applyBookmark({ bookmarked: true, restrict: value })
-  }
+    if (privacy === value) return;
+    setPrivacy(value);
+    if (bookmark?.bookmarked)
+      void applyBookmark({ bookmarked: true, restrict: value });
+  };
 
   const themeClass =
     settings.theme === 'dark'
       ? 'bg-[#15161a] text-[#c8c8d0]'
       : settings.theme === 'light'
         ? 'bg-[#fbfbfa] text-[#232323]'
-        : 'bg-[#f4ecd8] text-[#3a3128]'
+        : 'bg-[#f4ecd8] text-[#3a3128]';
 
-  const seriesNav = detail?.series || null
-  const isR18 = Number(detail?.xRestrict || 0) >= 1
+  const seriesNav = detail?.series || null;
+  const isR18 = Number(detail?.xRestrict || 0) >= 1;
 
   if (loading) {
     return (
@@ -223,7 +229,7 @@ export function NovelReaderPage(): React.JSX.Element {
         <Loader2 className="h-4 w-4 animate-spin" />
         {t('novel.loading')}
       </main>
-    )
+    );
   }
 
   if (!detail) {
@@ -240,7 +246,7 @@ export function NovelReaderPage(): React.JSX.Element {
           </Button>
         </div>
       </main>
-    )
+    );
   }
 
   return (
@@ -263,7 +269,10 @@ export function NovelReaderPage(): React.JSX.Element {
               size="sm"
               disabled={bookmarkBusy}
               onClick={() =>
-                void applyBookmark({ bookmarked: !bookmark?.bookmarked, restrict: privacy })
+                void applyBookmark({
+                  bookmarked: !bookmark?.bookmarked,
+                  restrict: privacy,
+                })
               }
             >
               {bookmarkBusy ? (
@@ -273,7 +282,9 @@ export function NovelReaderPage(): React.JSX.Element {
               ) : (
                 <Bookmark />
               )}
-              {bookmark?.bookmarked ? t('detail.bookmarked') : t('detail.bookmark')}
+              {bookmark?.bookmarked
+                ? t('detail.bookmarked')
+                : t('detail.bookmark')}
             </Button>
             <div className="flex shrink-0 overflow-hidden rounded-md border border-border/70">
               {(['public', 'private'] as BookmarkPrivacy[]).map((value) => (
@@ -288,7 +299,9 @@ export function NovelReaderPage(): React.JSX.Element {
                       : 'px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/50'
                   }
                 >
-                  {value === 'public' ? t('detail.bookmarkPublic') : t('detail.bookmarkPrivate')}
+                  {value === 'public'
+                    ? t('detail.bookmarkPublic')
+                    : t('detail.bookmarkPrivate')}
                 </button>
               ))}
             </div>
@@ -296,7 +309,9 @@ export function NovelReaderPage(): React.JSX.Element {
         ) : null}
         <NovelReaderSettings
           settings={settings}
-          onChange={(patch) => setSettings((previous) => ({ ...previous, ...patch }))}
+          onChange={(patch) =>
+            setSettings((previous) => ({ ...previous, ...patch }))
+          }
         />
         {seriesId ? (
           <Button variant="ghost" size="sm" onClick={() => setTocOpen(true)}>
@@ -304,7 +319,12 @@ export function NovelReaderPage(): React.JSX.Element {
             {t('novel.toc')}
           </Button>
         ) : null}
-        <Button variant="outline" size="sm" disabled={downloading} onClick={() => void download()}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={downloading}
+          onClick={() => void download()}
+        >
           {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
           {downloading ? t('novel.downloading') : t('novel.download')}
         </Button>
@@ -312,7 +332,10 @@ export function NovelReaderPage(): React.JSX.Element {
           variant="ghost"
           size="sm"
           onClick={() =>
-            window.open(`https://www.pixiv.net/novel/show.php?id=${detail.id}`, '_blank')
+            window.open(
+              `https://www.pixiv.net/novel/show.php?id=${detail.id}`,
+              '_blank'
+            )
           }
         >
           {t('novel.openWeb')}
@@ -322,9 +345,9 @@ export function NovelReaderPage(): React.JSX.Element {
       <div
         ref={scrollRef}
         onScroll={(event) => {
-          const el = event.currentTarget
-          const max = el.scrollHeight - el.clientHeight
-          setPercent(max > 0 ? Math.round((el.scrollTop / max) * 100) : 100)
+          const el = event.currentTarget;
+          const max = el.scrollHeight - el.clientHeight;
+          setPercent(max > 0 ? Math.round((el.scrollTop / max) * 100) : 100);
         }}
         className={`scrollbar-thin min-h-0 flex-1 overflow-y-auto ${themeClass}`}
       >
@@ -333,7 +356,7 @@ export function NovelReaderPage(): React.JSX.Element {
           style={{
             fontSize: `${settings.fontSize}px`,
             lineHeight: settings.lineHeight,
-            maxWidth: `${settings.maxWidth}px`
+            maxWidth: `${settings.maxWidth}px`,
           }}
         >
           <header className="mb-8 border-b border-[rgba(128,128,128,0.22)] pb-6">
@@ -354,12 +377,20 @@ export function NovelReaderPage(): React.JSX.Element {
             <h1 className="text-xl font-semibold leading-8">{detail.title}</h1>
             <p className="mt-2 text-xs opacity-60">
               {detail.userName}
-              {seriesNav ? ` · ${t('novel.episode', { order: seriesNav.order })}` : ''}
+              {seriesNav
+                ? ` · ${t('novel.episode', { order: seriesNav.order })}`
+                : ''}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] opacity-60">
               <span>{t('novel.chars', { count: detail.textCount })}</span>
-              <span>{t('novel.readTime', { minutes: readingMinutes(detail.readingTime) })}</span>
-              <span>{t('novel.bookmarks', { count: detail.bookmarkCount })}</span>
+              <span>
+                {t('novel.readTime', {
+                  minutes: readingMinutes(detail.readingTime),
+                })}
+              </span>
+              <span>
+                {t('novel.bookmarks', { count: detail.bookmarkCount })}
+              </span>
               <span>{detail.createDate.slice(0, 10)}</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -378,7 +409,9 @@ export function NovelReaderPage(): React.JSX.Element {
             <section key={index} className="novel-page">
               <div
                 className="whitespace-pre-wrap break-words"
-                dangerouslySetInnerHTML={{ __html: renderNovelPage(page, detail.embeddedImages) }}
+                dangerouslySetInnerHTML={{
+                  __html: renderNovelPage(page, detail.embeddedImages),
+                }}
               />
               {index < pages.length - 1 ? (
                 <div className="my-10 flex items-center gap-3 text-[10px] opacity-30">
@@ -458,8 +491,8 @@ export function NovelReaderPage(): React.JSX.Element {
                     key={episode.id}
                     type="button"
                     onClick={() => {
-                      setTocOpen(false)
-                      navigate(`/novel/${episode.id}`)
+                      setTocOpen(false);
+                      navigate(`/novel/${episode.id}`);
                     }}
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] transition-colors ${
                       episode.id === detail.id
@@ -467,8 +500,12 @@ export function NovelReaderPage(): React.JSX.Element {
                         : 'text-muted-foreground hover:bg-secondary/50'
                     }`}
                   >
-                    <span className="w-6 shrink-0 opacity-70">{episode.order}</span>
-                    <span className="min-w-0 flex-1 truncate">{episode.title}</span>
+                    <span className="w-6 shrink-0 opacity-70">
+                      {episode.order}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {episode.title}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -487,5 +524,5 @@ export function NovelReaderPage(): React.JSX.Element {
         </div>
       ) : null}
     </main>
-  )
+  );
 }

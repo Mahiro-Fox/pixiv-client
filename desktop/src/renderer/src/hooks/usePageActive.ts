@@ -1,4 +1,4 @@
-import { useKeepAliveContext } from 'keepalive-for-react'
+import { useKeepAliveContext } from 'keepalive-for-react';
 
 /**
  * 当前页面是否处于「激活」状态。
@@ -11,6 +11,6 @@ import { useKeepAliveContext } from 'keepalive-for-react'
  * 不在 KeepAlive 内部时（context 默认 cacheKey 为空）一律视为激活，避免普通页面失效。
  */
 export function usePageActive(): boolean {
-  const context = useKeepAliveContext()
-  return context.cacheKey ? context.active : true
+  const context = useKeepAliveContext();
+  return context.cacheKey ? context.active : true;
 }

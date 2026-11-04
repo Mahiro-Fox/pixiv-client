@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 /**
  * 跟踪某个 `data-tour` 锚点在视口里的位置。
@@ -11,65 +11,66 @@ import { useEffect, useState } from 'react'
  * 的开销极小，且只在引导运行期间存在。
  */
 export function useAnchorRect(selector: string | null): DOMRect | null {
-  const [rect, setRect] = useState<DOMRect | null>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (!selector) {
-      setRect(null)
-      return
+      setRect(null);
+      return;
     }
 
-    let frame = 0
-    let last = ''
-    let alive = true
+    let frame = 0;
+    let last = '';
+    let alive = true;
 
     const measure = (): void => {
-      frame = 0
-      if (!alive) return
-      const node = document.querySelector(selector)
-      const next = node ? node.getBoundingClientRect() : null
+      frame = 0;
+      if (!alive) return;
+      const node = document.querySelector(selector);
+      const next = node ? node.getBoundingClientRect() : null;
       // 仅位置/尺寸变了才 setState，否则每帧都会触发一次重渲染
       const key = next
         ? `${Math.round(next.left)}|${Math.round(next.top)}|${Math.round(next.width)}|${Math.round(next.height)}`
-        : ''
-      if (key === last) return
-      last = key
-      setRect(next)
-    }
+        : '';
+      if (key === last) return;
+      last = key;
+      setRect(next);
+    };
 
     const schedule = (): void => {
-      if (!frame) frame = window.requestAnimationFrame(measure)
-    }
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
 
-    measure()
-    window.addEventListener('scroll', schedule, true)
-    window.addEventListener('resize', schedule)
-    const timer = window.setInterval(measure, 300)
+    measure();
+    window.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+    const timer = window.setInterval(measure, 300);
 
     return () => {
-      alive = false
-      if (frame) window.cancelAnimationFrame(frame)
-      window.clearInterval(timer)
-      window.removeEventListener('scroll', schedule, true)
-      window.removeEventListener('resize', schedule)
-    }
-  }, [selector])
+      alive = false;
+      if (frame) window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [selector]);
 
-  return rect
+  return rect;
 }
 
 /** 视口尺寸：遮罩按它铺满，气泡也按它夹在安全区内 */
 export function useViewportSize(): { width: number; height: number } {
   const [size, setSize] = useState(() => ({
     width: window.innerWidth,
-    height: window.innerHeight
-  }))
+    height: window.innerHeight,
+  }));
 
   useEffect(() => {
-    const onResize = (): void => setSize({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+    const onResize = (): void =>
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-  return size
+  return size;
 }

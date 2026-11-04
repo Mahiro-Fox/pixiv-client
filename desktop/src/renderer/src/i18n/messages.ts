@@ -1,4 +1,4 @@
-import type { Locale } from '@shared/types'
+import type { Locale } from '@shared/types';
 
 /**
  * 全部界面文案的单一来源。
@@ -17,7 +17,8 @@ const zhCN = {
   'theme.dark': '深色',
   'theme.system': '跟随系统',
   'settings.appearance.language': '界面语言',
-  'settings.appearance.languageHint': '切换后界面会重新加载，已抓取的列表需要重新获取',
+  'settings.appearance.languageHint':
+    '切换后界面会重新加载，已抓取的列表需要重新获取',
   'settings.appearance.languageSuccess': '语言切换成功, 即将自动刷新页面...',
 
   'settings.tray.title': '托盘与后台',
@@ -25,7 +26,8 @@ const zhCN = {
   'settings.tray.enable': '显示托盘图标',
   'settings.tray.enableHint': '关掉后关闭窗口会直接退出应用，下载随之中断',
   'settings.tray.closeToTray': '关闭窗口时收进托盘',
-  'settings.tray.closeToTrayHint': '点关闭只隐藏窗口，下载继续跑；彻底退出请用托盘菜单',
+  'settings.tray.closeToTrayHint':
+    '点关闭只隐藏窗口，下载继续跑；彻底退出请用托盘菜单',
   'settings.tray.minimizeToTray': '最小化时收进托盘',
   'settings.tray.minimizeToTrayHint': '点最小化直接隐藏到托盘，不占任务栏',
   'settings.tray.notify': '后台下载结束时提醒',
@@ -81,7 +83,8 @@ const zhCN = {
   'settings.proxy.passwordClear': '清除密码',
   'settings.proxy.bypass': '不走代理的地址',
   'settings.proxy.bypassHint': '逗号分隔，例如 localhost, 127.0.0.1, <local>',
-  'settings.proxy.socksHint': 'SOCKS4 / SOCKS5 不支持账号密码认证，请使用免认证的代理',
+  'settings.proxy.socksHint':
+    'SOCKS4 / SOCKS5 不支持账号密码认证，请使用免认证的代理',
   'settings.proxy.httpsHint':
     'HTTPS 表示用 TLS 连接代理本身（不是「用代理访问 HTTPS」）。v2rayN / Clash 的本地混合端口是普通 HTTP 代理，请选 HTTP；选错会报 ERR_PROXY_CONNECTION_FAILED，代理端日志会出现 TLS 握手被当成请求方法的报错',
   'settings.proxy.test': '测试连接',
@@ -97,7 +100,8 @@ const zhCN = {
   'settings.proxy.applyError': '应用失败：{message}',
 
   'settings.outDir.title': '保存目录',
-  'settings.outDir.hint': '按「作者 / 类型」两级存放：{作者ID}_{作者名}/illustration、manga、novel',
+  'settings.outDir.hint':
+    '按「作者 / 类型」两级存放：{作者ID}_{作者名}/illustration、manga、novel',
   'settings.outDir.pick': '选择目录',
   'settings.outDir.open': '打开目录',
 
@@ -126,7 +130,8 @@ const zhCN = {
   'settings.cookie.sourceEnv': '来自环境变量',
   'settings.cookie.sourceFile': '来自本地文件',
   'settings.cookie.sourceNone': '未配置',
-  'settings.cookie.hint': '未登录时 R-18 作品会被 pixiv 过滤，建议先配置 PHPSESSID',
+  'settings.cookie.hint':
+    '未登录时 R-18 作品会被 pixiv 过滤，建议先配置 PHPSESSID',
   'settings.cookie.currentUser': '当前登录：{name}（{id}）',
   'settings.cookie.placeholder': '粘贴 PHPSESSID=... 或完整 Cookie',
   'settings.cookie.save': '保存 Cookie',
@@ -143,11 +148,13 @@ const zhCN = {
   'settings.oauth.login': '通过 pixiv 登录获取',
   'settings.oauth.loginHint':
     '点上方按钮会打开 pixiv 授权页，登录成功后自动换取并保存 refresh_token，无需手工复制；client_id / client_secret 留空即用内置值',
-  'settings.oauth.loginDone': '已获取 refresh_token 并保存，可以开始收藏 / 关注',
+  'settings.oauth.loginDone':
+    '已获取 refresh_token 并保存，可以开始收藏 / 关注',
   'settings.oauth.saved': 'OAuth 凭据已保存',
   'settings.oauth.loginCanceled': '已取消授权登录',
   'settings.oauth.clear': '清除凭据',
-  'settings.oauth.clearConfirm': '清除后写操作将不可用，读取数据不受影响。确定清除？',
+  'settings.oauth.clearConfirm':
+    '清除后写操作将不可用，读取数据不受影响。确定清除？',
   'settings.oauth.clearOk': '确定清除',
   'settings.cookie.login': '登录 pixiv',
   'settings.cookie.loggingIn': '请在弹出的窗口中登录…',
@@ -156,13 +163,16 @@ const zhCN = {
   'settings.cookie.captchaLoop':
     '若验证码反复循环（尤其是一张图切成九块的拼图题），点验证码右下角的「换一个」图标刷新换题；仍不行就重启应用，重新打开登录窗口再试',
   'settings.cookie.loginCancelled': '未完成登录，已保存的 Cookie 保持不变',
-  'settings.cookie.alreadyLoggedIn': '当前已登录，无需再次登录。要切换账号请先清除 Cookie',
+  'settings.cookie.alreadyLoggedIn':
+    '当前已登录，无需再次登录。要切换账号请先清除 Cookie',
   'settings.cookie.clear': '清除 Cookie',
-  'settings.cookie.clearConfirm': '清除后需重新登录，验证码也要重新验证一遍。确定吗？',
+  'settings.cookie.clearConfirm':
+    '清除后需重新登录，验证码也要重新验证一遍。确定吗？',
   'settings.cookie.clearOk': '确认清除',
   'settings.cookie.clearCancel': '取消',
   'settings.cookie.orManual': '或手动粘贴',
-  'cookie.expired': '登录状态已失效，收藏夹等需要登录的内容会抓取失败，请重新登录',
+  'cookie.expired':
+    '登录状态已失效，收藏夹等需要登录的内容会抓取失败，请重新登录',
   'cookie.relogin': '重新登录',
   'cookie.recheck': '重新检测',
   'cookie.dismiss': '关闭提醒',
@@ -178,7 +188,8 @@ const zhCN = {
   'log.statusFailed': '失败',
   'log.running': '正在继续…',
   'follow.title': '关注列表',
-  'follow.hint': '点击任意画师即可用其用户 ID 抓取作品列表；也可点「pixiv」先去主页看看',
+  'follow.hint':
+    '点击任意画师即可用其用户 ID 抓取作品列表；也可点「pixiv」先去主页看看',
   'follow.close': '关闭',
   'follow.loading': '正在读取关注列表…',
   'follow.empty': '没有读到关注的用户，请检查登录状态是否有效',
@@ -219,7 +230,8 @@ const zhCN = {
   'common.close': '关闭',
 
   'error.crashTitle': '这个页面出错了',
-  'error.crashBody': '渲染时抛了异常，其它页面和后台下载不受影响。可以先重试，仍然失败就重新加载。',
+  'error.crashBody':
+    '渲染时抛了异常，其它页面和后台下载不受影响。可以先重试，仍然失败就重新加载。',
   'error.retry': '重试',
   'error.reload': '重新加载',
   'app.tabWorks': '作品列表',
@@ -254,15 +266,18 @@ const zhCN = {
   'collect.bookmarkType': '收藏类型',
   'collect.bookmarkShow': '公开收藏',
   'collect.bookmarkHide': '私密收藏',
-  'collect.bookmarkOtherUserHint': '私密收藏只有本人可见，抓取其他用户时只能选择公开收藏',
+  'collect.bookmarkOtherUserHint':
+    '私密收藏只有本人可见，抓取其他用户时只能选择公开收藏',
   'collect.bookmarkTagHint': '只取该标签下的收藏，留空则全部',
   'collect.tagCombine': '多标签组合',
   'collect.tagModeAnd': '同时满足',
   'collect.tagModeOr': '任一满足',
   'collect.tagExtra': '附加包含标签',
-  'collect.tagExtraHintBookmark': '收藏标签为空时，将先抓取全部收藏再按标签筛选',
+  'collect.tagExtraHintBookmark':
+    '收藏标签为空时，将先抓取全部收藏再按标签筛选',
   'collect.tagExtraHintAnd': '作品需同时包含主标签与这些标签',
-  'collect.tagExtraHintOr': '包含任一标签即可；会逐个标签抓取，请求量随标签数增加',
+  'collect.tagExtraHintOr':
+    '包含任一标签即可；会逐个标签抓取，请求量随标签数增加',
   'collect.tagExtraPlaceholder': '输入后回车，例如：オリジナル',
   'collect.tagExclude': '排除标签',
   'collect.tagExcludeHint': '作品包含任意一个排除标签时丢弃',
@@ -295,7 +310,8 @@ const zhCN = {
   'works.emptyOnlyNew': '没有未下载的作品',
   'works.empty': '还没有作品',
   'works.emptyOnlyNewHint': '当前结果都已下载过，可关闭筛选查看全部',
-  'works.emptyFilteredHint': '有 {count} 个作品被过滤规则排除，可调整规则后查看',
+  'works.emptyFilteredHint':
+    '有 {count} 个作品被过滤规则排除，可调整规则后查看',
   'works.emptyHint': '在左侧填写用户 ID 与标签，点击「抓取作品列表」开始',
   'works.adjustFilter': '调整过滤规则',
   'works.viewAll': '查看全部作品',
@@ -424,11 +440,13 @@ const zhCN = {
   'series.watch': '追更',
   'series.watching': '已追更',
   'series.openWeb': '在 pixiv 查看系列',
-  'series.webLimited': '未连接 App API 凭据，只显示当前作品。连接凭据后可浏览完整目录并追更。',
+  'series.webLimited':
+    '未连接 App API 凭据，只显示当前作品。连接凭据后可浏览完整目录并追更。',
   'series.empty': '这个系列还没有可见的作品',
   'series.episodeOrder': '第 {order} 话',
   'watchLater.title': '稍后看',
-  'watchLater.hint': '在作品详情里点「稍后看」加入，只保存在本地，不会同步到 pixiv 收藏',
+  'watchLater.hint':
+    '在作品详情里点「稍后看」加入，只保存在本地，不会同步到 pixiv 收藏',
   'watchLater.searchPlaceholder': '搜索标题 / 作者 / ID',
   'watchLater.clearSearch': '清除搜索',
   'watchLater.clear': '清空列表',
@@ -446,10 +464,12 @@ const zhCN = {
   'progress.phaseDone': '已完成',
   'progress.kindApi': '接口',
   'progress.kindCdn': '图片',
-  'progress.throttleCooldown': '{kind}限流冷却中 {seconds}s（并发 {concurrency}）',
+  'progress.throttleCooldown':
+    '{kind}限流冷却中 {seconds}s（并发 {concurrency}）',
   'progress.throttleSlowed': '已自动降速：{kind}并发 {concurrency}',
   'progress.notStarted': '尚未开始下载',
-  'progress.notStartedHint': '勾选右侧作品后点击「下载选中作品」，进度会实时显示在这里',
+  'progress.notStartedHint':
+    '勾选右侧作品后点击「下载选中作品」，进度会实时显示在这里',
   'progress.idle': '空闲',
   'progress.resolvingWorks': '解析作品信息 {done}/{total}',
   'progress.downloading': '下载中 {done}/{total}',
@@ -462,7 +482,8 @@ const zhCN = {
   'progress.parallel': '同时运行 {count} 个任务',
   'progress.totalProgress': '已完成 {done} / {total} 张图片',
   'progress.jobCount': '{count} 个任务',
-  'progress.parallelHint': '当前并行任务数 {count}，需要同时运行更多任务请点击这里前往设置调整',
+  'progress.parallelHint':
+    '当前并行任务数 {count}，需要同时运行更多任务请点击这里前往设置调整',
   'queue.title': '未完成任务',
   'queue.resumable': '{count} 个可续传',
   'queue.jobWorks': '{tag} · {count} 个作品',
@@ -542,7 +563,8 @@ const zhCN = {
   'filter.excludeTags': '排除标签',
   'filter.excludeTagsHint': '匹配作品标签，同时兜底匹配标题与作者名',
   'filter.excludeTagsPlaceholder': '例如：漫画, アニメ',
-  'filter.blockHint': '以下屏蔽规则全局生效：搜索结果、用户主页、收藏与下载都不会再出现这些作品',
+  'filter.blockHint':
+    '以下屏蔽规则全局生效：搜索结果、用户主页、收藏与下载都不会再出现这些作品',
   'filter.blockTags': '屏蔽标签',
   'filter.blockTagsHint': '逗号或空格分隔，整标签匹配',
   'filter.blockTagsPlaceholder': '例如：AI生成, グロ',
@@ -552,7 +574,8 @@ const zhCN = {
   'filter.manageBlocks': '管理屏蔽名单',
   'filter.manageBlocksCount': '用户 {users} · 标签 {tags}',
   'block.title': '屏蔽管理',
-  'block.description': '本客户端内的本地屏蔽：命中作者或标签的作品不再显示，也不会进入下载队列',
+  'block.description':
+    '本客户端内的本地屏蔽：命中作者或标签的作品不再显示，也不会进入下载队列',
   'block.users': '屏蔽的用户',
   'block.tags': '屏蔽的标签',
   'block.byId': '用户 ID · 精确匹配',
@@ -560,12 +583,14 @@ const zhCN = {
   'block.byTag': '整标签匹配',
   'block.emptyUsers': '还没有屏蔽任何用户',
   'block.emptyTags': '还没有屏蔽任何标签',
-  'block.emptyHint': '添加：在作品卡 / 用户卡上右键「屏蔽该作者」，或在过滤弹窗的输入框里填写',
+  'block.emptyHint':
+    '添加：在作品卡 / 用户卡上右键「屏蔽该作者」，或在过滤弹窗的输入框里填写',
   'block.remove': '取消屏蔽',
   'block.clear': '清空',
   'block.clearConfirm': '确认清空',
   'block.openProfile': '在 pixiv 打开主页',
-  'block.note': '仅在本客户端生效，不改变 pixiv 账号的屏蔽状态；取消后需要刷新列表才会重新出现。',
+  'block.note':
+    '仅在本客户端生效，不改变 pixiv 账号的屏蔽状态；取消后需要刷新列表才会重新出现。',
 
   'nav.illust': '插画',
   'nav.manga': '漫画',
@@ -672,7 +697,8 @@ const zhCN = {
   'history.hoursAgo': '{count} 小时前',
 
   'favorites.title': '收藏浏览',
-  'favorites.hint': '按标签翻阅自己或他人的收藏，只看不下载；私密收藏仅本人可见',
+  'favorites.hint':
+    '按标签翻阅自己或他人的收藏，只看不下载；私密收藏仅本人可见',
   'favorites.userIdPlaceholder': '用户 ID，留空则用自己的',
   'favorites.load': '读取',
   'favorites.mine': '我的收藏（{name}）',
@@ -686,10 +712,12 @@ const zhCN = {
   'favorites.empty': '这个标签下没有收藏的作品',
   'favorites.needUser': '先填写用户 ID 再读取收藏',
   'favorites.needUserHint': '直接点「我的收藏」可以看当前登录账号的收藏',
-  'favorites.privateHint': '私密收藏只有本人登录后才能查看，请切换到自己的用户 ID 或改用公开收藏',
+  'favorites.privateHint':
+    '私密收藏只有本人登录后才能查看，请切换到自己的用户 ID 或改用公开收藏',
 
   'ranking.title': '官方排行榜',
-  'ranking.hint': '插画与漫画的日 / 周 / 月榜，含新人、原创与性别向榜单，可指定历史日期',
+  'ranking.hint':
+    '未登录时读取网页榜单；连接 App API 后可查看更完整的 App 榜单（含 R-18 与漫画榜）',
   'ranking.kind.illust': '插画',
   'ranking.kind.manga': '漫画',
   'ranking.mode.daily': '今日',
@@ -699,12 +727,36 @@ const zhCN = {
   'ranking.mode.original': '原创',
   'ranking.mode.male': '男性向',
   'ranking.mode.female': '女性向',
+  'ranking.content': '内容',
+  'ranking.period': '周期',
+  'ranking.period.day': '本日',
+  'ranking.period.week': '本周',
+  'ranking.period.month': '本月',
+  'ranking.category': '分类',
+  'ranking.category.general': '综合',
+  'ranking.category.male': '男性向',
+  'ranking.category.female': '女性向',
+  'ranking.category.original': '原创',
+  'ranking.category.rookie': '新人',
+  'ranking.rating': '分级',
+  'ranking.rating.normal': '全年龄',
+  'ranking.rating.r18': 'R-18',
+  'ranking.rating.r18g': 'R-18G',
+  'ranking.group.web': '网页榜单',
+  'ranking.filter': '内容过滤',
+  'ranking.filter.android': 'Android',
+  'ranking.filter.ios': 'iOS',
+  'ranking.source.web': '来源：网页接口',
+  'ranking.source.app': '来源：App API',
+  'ranking.countApp': '本页 {count} 件',
+  'ranking.filters': '筛选',
   'ranking.refresh': '刷新',
   'ranking.latest': '最新一期',
   'ranking.count': '共 {count} 件',
   'ranking.date': '榜单日期 {date}',
   'ranking.nextDate': '下一期 {date}',
-  'ranking.dateHint': '选择历史日期可回看当期榜单，留空为最新一期；每页 50 件，最多 10 页',
+  'ranking.dateHint':
+    '选择历史日期可回看当期榜单，留空为最新一期；网页榜单每页 50 件、App 榜单每页 30 件，最多 10 页',
   'ranking.empty': '这一期没有榜单数据',
 
   'recommend.title': '推荐',
@@ -713,7 +765,8 @@ const zhCN = {
   'recommend.tabUsers': '画师',
   'recommend.count': '已加载 {count} 项',
   'recommend.refresh': '刷新',
-  'recommend.webNotice': '未连接 App API，当前展示网页端发现内容（数量有限，画师推荐不可用）',
+  'recommend.webNotice':
+    '未连接 App API，当前展示网页端发现内容（数量有限，画师推荐不可用）',
   'recommend.usersNeedOAuth': '推荐画师需要先连接 App API',
   'recommend.usersNeedOAuthHint': '到「设置 → App API 凭据」完成连接后即可查看',
   'recommend.empty': '暂无推荐作品，稍后刷新试试',
@@ -850,13 +903,14 @@ const zhCN = {
   'tour.collect.body':
     '输入画师id，抓取此画师的所有作品。多个标签用空格隔开，按「与」组合。',
   'tour.toolbar.title': '作品工具栏',
-  'tour.toolbar.body': '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
+  'tour.toolbar.body':
+    '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
   'tour.tabs.title': '三个标签',
   'tour.tabs.body':
-    '作品列表、下载任务、下载日志各自独立。任务支持断点续传，失败的条目可以在任务标签里重试或取消。'
-}
+    '作品列表、下载任务、下载日志各自独立。任务支持断点续传，失败的条目可以在任务标签里重试或取消。',
+};
 
-export type MessageKey = keyof typeof zhCN
+export type MessageKey = keyof typeof zhCN;
 
 const en: Record<MessageKey, string> = {
   'settings.title': 'Settings',
@@ -867,14 +921,16 @@ const en: Record<MessageKey, string> = {
   'settings.appearance.title': 'Appearance & language',
   'settings.appearance.summary': 'Theme and interface language',
   'settings.appearance.theme': 'Theme',
-  'settings.appearance.themeHint': '"System" follows your OS light/dark mode automatically',
+  'settings.appearance.themeHint':
+    '"System" follows your OS light/dark mode automatically',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
   'theme.system': 'System',
   'settings.appearance.language': 'Language',
   'settings.appearance.languageHint':
     'Switching reloads the interface; fetched lists will be requested again',
-  'settings.appearance.languageSuccess': 'Language switched, page will reload in a moment',
+  'settings.appearance.languageSuccess':
+    'Language switched, page will reload in a moment',
 
   'settings.tray.title': 'Tray & background',
   'settings.tray.summary': 'Keep downloading after closing',
@@ -885,17 +941,21 @@ const en: Record<MessageKey, string> = {
   'settings.tray.closeToTrayHint':
     'The close button only hides the window; downloads keep running. Quit from the tray menu',
   'settings.tray.minimizeToTray': 'Minimize to tray',
-  'settings.tray.minimizeToTrayHint': 'Minimizing hides the window from the taskbar',
+  'settings.tray.minimizeToTrayHint':
+    'Minimizing hides the window from the taskbar',
   'settings.tray.notify': 'Notify when background downloads finish',
   'settings.tray.notifyHint':
     'When the window is not in front, show a tray balloon with the success / failure counts',
 
   'settings.quality.title': 'Download quality',
-  'settings.quality.hint': 'You can also switch quickly in the left panel before downloading',
+  'settings.quality.hint':
+    'You can also switch quickly in the left panel before downloading',
   'settings.quality.regular': 'Standard',
-  'settings.quality.regularHint': 'About 1200px, smaller files, good for browsing and backup',
+  'settings.quality.regularHint':
+    'About 1200px, smaller files, good for browsing and backup',
   'settings.quality.original': 'Original',
-  'settings.quality.originalHint': 'Full resolution, larger files, best for archiving',
+  'settings.quality.originalHint':
+    'Full resolution, larger files, best for archiving',
   'settings.quality.note':
     'Ugoira works ignore quality and use the format below. Changing quality re-checks downloaded files',
 
@@ -919,7 +979,8 @@ const en: Record<MessageKey, string> = {
   'settings.throttle.cdnConcurrency': 'Image concurrency',
   'settings.throttle.cdnConcurrencyHint': 'Simultaneous CDN downloads',
   'settings.throttle.parallelJobs': 'Parallel tasks',
-  'settings.throttle.parallelJobsHint': 'How many download tasks run at once; 1 = serial',
+  'settings.throttle.parallelJobsHint':
+    'How many download tasks run at once; 1 = serial',
   'settings.throttle.cdnInterval': 'Image interval',
   'settings.throttle.note':
     'Higher concurrency is faster but more likely to be rate-limited. On 429 the app still cools down globally, temporarily lowers concurrency, then ramps back to these values',
@@ -939,7 +1000,8 @@ const en: Record<MessageKey, string> = {
   'settings.proxy.passwordKeep': 'Saved — leave blank to keep',
   'settings.proxy.passwordClear': 'Clear password',
   'settings.proxy.bypass': 'Bypass list',
-  'settings.proxy.bypassHint': 'Comma separated, e.g. localhost, 127.0.0.1, <local>',
+  'settings.proxy.bypassHint':
+    'Comma separated, e.g. localhost, 127.0.0.1, <local>',
   'settings.proxy.socksHint':
     'Chromium does not support username/password auth for SOCKS4 / SOCKS5; use an unauthenticated proxy',
   'settings.proxy.httpsHint':
@@ -957,7 +1019,8 @@ const en: Record<MessageKey, string> = {
   'settings.proxy.applyError': 'Failed to apply: {message}',
 
   'settings.outDir.title': 'Save folder',
-  'settings.outDir.hint': 'Stored as "artist / type": {artistId}_{name}/illustration, manga, novel',
+  'settings.outDir.hint':
+    'Stored as "artist / type": {artistId}_{name}/illustration, manga, novel',
   'settings.outDir.pick': 'Choose folder',
   'settings.outDir.open': 'Open folder',
 
@@ -1004,7 +1067,8 @@ const en: Record<MessageKey, string> = {
   'settings.oauth.login': 'Sign in with pixiv',
   'settings.oauth.loginHint':
     'The button opens the pixiv authorization page and saves the refresh_token automatically — no copying needed. Leave client_id / client_secret empty to use the built-in values',
-  'settings.oauth.loginDone': 'refresh_token saved — bookmarking and following are ready',
+  'settings.oauth.loginDone':
+    'refresh_token saved — bookmarking and following are ready',
   'settings.oauth.saved': 'OAuth credentials saved',
   'settings.oauth.loginCanceled': 'Authorization cancelled',
   'settings.oauth.clear': 'Clear credentials',
@@ -1017,10 +1081,13 @@ const en: Record<MessageKey, string> = {
     'Opens the pixiv sign-in page inside the app and grabs the session cookie automatically — no manual copying. Sign in with your pixiv email or ID password',
   'settings.cookie.captchaLoop':
     'If the captcha keeps looping (especially the tile-puzzle type), click the reload icon at the bottom-right of the captcha to get another challenge; if that fails, restart the app and open the sign-in window again',
-  'settings.cookie.loginCancelled': 'Sign-in was not completed; the saved cookie is unchanged',
-  'settings.cookie.alreadyLoggedIn': 'Already signed in. Clear the cookie first to switch accounts',
+  'settings.cookie.loginCancelled':
+    'Sign-in was not completed; the saved cookie is unchanged',
+  'settings.cookie.alreadyLoggedIn':
+    'Already signed in. Clear the cookie first to switch accounts',
   'settings.cookie.clear': 'Clear cookie',
-  'settings.cookie.clearConfirm': 'You will need to sign in and pass the captcha again. Continue?',
+  'settings.cookie.clearConfirm':
+    'You will need to sign in and pass the captcha again. Continue?',
   'settings.cookie.clearOk': 'Clear',
   'settings.cookie.clearCancel': 'Cancel',
   'settings.cookie.orManual': 'or paste manually',
@@ -1034,7 +1101,8 @@ const en: Record<MessageKey, string> = {
   'header.loggedIn': 'Signed in',
   'header.premium': 'Premium',
   'log.emptyTitle': 'No download history yet',
-  'log.emptyHint': 'Once a download starts, the result of every image shows up here in real time',
+  'log.emptyHint':
+    'Once a download starts, the result of every image shows up here in real time',
   'log.statusOk': 'Done',
   'log.statusExists': 'Exists',
   'log.statusReplaced': 'Replaced',
@@ -1109,8 +1177,10 @@ const en: Record<MessageKey, string> = {
   'app.enqueued': '{count} works added to the download queue',
   'app.noWorksBookmarks':
     'No works in the bookmarks. Check the bookmark user, bookmark type or sign-in status',
-  'app.noWorks': 'No works were returned. Check the user ID, tags or sign-in status',
-  'app.needLogin': 'This action requires signing in to pixiv. Sign in from Settings and try again',
+  'app.noWorks':
+    'No works were returned. Check the user ID, tags or sign-in status',
+  'app.needLogin':
+    'This action requires signing in to pixiv. Sign in from Settings and try again',
   'app.partialFail': '{count} pages failed to load; the list may be incomplete',
   'collect.tagSuggest': 'Tag suggestions',
   'collect.removeTag': 'Remove {tag}',
@@ -1124,14 +1194,16 @@ const en: Record<MessageKey, string> = {
   'collect.bookmarkHide': 'Private bookmarks',
   'collect.bookmarkOtherUserHint':
     'Private bookmarks are visible only to their owner, so collecting another user only allows public bookmarks',
-  'collect.bookmarkTagHint': 'Only take bookmarks under this tag; leave empty for all',
+  'collect.bookmarkTagHint':
+    'Only take bookmarks under this tag; leave empty for all',
   'collect.tagCombine': 'Multiple tags',
   'collect.tagModeAnd': 'Match all',
   'collect.tagModeOr': 'Match any',
   'collect.tagExtra': 'Additional include tags',
   'collect.tagExtraHintBookmark':
     'When the bookmark tag is empty, all bookmarks are fetched first, then filtered by tag',
-  'collect.tagExtraHintAnd': 'Works must contain both the main tag and these tags',
+  'collect.tagExtraHintAnd':
+    'Works must contain both the main tag and these tags',
   'collect.tagExtraHintOr':
     'Works containing any of these tags match; each tag is fetched separately, so more tags means more requests',
   'collect.tagExtraPlaceholder': 'Press Enter to add, e.g. オリジナル',
@@ -1169,7 +1241,8 @@ const en: Record<MessageKey, string> = {
     'All current results are already downloaded; turn off the filter to see everything',
   'works.emptyFilteredHint':
     '{count} works were removed by filter rules; adjust the rules to see them',
-  'works.emptyHint': 'Enter a user ID and tag on the left, then click "Collect works" to start',
+  'works.emptyHint':
+    'Enter a user ID and tag on the left, then click "Collect works" to start',
   'works.adjustFilter': 'Adjust filter rules',
   'works.viewAll': 'View all works',
   'works.totalPrefix': 'Total ',
@@ -1196,7 +1269,8 @@ const en: Record<MessageKey, string> = {
   'tags.noMatch': 'No matching tags',
   'tags.retry': 'Retry',
   'tags.refresh': 'Refresh',
-  'tags.refreshFailed': 'Refresh failed: {message} (still showing the previous result)',
+  'tags.refreshFailed':
+    'Refresh failed: {message} (still showing the previous result)',
   'tags.allWorks': 'All works',
   'tags.singleHint': 'pixiv supports one tag at a time',
   'tags.needUser': 'Fill in the author ID on the left first',
@@ -1225,7 +1299,8 @@ const en: Record<MessageKey, string> = {
   'library.ugoira': 'Ugoira',
   'library.openFolder': 'Open containing folder',
   'library.authorStat': '{works} works · {files} files · {bytes}',
-  'library.authorTypes': '{illustration} illustrations · {manga} manga · {novel} novels',
+  'library.authorTypes':
+    '{illustration} illustrations · {manga} manga · {novel} novels',
   'library.tabIllustration': 'Illustrations',
   'library.tabManga': 'Manga',
   'library.tabNovel': 'Novels',
@@ -1243,7 +1318,8 @@ const en: Record<MessageKey, string> = {
   'library.sortSize': 'Size',
   'library.sortId': 'Work ID',
   'library.authors': 'Artists',
-  'library.authorsHint': '{count} artists · click one for illustrations / manga / novels',
+  'library.authorsHint':
+    '{count} artists · click one for illustrations / manga / novels',
   'library.rescan': 'Rescan',
   'library.openLibrary': 'Open library',
   'library.workCount': '{count} works',
@@ -1311,7 +1387,8 @@ const en: Record<MessageKey, string> = {
   'watchLater.cancel': 'Cancel',
   'watchLater.loading': 'Loading watch later',
   'watchLater.empty': 'Nothing added yet',
-  'watchLater.emptyHint': 'Open any work detail and press “Watch later” to add it',
+  'watchLater.emptyHint':
+    'Open any work detail and press “Watch later” to add it',
   'watchLater.noMatch': 'No matching works',
   'watchLater.remove': 'Remove from watch later',
   'progress.phaseIdle': 'Waiting',
@@ -1321,7 +1398,8 @@ const en: Record<MessageKey, string> = {
   'progress.phaseDone': 'Done',
   'progress.kindApi': 'API',
   'progress.kindCdn': 'Image',
-  'progress.throttleCooldown': '{kind} rate-limit cooldown {seconds}s (concurrency {concurrency})',
+  'progress.throttleCooldown':
+    '{kind} rate-limit cooldown {seconds}s (concurrency {concurrency})',
   'progress.throttleSlowed': 'Slowed down: {kind} concurrency {concurrency}',
   'progress.notStarted': 'Download not started yet',
   'progress.notStartedHint':
@@ -1372,7 +1450,8 @@ const en: Record<MessageKey, string> = {
   'queue.remove': 'Remove',
   'queue.openDir': 'Open folder',
   'queue.loadingFailures': 'Loading the failure list…',
-  'queue.noFailures': 'No failed items (works that failed to resolve are re-resolved on retry)',
+  'queue.noFailures':
+    'No failed items (works that failed to resolve are re-resolved on retry)',
   'queue.failuresCount': '{count} items in total; only these are retried',
   'queue.kindResolve': 'Resolve',
   'queue.kindDownload': 'Download',
@@ -1415,10 +1494,12 @@ const en: Record<MessageKey, string> = {
     'Recommendations come from the App API, where rating is decided by your account settings and the endpoint — this option has no effect here, and applies again on search pages',
   'filter.excludeAi': 'Exclude AI works',
   'filter.excludeKeywords': 'Exclude keywords',
-  'filter.excludeKeywordsHint': 'Matches title and artist name; separate by comma or space',
+  'filter.excludeKeywordsHint':
+    'Matches title and artist name; separate by comma or space',
   'filter.excludeKeywordsPlaceholder': 'e.g. AI, 漫画, まとめ',
   'filter.excludeTags': 'Exclude tags',
-  'filter.excludeTagsHint': 'Matches work tags, and also falls back to title and artist name',
+  'filter.excludeTagsHint':
+    'Matches work tags, and also falls back to title and artist name',
   'filter.excludeTagsPlaceholder': 'e.g. 漫画, アニメ',
   'filter.blockHint':
     'Block rules apply globally: matching works disappear from search, user pages, bookmarks and downloads',
@@ -1459,7 +1540,8 @@ const en: Record<MessageKey, string> = {
   'nav.recommend': 'Recommended',
   'nav.watchLater': 'Watch later',
 
-  'app.searchPlaceholder': 'Search illustrations, manga, novels or users — press Enter',
+  'app.searchPlaceholder':
+    'Search illustrations, manga, novels or users — press Enter',
   'app.searchSubmit': 'Search',
   'search.history': 'Search history',
   'search.clear': 'Clear',
@@ -1502,7 +1584,8 @@ const en: Record<MessageKey, string> = {
   'menu.blocked': 'Blocked “{name}”; their works are hidden now',
   'menu.blockSkipped': '“{name}” is already blocked',
   'menu.unblockAuthor': 'Unblock this artist',
-  'menu.unblocked': 'Unblocked “{name}”; their works show again after a refresh',
+  'menu.unblocked':
+    'Unblocked “{name}”; their works show again after a refresh',
   'menu.notBlocked': '“{name}” is not blocked',
   'menu.watchLaterAdded': 'Added to Watch later',
   'menu.watchLaterRemoved': 'Removed from Watch later',
@@ -1533,18 +1616,21 @@ const en: Record<MessageKey, string> = {
   'user.premium': 'Premium',
   'user.empty': 'No works yet',
   'user.bookmarksHint': 'Bookmarks are only visible after signing in',
-  'user.bookmarksLoginHint': "Sign in to pixiv to view this user's public bookmarks",
+  'user.bookmarksLoginHint':
+    "Sign in to pixiv to view this user's public bookmarks",
   'user.back': 'Back',
   'user.toDownload': 'Open in Downloader',
 
   'history.title': 'History',
-  'history.hint': 'Works you open in the detail dialog are recorded here, stored locally only',
+  'history.hint':
+    'Works you open in the detail dialog are recorded here, stored locally only',
   'history.count': '{count} items',
   'history.searchPlaceholder': 'Search title / author / work ID',
   'history.clearSearch': 'Clear search',
   'history.loading': 'Loading history…',
   'history.empty': 'No browsing history yet',
-  'history.emptyHint': 'Open any work detail and its thumbnail will show up here',
+  'history.emptyHint':
+    'Open any work detail and its thumbnail will show up here',
   'history.noMatch': 'No matching records',
   'history.clear': 'Clear history',
   'history.confirmClear': 'Confirm clear',
@@ -1568,13 +1654,14 @@ const en: Record<MessageKey, string> = {
   'favorites.count': '{count} bookmarks',
   'favorites.empty': 'No bookmarks under this tag',
   'favorites.needUser': 'Enter a user ID to load bookmarks',
-  'favorites.needUserHint': 'Tap “My bookmarks” to view the signed-in account’s bookmarks',
+  'favorites.needUserHint':
+    'Tap “My bookmarks” to view the signed-in account’s bookmarks',
   'favorites.privateHint':
     'Private bookmarks are only visible to the owner — switch to your own user ID or use public bookmarks',
 
   'ranking.title': 'Official ranking',
   'ranking.hint':
-    'Daily, weekly and monthly illust / manga rankings plus rookie, original, male and female lists; any past date works',
+    'Signed out pulls the web ranking; connecting App API unlocks the fuller App lists, including R-18 and manga',
   'ranking.kind.illust': 'Illustrations',
   'ranking.kind.manga': 'Manga',
   'ranking.mode.daily': 'Daily',
@@ -1584,13 +1671,36 @@ const en: Record<MessageKey, string> = {
   'ranking.mode.original': 'Original',
   'ranking.mode.male': 'Male',
   'ranking.mode.female': 'Female',
+  'ranking.content': 'Content',
+  'ranking.period': 'Period',
+  'ranking.period.day': 'Daily',
+  'ranking.period.week': 'Weekly',
+  'ranking.period.month': 'Monthly',
+  'ranking.category': 'Category',
+  'ranking.category.general': 'General',
+  'ranking.category.male': 'Male',
+  'ranking.category.female': 'Female',
+  'ranking.category.original': 'Original',
+  'ranking.category.rookie': 'Rookie',
+  'ranking.rating': 'Rating',
+  'ranking.rating.normal': 'All ages',
+  'ranking.rating.r18': 'R-18',
+  'ranking.rating.r18g': 'R-18G',
+  'ranking.group.web': 'Web lists',
+  'ranking.filter': 'Content filter',
+  'ranking.filter.android': 'Android',
+  'ranking.filter.ios': 'iOS',
+  'ranking.source.web': 'Source: web API',
+  'ranking.source.app': 'Source: App API',
+  'ranking.countApp': '{count} works on this page',
+  'ranking.filters': 'Filters',
   'ranking.refresh': 'Refresh',
   'ranking.latest': 'Latest',
   'ranking.count': '{count} works',
   'ranking.date': 'Ranking date {date}',
   'ranking.nextDate': 'Next issue {date}',
   'ranking.dateHint':
-    'Pick a past date to view that issue; leave blank for the latest. 50 works per page, up to 10 pages',
+    'Pick a past date to view that issue; leave blank for the latest. Web lists show 50 works per page, App lists 30, up to 10 pages',
   'ranking.empty': 'No ranking data for this issue',
 
   'recommend.title': 'Recommended',
@@ -1603,7 +1713,8 @@ const en: Record<MessageKey, string> = {
   'recommend.webNotice':
     'App API is not connected — showing the web discovery feed (limited; artist picks unavailable)',
   'recommend.usersNeedOAuth': 'Connect App API to see recommended artists',
-  'recommend.usersNeedOAuthHint': 'Open Settings → App API credentials and connect first',
+  'recommend.usersNeedOAuthHint':
+    'Open Settings → App API credentials and connect first',
   'recommend.empty': 'No recommendations yet — try refreshing later',
   'recommend.emptyUsers': 'No recommended artists yet — try refreshing later',
 
@@ -1699,7 +1810,8 @@ const en: Record<MessageKey, string> = {
   'settings.update.idle': 'Not checked yet',
   'settings.update.available': 'Version v{version} is available',
   'settings.update.downloading': 'Downloading update: {percent}%',
-  'settings.update.downloaded': 'Version v{version} is ready; restart to install',
+  'settings.update.downloaded':
+    'Version v{version} is ready; restart to install',
   'settings.update.install': 'Restart and install',
   'settings.update.upToDate': 'You are up to date',
   'settings.update.error': 'Update check failed: {message}',
@@ -1713,7 +1825,8 @@ const en: Record<MessageKey, string> = {
     'Cancel skips installing; this version keeps working. The next launch asks again and reuses the downloaded package instead of fetching it twice',
   'update.restart': 'Restart and install',
   'update.cancel': 'Cancel',
-  'update.installFailed': 'The package is not ready yet — check for updates again in Settings',
+  'update.installFailed':
+    'The package is not ready yet — check for updates again in Settings',
 
   'tour.progress': 'Step {current} of {total}',
   'tour.close': 'Close the tour',
@@ -1744,12 +1857,13 @@ const en: Record<MessageKey, string> = {
     'Sort, export the selected list, or show only undownloaded works. 50 per page — your position survives leaving and coming back.',
   'tour.tabs.title': 'Three tabs',
   'tour.tabs.body':
-    'Works, download tasks and the download log are separate. Tasks resume where they stopped, and failed items can be retried or cancelled from the tasks tab.'
-}
+    'Works, download tasks and the download log are separate. Tasks resume where they stopped, and failed items can be retried or cancelled from the tasks tab.',
+};
 
 const ja: Record<MessageKey, string> = {
   'settings.title': '設定',
-  'settings.description': '画質・保存先・ファイル名テンプレート・Cookie などの全体設定',
+  'settings.description':
+    '画質・保存先・ファイル名テンプレート・Cookie などの全体設定',
   'settings.done': '完了',
 
   'settings.appearance.title': '外観と言語',
@@ -1763,7 +1877,8 @@ const ja: Record<MessageKey, string> = {
   'settings.appearance.language': '表示言語',
   'settings.appearance.languageHint':
     '切り替えると画面を再読み込みします。取得済みの一覧は再取得が必要です',
-  'settings.appearance.languageSuccess': '言語を切り替えた。画面を再読み込み中です',
+  'settings.appearance.languageSuccess':
+    '言語を切り替えた。画面を再読み込み中です',
 
   'settings.tray.title': 'トレイとバックグラウンド',
   'settings.tray.summary': '閉じてもダウンロードを続ける',
@@ -1774,7 +1889,8 @@ const ja: Record<MessageKey, string> = {
   'settings.tray.closeToTrayHint':
     '閉じるボタンはウィンドウを隠すだけで、ダウンロードは継続します。終了はトレイメニューから',
   'settings.tray.minimizeToTray': '最小化時にトレイへ格納',
-  'settings.tray.minimizeToTrayHint': '最小化でタスクバーから隠し、トレイだけに残します',
+  'settings.tray.minimizeToTrayHint':
+    '最小化でタスクバーから隠し、トレイだけに残します',
   'settings.tray.notify': 'バックグラウンド完了時に通知',
   'settings.tray.notifyHint':
     'ウィンドウが前面にないとき、成功・失敗件数をトレイのバルーンで知らせます',
@@ -1782,7 +1898,8 @@ const ja: Record<MessageKey, string> = {
   'settings.quality.title': 'ダウンロード画質',
   'settings.quality.hint': 'ダウンロード前に左パネルからも切り替えられます',
   'settings.quality.regular': '標準画質',
-  'settings.quality.regularHint': '約 1200px、容量が小さく閲覧やバックアップ向け',
+  'settings.quality.regularHint':
+    '約 1200px、容量が小さく閲覧やバックアップ向け',
   'settings.quality.original': '原寸画像',
   'settings.quality.originalHint': '作品の元サイズ、容量は大きいが保存向け',
   'settings.quality.note':
@@ -1808,7 +1925,8 @@ const ja: Record<MessageKey, string> = {
   'settings.throttle.cdnConcurrency': '画像同時接続数',
   'settings.throttle.cdnConcurrencyHint': 'CDN の同時ダウンロード数',
   'settings.throttle.parallelJobs': '並列タスク数',
-  'settings.throttle.parallelJobsHint': '同時に実行するダウンロード数（1 は直列）',
+  'settings.throttle.parallelJobsHint':
+    '同時に実行するダウンロード数（1 は直列）',
   'settings.throttle.cdnInterval': '画像間隔',
   'settings.throttle.note':
     '同時接続を増やすほど速くなりますが制限されやすくなります。429 時は全体を冷却して一時的に接続数を下げ、回復後にここで設定した値へ戻ります',
@@ -1828,7 +1946,8 @@ const ja: Record<MessageKey, string> = {
   'settings.proxy.passwordKeep': '保存済み（空欄なら変更しません）',
   'settings.proxy.passwordClear': 'パスワードを削除',
   'settings.proxy.bypass': 'プロキシを使わないアドレス',
-  'settings.proxy.bypassHint': 'カンマ区切り、例：localhost, 127.0.0.1, <local>',
+  'settings.proxy.bypassHint':
+    'カンマ区切り、例：localhost, 127.0.0.1, <local>',
   'settings.proxy.socksHint':
     'Chromium の SOCKS4 / SOCKS5 はユーザー名・パスワード認証に対応していません。認証不要のプロキシを使ってください',
   'settings.proxy.httpsHint':
@@ -1886,7 +2005,8 @@ const ja: Record<MessageKey, string> = {
   'settings.oauth.notConnected': '未接続',
   'settings.oauth.hint':
     'ブックマークやフォローは pixiv App API を使います。client_id / client_secret は公式クライアントの定数で、空欄なら内蔵値を使用します。秘密にすべきはご自身の refresh_token のみで、ローカルに保存されます',
-  'settings.oauth.connectedHint': 'ユーザー {userId} · refresh_token 末尾 {tail}',
+  'settings.oauth.connectedHint':
+    'ユーザー {userId} · refresh_token 末尾 {tail}',
   'settings.oauth.clientId': 'client_id（空欄なら内蔵値）',
   'settings.oauth.clientSecret': 'client_secret（空欄なら内蔵値）',
   'settings.oauth.refreshToken': 'refresh_token（ログインで自動取得可）',
@@ -1894,7 +2014,8 @@ const ja: Record<MessageKey, string> = {
   'settings.oauth.login': 'pixiv ログインで取得',
   'settings.oauth.loginHint':
     '上のボタンで pixiv の認証ページが開き、refresh_token を自動で取得・保存します（手動コピー不要）。client_id / client_secret は空欄なら内蔵値を使用します',
-  'settings.oauth.loginDone': 'refresh_token を保存しました。ブックマーク / フォローが使えます',
+  'settings.oauth.loginDone':
+    'refresh_token を保存しました。ブックマーク / フォローが使えます',
   'settings.oauth.saved': 'OAuth 認証情報を保存しました',
   'settings.oauth.loginCanceled': '認証ログインをキャンセルしました',
   'settings.oauth.clear': '認証情報を削除',
@@ -1927,7 +2048,8 @@ const ja: Record<MessageKey, string> = {
   'header.loggedIn': 'ログイン済み',
   'header.premium': 'プレミアム',
   'log.emptyTitle': 'ダウンロード履歴はまだありません',
-  'log.emptyHint': 'ダウンロードを開始すると、各画像の結果がここにリアルタイムで表示されます',
+  'log.emptyHint':
+    'ダウンロードを開始すると、各画像の結果がここにリアルタイムで表示されます',
   'log.statusOk': '完了',
   'log.statusExists': '既存',
   'log.statusReplaced': '上書き',
@@ -1950,7 +2072,8 @@ const ja: Record<MessageKey, string> = {
   'follow.searchCount': '{count} 件一致',
   'follow.searchEmpty': '一致する絵師が見つかりません',
   'batch.select': 'バッチ同期に追加',
-  'batch.selectHint': '複数の絵師を選択すると、現在のタグで順番に取得してダウンロードします',
+  'batch.selectHint':
+    '複数の絵師を選択すると、現在のタグで順番に取得してダウンロードします',
   'batch.clear': '選択を解除',
   'batch.selectPage': 'このページを全選択',
   'batch.deselectPage': 'このページの選択を解除',
@@ -1962,7 +2085,8 @@ const ja: Record<MessageKey, string> = {
   'batch.phaseDone': '完了',
   'batch.phaseFailed': '失敗',
   'batch.collecting': '作品リストを取得中',
-  'batch.collectingHint': '現在のタグで 1 人ずつ処理し、取得でき次第ダウンロードを開始します',
+  'batch.collectingHint':
+    '現在のタグで 1 人ずつ処理し、取得でき次第ダウンロードを開始します',
   'batch.done': 'バッチ同期が完了しました：成功 {ok} 人、失敗 {failed} 人',
   'batch.aborted': 'バッチ同期はキャンセルされました',
   'batch.cancel': 'バッチ同期を中止',
@@ -2000,10 +2124,12 @@ const ja: Record<MessageKey, string> = {
   'app.enqueued': '{count} 作品をダウンロードキューに追加しました',
   'app.noWorksBookmarks':
     'ブックマークに作品がありません。ブックマークしたユーザー、種類、ログイン状態を確認してください',
-  'app.noWorks': '作品を取得できませんでした。ユーザー ID、タグ、ログイン状態を確認してください',
+  'app.noWorks':
+    '作品を取得できませんでした。ユーザー ID、タグ、ログイン状態を確認してください',
   'app.needLogin':
     'この操作には pixiv へのログインが必要です。設定からログインしてから再試行してください',
-  'app.partialFail': '{count} ページの取得に失敗しました。一覧が不完全な可能性があります',
+  'app.partialFail':
+    '{count} ページの取得に失敗しました。一覧が不完全な可能性があります',
   'collect.tagSuggest': 'タグ候補',
   'collect.removeTag': '{tag} を削除',
   'collect.settings': '取得設定',
@@ -2023,7 +2149,8 @@ const ja: Record<MessageKey, string> = {
   'collect.tagExtra': '追加の包含タグ',
   'collect.tagExtraHintBookmark':
     'ブックマークのタグが空の場合は、先に全ブックマークを取得してからタグで絞り込みます',
-  'collect.tagExtraHintAnd': '作品はメインタグとこれらのタグの両方を含む必要があります',
+  'collect.tagExtraHintAnd':
+    '作品はメインタグとこれらのタグの両方を含む必要があります',
   'collect.tagExtraHintOr':
     'いずれかのタグを含めば対象。タグごとに取得するため、タグが増えるほどリクエストも増えます',
   'collect.tagExtraPlaceholder': '入力後 Enter、例：オリジナル',
@@ -2075,7 +2202,8 @@ const ja: Record<MessageKey, string> = {
   'works.filterRules': 'フィルター規則',
   'works.filter': 'フィルター',
   'works.tagFilter': 'タグ',
-  'works.tagFilterHint': 'この作者の作品をタグで絞り込む（pixiv の高度な検索と同じ）',
+  'works.tagFilterHint':
+    'この作者の作品をタグで絞り込む（pixiv の高度な検索と同じ）',
   'works.tagClear': 'タグ絞り込みを解除して全作品を取得',
   'tags.title': 'タグで作品を絞り込む',
   'tags.description':
@@ -2109,7 +2237,8 @@ const ja: Record<MessageKey, string> = {
   'works.pageSelected': ' · このページの選択 {count}',
   'library.previewInApp': 'アプリ内でプレビュー',
   'library.playUgoira': 'アプリ内でうごイラを再生',
-  'library.noPreviewUgoira': 'うごイラの出力はまだアプリ内でプレビューできません',
+  'library.noPreviewUgoira':
+    'うごイラの出力はまだアプリ内でプレビューできません',
   'library.ugoiraFile': 'うごイラファイル',
   'library.deselect': '選択を解除',
   'library.selectWork': 'この作品を選択',
@@ -2118,7 +2247,8 @@ const ja: Record<MessageKey, string> = {
   'library.ugoira': 'うごイラ',
   'library.openFolder': 'フォルダーを開く',
   'library.authorStat': '{works} 作品 · {files} ファイル · {bytes}',
-  'library.authorTypes': 'イラスト {illustration} · マンガ {manga} · 小説 {novel}',
+  'library.authorTypes':
+    'イラスト {illustration} · マンガ {manga} · 小説 {novel}',
   'library.tabIllustration': 'イラスト',
   'library.tabManga': 'マンガ',
   'library.tabNovel': '小説',
@@ -2136,7 +2266,8 @@ const ja: Record<MessageKey, string> = {
   'library.sortSize': 'サイズ',
   'library.sortId': '作品 ID',
   'library.authors': '作者',
-  'library.authorsHint': '{count} 人 · 作者をクリックしてイラスト / マンガ / 小説を表示',
+  'library.authorsHint':
+    '{count} 人 · 作者をクリックしてイラスト / マンガ / 小説を表示',
   'library.rescan': '再スキャン',
   'library.openLibrary': 'ライブラリを開く',
   'library.workCount': '{count} 作品',
@@ -2216,7 +2347,8 @@ const ja: Record<MessageKey, string> = {
   'progress.kindCdn': '画像',
   'progress.throttleCooldown':
     '{kind}のレート制限クールダウン中 {seconds}s（同時接続 {concurrency}）',
-  'progress.throttleSlowed': '自動で速度を下げました：{kind}同時接続 {concurrency}',
+  'progress.throttleSlowed':
+    '自動で速度を下げました：{kind}同時接続 {concurrency}',
   'progress.notStarted': 'ダウンロードはまだ開始していません',
   'progress.notStartedHint':
     '右側の作品を選んで「選択した作品をダウンロード」をクリックすると、ここに進捗がリアルタイムで表示されます',
@@ -2266,7 +2398,8 @@ const ja: Record<MessageKey, string> = {
   'queue.remove': '削除',
   'queue.openDir': 'フォルダーを開く',
   'queue.loadingFailures': '失敗リストを読み込み中…',
-  'queue.noFailures': '失敗項目はありません（解析に失敗した作品は再試行時に再解析されます）',
+  'queue.noFailures':
+    '失敗項目はありません（解析に失敗した作品は再試行時に再解析されます）',
   'queue.failuresCount': '合計 {count} 件。再試行時はこれらだけを処理します',
   'queue.kindResolve': '解析',
   'queue.kindDownload': 'ダウンロード',
@@ -2302,16 +2435,19 @@ const ja: Record<MessageKey, string> = {
   'filter.minHeightHint': '原寸の高さ、0 は無制限',
   'filter.r18': 'コンテンツ区分',
   'filter.r18Any': 'すべて',
-  'filter.r18Only': 'R-18 のみ（おすすめページにはR-18区分がないため、適用されません）',
+  'filter.r18Only':
+    'R-18 のみ（おすすめページにはR-18区分がないため、適用されません）',
   'filter.r18Exclude': 'R-18 を除外',
   'filter.r18Unsupported':
     'おすすめは App API から取得され、レーティングはアカウント設定と API が決めます。この設定はおすすめページでは効果がなく、検索などのページでは通常どおり適用されます',
   'filter.excludeAi': 'AI 作品を除外',
   'filter.excludeKeywords': '除外キーワード',
-  'filter.excludeKeywordsHint': 'タイトルと作者名に一致。カンマまたはスペース区切り',
+  'filter.excludeKeywordsHint':
+    'タイトルと作者名に一致。カンマまたはスペース区切り',
   'filter.excludeKeywordsPlaceholder': '例：AI, 漫画, まとめ',
   'filter.excludeTags': '除外タグ',
-  'filter.excludeTagsHint': '作品タグに一致。タイトルと作者名にもフォールバック一致します',
+  'filter.excludeTagsHint':
+    '作品タグに一致。タイトルと作者名にもフォールバック一致します',
   'filter.excludeTagsPlaceholder': '例：漫画, アニメ',
   'filter.blockHint':
     '以下のブロックは全体に適用されます：検索・ユーザーページ・ブックマーク・ダウンロードから除外されます',
@@ -2352,7 +2488,8 @@ const ja: Record<MessageKey, string> = {
   'nav.recommend': 'おすすめ',
   'nav.watchLater': 'あとで見る',
 
-  'app.searchPlaceholder': 'イラスト・マンガ・小説・ユーザーを検索（Enter で実行）',
+  'app.searchPlaceholder':
+    'イラスト・マンガ・小説・ユーザーを検索（Enter で実行）',
   'app.searchSubmit': '検索',
   'search.history': '検索履歴',
   'search.clear': 'クリア',
@@ -2395,7 +2532,8 @@ const ja: Record<MessageKey, string> = {
   'menu.blocked': '「{name}」をブロックしました',
   'menu.blockSkipped': '「{name}」はすでにブロックされています',
   'menu.unblockAuthor': 'この作者のブロックを解除',
-  'menu.unblocked': '「{name}」のブロックを解除しました（再読み込みで表示されます）',
+  'menu.unblocked':
+    '「{name}」のブロックを解除しました（再読み込みで表示されます）',
   'menu.notBlocked': '「{name}」はブロックされていません',
   'menu.watchLaterAdded': 'あとで見るに追加しました',
   'menu.watchLaterRemoved': 'あとで見るから削除しました',
@@ -2410,7 +2548,8 @@ const ja: Record<MessageKey, string> = {
   'users.loading': 'ユーザーを検索しています…',
   'users.empty': 'キーワードを入力してユーザーを検索',
   'users.noResult': '該当するユーザーが見つかりません',
-  'users.searchHint': '上部の検索ボックスにニックネームを入力し、Enter で検索します',
+  'users.searchHint':
+    '上部の検索ボックスにニックネームを入力し、Enter で検索します',
   'users.followingTitle': 'フォロー中のユーザー',
   'users.followingHint': 'ユーザーをクリックするとプロフィールを開きます',
   'users.refresh': '更新',
@@ -2426,12 +2565,14 @@ const ja: Record<MessageKey, string> = {
   'user.premium': 'プレミアム',
   'user.empty': '作品がありません',
   'user.bookmarksHint': 'ブックマークはログイン後に表示されます',
-  'user.bookmarksLoginHint': 'pixiv にログインすると、このユーザーの公開ブックマークを表示できます',
+  'user.bookmarksLoginHint':
+    'pixiv にログインすると、このユーザーの公開ブックマークを表示できます',
   'user.back': '戻る',
   'user.toDownload': 'ダウンロードへ',
 
   'history.title': '閲覧履歴',
-  'history.hint': '詳細ダイアログを開いた作品が自動で記録されます（ローカルのみ保存）',
+  'history.hint':
+    '詳細ダイアログを開いた作品が自動で記録されます（ローカルのみ保存）',
   'history.count': '{count} 件',
   'history.searchPlaceholder': 'タイトル / 作者 / 作品 ID で検索',
   'history.clearSearch': '検索をクリア',
@@ -2461,13 +2602,14 @@ const ja: Record<MessageKey, string> = {
   'favorites.count': 'ブックマーク {count} 件',
   'favorites.empty': 'このタグのブックマークはありません',
   'favorites.needUser': 'ユーザー ID を入力してから読み込んでください',
-  'favorites.needUserHint': '「自分のブックマーク」を押すとログイン中のアカウントを表示します',
+  'favorites.needUserHint':
+    '「自分のブックマーク」を押すとログイン中のアカウントを表示します',
   'favorites.privateHint':
     '非公開ブックマークは本人のみ閲覧できます。自分のユーザー ID に切り替えるか公開を選んでください',
 
   'ranking.title': '公式ランキング',
   'ranking.hint':
-    'イラスト・マンガのデイリー / ウィークリー / マンスリーに加え、新人・オリジナル・男性向け・女性向けを掲載。過去の日付も指定できます',
+    '未ログイン時は Web ランキングを表示。App API に接続すると R-18 やマンガを含む App ランキングが使えます',
   'ranking.kind.illust': 'イラスト',
   'ranking.kind.manga': 'マンガ',
   'ranking.mode.daily': 'デイリー',
@@ -2477,17 +2619,41 @@ const ja: Record<MessageKey, string> = {
   'ranking.mode.original': 'オリジナル',
   'ranking.mode.male': '男性向け',
   'ranking.mode.female': '女性向け',
+  'ranking.content': 'コンテンツ',
+  'ranking.period': '期間',
+  'ranking.period.day': 'デイリー',
+  'ranking.period.week': 'ウィークリー',
+  'ranking.period.month': 'マンスリー',
+  'ranking.category': 'カテゴリ',
+  'ranking.category.general': '総合',
+  'ranking.category.male': '男性向け',
+  'ranking.category.female': '女性向け',
+  'ranking.category.original': 'オリジナル',
+  'ranking.category.rookie': '新人',
+  'ranking.rating': 'レイティング',
+  'ranking.rating.normal': '全年齢',
+  'ranking.rating.r18': 'R-18',
+  'ranking.rating.r18g': 'R-18G',
+  'ranking.group.web': 'Web ランキング',
+  'ranking.filter': 'コンテンツフィルタ',
+  'ranking.filter.android': 'Android',
+  'ranking.filter.ios': 'iOS',
+  'ranking.source.web': '取得元：Web API',
+  'ranking.source.app': '取得元：App API',
+  'ranking.countApp': 'このページ {count} 件',
+  'ranking.filters': 'フィルタ',
   'ranking.refresh': '更新',
   'ranking.latest': '最新',
   'ranking.count': '全 {count} 件',
   'ranking.date': 'ランキング日 {date}',
   'ranking.nextDate': '次の回 {date}',
   'ranking.dateHint':
-    '過去の日付を選ぶとその回を表示します。空欄なら最新。1 ページ 50 件、最大 10 ページ',
+    '過去の日付を選ぶとその回を表示します。空欄なら最新。Web は 1 ページ 50 件、App は 30 件、最大 10 ページ',
   'ranking.empty': 'この回のランキングデータはありません',
 
   'recommend.title': 'おすすめ',
-  'recommend.hint': 'pixiv のパーソナライズ推薦。App API の認証情報を設定すると内容が充実します',
+  'recommend.hint':
+    'pixiv のパーソナライズ推薦。App API の認証情報を設定すると内容が充実します',
   'recommend.tabWorks': '作品',
   'recommend.tabUsers': '絵師',
   'recommend.count': '{count} 件読み込み済み',
@@ -2495,9 +2661,11 @@ const ja: Record<MessageKey, string> = {
   'recommend.webNotice':
     'App API 未接続のため、Web のディスカバリー内容を表示しています（件数限定・絵師推薦は利用不可）',
   'recommend.usersNeedOAuth': 'おすすめ絵師の表示には App API の接続が必要です',
-  'recommend.usersNeedOAuthHint': '「設定 → App API 認証情報」から接続してください',
+  'recommend.usersNeedOAuthHint':
+    '「設定 → App API 認証情報」から接続してください',
   'recommend.empty': 'おすすめ作品はまだありません。後で更新してみてください',
-  'recommend.emptyUsers': 'おすすめ絵師はまだありません。後で更新してみてください',
+  'recommend.emptyUsers':
+    'おすすめ絵師はまだありません。後で更新してみてください',
 
   'novelLib.searchPlaceholder': '全文検索：人名・台詞・シーン',
   'novelLib.searching': '本文を検索中…',
@@ -2591,7 +2759,8 @@ const ja: Record<MessageKey, string> = {
   'settings.update.idle': 'まだ確認していません',
   'settings.update.available': '新しいバージョン v{version} があります',
   'settings.update.downloading': 'アップデートをダウンロード中：{percent}%',
-  'settings.update.downloaded': 'バージョン v{version} の準備ができました。再起動でインストール',
+  'settings.update.downloaded':
+    'バージョン v{version} の準備ができました。再起動でインストール',
   'settings.update.install': '再起動してインストール',
   'settings.update.upToDate': '最新バージョンです',
   'settings.update.error': 'アップデート確認に失敗：{message}',
@@ -2605,7 +2774,8 @@ const ja: Record<MessageKey, string> = {
     '「キャンセル」を選ぶとインストールされません。現在のバージョンはそのまま使え、次回起動時にもう一度確認します（ダウンロード済みのパッケージは再利用されます）',
   'update.restart': '再起動してインストール',
   'update.cancel': 'キャンセル',
-  'update.installFailed': 'インストールの準備ができていません。設定から更新を再確認してください',
+  'update.installFailed':
+    'インストールの準備ができていません。設定から更新を再確認してください',
 
   'tour.progress': 'ステップ {current} / {total}',
   'tour.close': 'ツアーを閉じる',
@@ -2636,14 +2806,14 @@ const ja: Record<MessageKey, string> = {
     '並び替え、選択分の書き出し、未ダウンロードのみ表示ができます。1 ページ 50 件で、離れて戻っても位置は失われません。',
   'tour.tabs.title': '3 つのタブ',
   'tour.tabs.body':
-    '作品一覧・ダウンロードタスク・ログはそれぞれ独立しています。タスクはレジューム対応で、失敗した項目はタスクタブから再試行やキャンセルができます。'
-}
+    '作品一覧・ダウンロードタスク・ログはそれぞれ独立しています。タスクはレジューム対応で、失敗した項目はタスクタブから再試行やキャンセルができます。',
+};
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
   'zh-CN': zhCN,
   en,
-  ja
-}
+  ja,
+};
 
 /** 设置面板模板变量提示文案的 key 映射 */
 export const TOKEN_LABEL_KEYS: Record<string, MessageKey> = {
@@ -2656,5 +2826,5 @@ export const TOKEN_LABEL_KEYS: Record<string, MessageKey> = {
   '{tag}': 'settings.token.tag',
   '{date}': 'settings.token.date',
   '{quality}': 'settings.token.quality',
-  '{ext}': 'settings.token.ext'
-}
+  '{ext}': 'settings.token.ext',
+};

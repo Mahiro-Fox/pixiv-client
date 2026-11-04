@@ -10,18 +10,19 @@
     <title>Pixiv Client</title>
     <script>
       // 首屏前按上次选择设置主题，避免加载配置期间闪白
-      ;(function () {
+      (function () {
         try {
-          var mode = localStorage.getItem('pixiv-theme') || 'dark'
+          var mode = localStorage.getItem('pixiv-theme') || 'dark';
           var dark =
             mode === 'dark' ||
-            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          document.documentElement.classList.toggle('dark', dark)
-          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+            (mode === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
         } catch (error) {
           /* 读不到本地存储时沿用 html 上的 dark 默认值 */
         }
-      })()
+      })();
     </script>
   </head>
   <body>

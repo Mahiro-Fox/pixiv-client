@@ -1,22 +1,22 @@
-import { Hash, ImageOff, Images, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Pager } from '@renderer/components/shared/Pager';
+import { SelectMenu } from '@renderer/components/shared/SelectMenu';
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid';
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery';
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory';
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit';
+import { useI18n } from '@renderer/i18n';
 import type {
   WorkSearchChip,
   WorkSearchKind,
   WorkSearchMode,
   WorkSearchOrder,
   WorkSearchResult,
-  WorkSearchScope
-} from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { Pager } from '@renderer/components/shared/Pager'
-import { SelectMenu } from '@renderer/components/shared/SelectMenu'
-import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
-import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
-import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
-import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
+  WorkSearchScope,
+} from '@shared/types';
+import { Hash, ImageOff, Images, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
 
 /** 校验 URL 里的排序值；热门度排序属会员功能，不在下拉里提供 */
 const ORDERS: WorkSearchOrder[] = [
@@ -24,8 +24,8 @@ const ORDERS: WorkSearchOrder[] = [
   'date',
   'popular_d',
   'popular_male_d',
-  'popular_female_d'
-]
+  'popular_female_d',
+];
 
 /** 关闭某个筛选 chip 时，把它涉及到的参数还原成默认值 */
 const RESET_PATCH: Record<string, string> = {
@@ -34,52 +34,57 @@ const RESET_PATCH: Record<string, string> = {
   csw: '',
   blt: '',
   scope: '',
-  includeManga: ''
-}
+  includeManga: '',
+};
 
 /**
  * 插画 / 漫画搜索页共用一套 UI：栏目只决定请求路径与部分筛选文案。
  * 关键词、排序、分级、页码全部挂在 URL 上，方便顶栏导航与搜索框同步。
  */
-export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Element {
-  const { t } = useI18n()
-  const [params, setParams] = useSearchParams()
+export function WorksSearchPage(props: {
+  kind: WorkSearchKind;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  const [params, setParams] = useSearchParams();
   /** 点击作品缩略图在应用内预览，右上角图标才跳 pixiv */
 
-  const word = params.get('word') || ''
+  const word = params.get('word') || '';
   const order = (
-    ORDERS.includes(params.get('order') as WorkSearchOrder) ? params.get('order') : 'date_d'
-  ) as WorkSearchOrder
+    ORDERS.includes(params.get('order') as WorkSearchOrder)
+      ? params.get('order')
+      : 'date_d'
+  ) as WorkSearchOrder;
   const mode: WorkSearchMode =
     params.get('mode') === 'safe' || params.get('mode') === 'r18'
       ? (params.get('mode') as WorkSearchMode)
-      : 'all'
-  const scope: WorkSearchScope = params.get('scope') === 'tag_tc' ? 'tag_tc' : 'tag'
-  const csw = params.get('csw') === '1'
-  const blt = Math.max(0, Math.round(Number(params.get('blt') || 0) || 0))
-  const includeManga = params.get('includeManga') === '1'
-  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
+      : 'all';
+  const scope: WorkSearchScope =
+    params.get('scope') === 'tag_tc' ? 'tag_tc' : 'tag';
+  const csw = params.get('csw') === '1';
+  const blt = Math.max(0, Math.round(Number(params.get('blt') || 0) || 0));
+  const includeManga = params.get('includeManga') === '1';
+  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1));
 
   /**
    * chips 会随当前筛选状态变化（已应用的选项会从列表里消失），
    * 这里按 id 做并集缓存，保证筛选行不会在点击后突然跳动。
    */
-  const chipCache = useRef(new Map<string, WorkSearchChip>())
-  const [chips, setChips] = useState<WorkSearchChip[]>([])
+  const chipCache = useRef(new Map<string, WorkSearchChip>());
+  const [chips, setChips] = useState<WorkSearchChip[]>([]);
 
   /** 顶栏回车提交的序号：同一个关键词再提交一次也要刷新 */
-  const submitVersion = useSearchSubmitVersion()
+  const submitVersion = useSearchSubmitVersion();
   /**
    * 滚动位置记忆：挂到真正滚动的那个容器上。
    * 页面被 keep-alive 缓存，从详情页回来时由 hook 在激活时拨回原位。
    */
-  const scroll = useKeepAliveScroll<HTMLDivElement>(`works:${props.kind}`)
+  const scroll = useKeepAliveScroll<HTMLDivElement>(`works:${props.kind}`);
 
   // 插画与漫画的筛选集合不同，切换栏目时清空缓存
   useEffect(() => {
-    chipCache.current.clear()
-    setChips([])
-  }, [props.kind])
+    chipCache.current.clear();
+    setChips([]);
+  }, [props.kind]);
 
   const { data: result, loading } = usePagedQuery<WorkSearchResult>({
     page,
@@ -93,7 +98,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
       blt,
       scope,
       includeManga ? 1 : 0,
-      submitVersion
+      submitVersion,
     ].join('|'),
     skip: !word,
     scroll,
@@ -107,69 +112,79 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
         csw,
         blt,
         scope,
-        includeManga
+        includeManga,
       }),
     onData: (data) => {
-      data.chips.forEach((chip) => chipCache.current.set(chip.id, chip))
+      data.chips.forEach((chip) => chipCache.current.set(chip.id, chip));
       // 会员专属筛选（如更细的热门度 / 收藏数区间）不接入，直接不展示
-      setChips(Array.from(chipCache.current.values()).filter((chip) => !chip.premium))
-    }
-  })
+      setChips(
+        Array.from(chipCache.current.values()).filter((chip) => !chip.premium)
+      );
+    },
+  });
 
   const apply = (patch: Record<string, string>): void => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([key, value]) => {
-      if (value) next.set(key, value)
-      else next.delete(key)
-    })
-    setParams(next)
-  }
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    setParams(next);
+  };
 
   /**
    * chip 的 params 是「相对默认状态」的增量，
    * 只要其中每一项都与当前 URL 一致，就认为该 chip 处于开启状态。
    */
   const isChipActive = (chip: WorkSearchChip): boolean => {
-    const delta = chip.params
-    if (delta.order && delta.order !== order) return false
-    if (delta.mode && delta.mode !== mode) return false
-    if (delta.csw && !csw) return false
-    if (delta.blt && String(blt) !== delta.blt) return false
-    if (delta.scope && delta.scope !== scope) return false
-    if (delta.includeManga && !includeManga) return false
+    const delta = chip.params;
+    if (delta.order && delta.order !== order) return false;
+    if (delta.mode && delta.mode !== mode) return false;
+    if (delta.csw && !csw) return false;
+    if (delta.blt && String(blt) !== delta.blt) return false;
+    if (delta.scope && delta.scope !== scope) return false;
+    if (delta.includeManga && !includeManga) return false;
     return Boolean(
-      delta.order || delta.mode || delta.csw || delta.blt || delta.scope || delta.includeManga
-    )
-  }
+      delta.order ||
+      delta.mode ||
+      delta.csw ||
+      delta.blt ||
+      delta.scope ||
+      delta.includeManga
+    );
+  };
 
   const toggleChip = (chip: WorkSearchChip): void => {
     if (isChipActive(chip)) {
-      const reset: Record<string, string> = {}
+      const reset: Record<string, string> = {};
       Object.keys(chip.params).forEach((key) => {
-        reset[key] = RESET_PATCH[key] ?? ''
-      })
-      apply({ ...reset, page: '1' })
-      return
+        reset[key] = RESET_PATCH[key] ?? '';
+      });
+      apply({ ...reset, page: '1' });
+      return;
     }
-    const patch: Record<string, string> = { page: '1' }
+    const patch: Record<string, string> = { page: '1' };
     Object.entries(chip.params).forEach(([key, value]) => {
-      patch[key] = value ?? ''
-    })
+      patch[key] = value ?? '';
+    });
     // blt 需要在 URL 上以字符串保存；csw / scope 同理
-    apply(patch)
-  }
+    apply(patch);
+  };
 
   const relatedTags = useMemo(
-    () => (result?.relatedTags || []).filter((tag) => tag && tag !== word).slice(0, 20),
+    () =>
+      (result?.relatedTags || [])
+        .filter((tag) => tag && tag !== word)
+        .slice(0, 20),
     [result, word]
-  )
+  );
 
   const chipClass = (active: boolean): string =>
     `flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${
       active
         ? 'border-primary/60 bg-primary/15 text-primary'
         : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary'
-    }`
+    }`;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 py-4">
@@ -182,13 +197,13 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
           onChange={(value) => apply({ order: value, page: '1' })}
           options={[
             { value: 'date_d', label: t('novel.orderDateDesc') },
-            { value: 'date', label: t('novel.orderDateAsc') }
+            { value: 'date', label: t('novel.orderDateAsc') },
           ]}
         />
 
         {/* 其余筛选项直接来自接口的 suggestChips，文案随 lang 自动本地化 */}
         {chips.map((chip) => {
-          const active = isChipActive(chip)
+          const active = isChipActive(chip);
           return (
             <button
               key={chip.id}
@@ -198,11 +213,13 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
             >
               {chip.label}
             </button>
-          )
+          );
         })}
 
         {result && word ? (
-          <span className="ml-auto text-[11px]">{t('works.total', { total: result.total })}</span>
+          <span className="ml-auto text-[11px]">
+            {t('works.total', { total: result.total })}
+          </span>
         ) : null}
       </div>
 
@@ -217,7 +234,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <Hash className="h-4 w-4 text-muted-foreground" />
               {relatedTags.map((tag) => {
-                const translation = result?.tagTranslation[tag] || ''
+                const translation = result?.tagTranslation[tag] || '';
                 return (
                   <button
                     key={tag}
@@ -234,20 +251,23 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
                       #{tag}
                     </span>
                   </button>
-                )
+                );
               })}
             </div>
           ) : null}
 
-          <div ref={scroll.ref} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+          <div
+            ref={scroll.ref}
+            className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1"
+          >
             {loading ? (
-              <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="h-42 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('works.loading')}
               </div>
             ) : null}
             {!loading && result && result.works.length === 0 ? (
-              <div className="flex h-42 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="h-42 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ImageOff className="h-6 w-6" />
                 {t('works.noResult')}
               </div>
@@ -268,5 +288,5 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
         </div>
       )}
     </main>
-  )
+  );
 }

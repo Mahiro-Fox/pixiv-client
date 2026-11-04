@@ -1,4 +1,4 @@
-import type { Locale } from '../../shared/types'
+import type { Locale } from '../../shared/types';
 
 /**
  * pixiv 接口的 `lang` 参数。
@@ -16,26 +16,26 @@ const PIXIV_LANGS: Record<string, string> = {
   en: 'en',
   'en-US': 'en',
   ja: 'ja',
-  'ja-JP': 'ja'
-}
+  'ja-JP': 'ja',
+};
 
 /** 当前界面语言对应的 pixiv 取值；默认值与 config 的默认语言一致 */
-let current = 'zh'
+let current = 'zh';
 
 export function localeToPixivLang(locale: string | null | undefined): string {
-  const key = String(locale || '').trim()
-  if (!key) return 'zh'
-  const short = key.split('-')[0]?.toLowerCase() ?? ''
-  return PIXIV_LANGS[key] ?? PIXIV_LANGS[short] ?? 'zh'
+  const key = String(locale || '').trim();
+  if (!key) return 'zh';
+  const short = key.split('-')[0]?.toLowerCase() ?? '';
+  return PIXIV_LANGS[key] ?? PIXIV_LANGS[short] ?? 'zh';
 }
 
 /** 由主进程在启动读到配置、以及保存配置（语言可能刚改）时调用 */
 export function setPixivLang(locale: Locale | string | null | undefined): void {
-  current = localeToPixivLang(locale)
+  current = localeToPixivLang(locale);
 }
 
 export function pixivLang(): string {
-  return current
+  return current;
 }
 
 /**
@@ -46,11 +46,11 @@ export function pixivLang(): string {
 const ACCEPT_LANGUAGE: Record<string, string> = {
   zh: 'zh-CN,zh;q=0.9',
   en: 'en-US,en;q=0.9',
-  ja: 'ja-JP,ja;q=0.9'
-}
+  ja: 'ja-JP,ja;q=0.9',
+};
 
 export function pixivAcceptLanguage(): string {
-  return ACCEPT_LANGUAGE[current] ?? 'zh-CN,zh;q=0.9'
+  return ACCEPT_LANGUAGE[current] ?? 'zh-CN,zh;q=0.9';
 }
 
 /**
@@ -58,9 +58,11 @@ export function pixivAcceptLanguage(): string {
  * 字典里通常只有部分语言，缺了按中文 → 繁体 → 罗马字 → 英文的顺序兜底，
  * 保证界面上不会出现空标签。
  */
-export function pickLangText(dict: Record<string, string> | null | undefined): string {
-  if (!dict) return ''
-  return dict[current] || dict.zh || dict.zh_tw || dict.romaji || dict.en || ''
+export function pickLangText(
+  dict: Record<string, string> | null | undefined
+): string {
+  if (!dict) return '';
+  return dict[current] || dict.zh || dict.zh_tw || dict.romaji || dict.en || '';
 }
 
 /**
@@ -69,5 +71,5 @@ export function pickLangText(dict: Record<string, string> | null | undefined): s
  * 一处替换就能保证没有哪个接口漏掉，调用方只负责写模板。
  */
 export function withLang(url: string): string {
-  return url.includes('{lang}') ? url.replace('{lang}', pixivLang()) : url
+  return url.includes('{lang}') ? url.replace('{lang}', pixivLang()) : url;
 }

@@ -1,37 +1,37 @@
-import { Filter, RotateCcw, ShieldBan } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
-import { useState } from 'react'
-import type * as React from 'react'
-import type { AppConfig, R18Filter } from '@shared/types'
-import { splitBlockTermsRaw } from '@shared/block'
-import { countActiveFilters } from '@renderer/utils/filters'
-import { useI18n } from '@renderer/i18n'
-import { BlockManagerDialog } from '../BlockManagerDialog'
-import { Button } from '../ui/button'
-import { DialogShell } from '../shared/DialogShell'
-import { FormField } from '../shared/FormField'
-import { Input } from '../ui/input'
-import { SelectMenu } from '../shared/SelectMenu'
+import { useI18n } from '@renderer/i18n';
+import { countActiveFilters } from '@renderer/utils/filters';
+import { splitBlockTermsRaw } from '@shared/block';
+import type { AppConfig, R18Filter } from '@shared/types';
+import { Filter, RotateCcw, ShieldBan } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import type * as React from 'react';
+import { BlockManagerDialog } from '../BlockManagerDialog';
+import { DialogShell } from '../shared/DialogShell';
+import { FormField } from '../shared/FormField';
+import { SelectMenu } from '../shared/SelectMenu';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 
 interface FilterDialogProps {
-  config: AppConfig
-  onConfigChange: (patch: Partial<AppConfig>) => void
-  onClose: () => void
+  config: AppConfig;
+  onConfigChange: (patch: Partial<AppConfig>) => void;
+  onClose: () => void;
 }
 
 /** 过滤规则弹窗：本地实时生效，规则之间为「与」关系 */
 export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
-  const { t } = useI18n()
-  const { config } = props
+  const { t } = useI18n();
+  const { config } = props;
   // 由弹窗自己读当前路由：这样无论从哪个页面打开、导航过程中弹窗是否还开着，
   // 判定都跟着当前页面走，不依赖调用方传参的时机
-  const location = useLocation()
-  const ratingSupported = !location.pathname.startsWith('/recommend')
-  const activeCount = countActiveFilters(config)
+  const location = useLocation();
+  const ratingSupported = !location.pathname.startsWith('/recommend');
+  const activeCount = countActiveFilters(config);
   /** 屏蔽名单管理单独一层弹窗：清单要能一目了然地看，塞在这个弹窗里会太长 */
-  const [managing, setManaging] = useState(false)
-  const blockedUsers = splitBlockTermsRaw(config.blockUsers).length
-  const blockedTags = splitBlockTermsRaw(config.blockTags).length
+  const [managing, setManaging] = useState(false);
+  const blockedUsers = splitBlockTermsRaw(config.blockUsers).length;
+  const blockedTags = splitBlockTermsRaw(config.blockTags).length;
 
   const clear = (): void => {
     props.onConfigChange({
@@ -44,9 +44,9 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
       filterR18: 'any',
       filterExcludeAi: false,
       blockTags: '',
-      blockUsers: ''
-    })
-  }
+      blockUsers: '',
+    });
+  };
 
   return (
     <DialogShell
@@ -80,7 +80,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               value={config.filterMinPages}
               onChange={(event) =>
                 props.onConfigChange({
-                  filterMinPages: Math.max(0, Number(event.target.value) || 0)
+                  filterMinPages: Math.max(0, Number(event.target.value) || 0),
                 })
               }
             />
@@ -92,7 +92,7 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               value={config.filterMaxPages}
               onChange={(event) =>
                 props.onConfigChange({
-                  filterMaxPages: Math.max(0, Number(event.target.value) || 0)
+                  filterMaxPages: Math.max(0, Number(event.target.value) || 0),
                 })
               }
             />
@@ -100,26 +100,32 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField label={t('filter.minWidth')} hint={t('filter.minWidthHint')}>
+          <FormField
+            label={t('filter.minWidth')}
+            hint={t('filter.minWidthHint')}
+          >
             <Input
               type="number"
               min={0}
               value={config.filterMinWidth}
               onChange={(event) =>
                 props.onConfigChange({
-                  filterMinWidth: Math.max(0, Number(event.target.value) || 0)
+                  filterMinWidth: Math.max(0, Number(event.target.value) || 0),
                 })
               }
             />
           </FormField>
-          <FormField label={t('filter.minHeight')} hint={t('filter.minHeightHint')}>
+          <FormField
+            label={t('filter.minHeight')}
+            hint={t('filter.minHeightHint')}
+          >
             <Input
               type="number"
               min={0}
               value={config.filterMinHeight}
               onChange={(event) =>
                 props.onConfigChange({
-                  filterMinHeight: Math.max(0, Number(event.target.value) || 0)
+                  filterMinHeight: Math.max(0, Number(event.target.value) || 0),
                 })
               }
             />
@@ -134,11 +140,13 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
             <SelectMenu
               value={config.filterR18}
               disabled={!ratingSupported}
-              onChange={(value) => props.onConfigChange({ filterR18: value as R18Filter })}
+              onChange={(value) =>
+                props.onConfigChange({ filterR18: value as R18Filter })
+              }
               options={[
                 { value: 'any', label: t('filter.r18Any') },
                 { value: 'only', label: t('filter.r18Only') },
-                { value: 'exclude', label: t('filter.r18Exclude') }
+                { value: 'exclude', label: t('filter.r18Exclude') },
               ]}
             />
           </FormField>
@@ -148,7 +156,9 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
                 type="checkbox"
                 checked={config.filterExcludeAi}
                 onChange={(event) =>
-                  props.onConfigChange({ filterExcludeAi: event.target.checked })
+                  props.onConfigChange({
+                    filterExcludeAi: event.target.checked,
+                  })
                 }
                 className="h-4 w-4 accent-primary"
               />
@@ -157,38 +167,60 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
           </div>
         </div>
 
-        <FormField label={t('filter.excludeKeywords')} hint={t('filter.excludeKeywordsHint')}>
+        <FormField
+          label={t('filter.excludeKeywords')}
+          hint={t('filter.excludeKeywordsHint')}
+        >
           <Input
             value={config.filterExcludeKeywords}
             onChange={(event) =>
-              props.onConfigChange({ filterExcludeKeywords: event.target.value })
+              props.onConfigChange({
+                filterExcludeKeywords: event.target.value,
+              })
             }
             placeholder={t('filter.excludeKeywordsPlaceholder')}
           />
         </FormField>
 
-        <FormField label={t('filter.excludeTags')} hint={t('filter.excludeTagsHint')}>
+        <FormField
+          label={t('filter.excludeTags')}
+          hint={t('filter.excludeTagsHint')}
+        >
           <Input
             value={config.filterExcludeTags}
-            onChange={(event) => props.onConfigChange({ filterExcludeTags: event.target.value })}
+            onChange={(event) =>
+              props.onConfigChange({ filterExcludeTags: event.target.value })
+            }
             placeholder={t('filter.excludeTagsPlaceholder')}
           />
         </FormField>
 
         {/* 与上面的「排除标签」不同：屏蔽是全局的，搜索、用户主页、收藏里都不再出现 */}
         <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-3">
-          <p className="text-[11px] text-muted-foreground">{t('filter.blockHint')}</p>
-          <FormField label={t('filter.blockTags')} hint={t('filter.blockTagsHint')}>
+          <p className="text-[11px] text-muted-foreground">
+            {t('filter.blockHint')}
+          </p>
+          <FormField
+            label={t('filter.blockTags')}
+            hint={t('filter.blockTagsHint')}
+          >
             <Input
               value={config.blockTags}
-              onChange={(event) => props.onConfigChange({ blockTags: event.target.value })}
+              onChange={(event) =>
+                props.onConfigChange({ blockTags: event.target.value })
+              }
               placeholder={t('filter.blockTagsPlaceholder')}
             />
           </FormField>
-          <FormField label={t('filter.blockUsers')} hint={t('filter.blockUsersHint')}>
+          <FormField
+            label={t('filter.blockUsers')}
+            hint={t('filter.blockUsersHint')}
+          >
             <Input
               value={config.blockUsers}
-              onChange={(event) => props.onConfigChange({ blockUsers: event.target.value })}
+              onChange={(event) =>
+                props.onConfigChange({ blockUsers: event.target.value })
+              }
               placeholder={t('filter.blockUsersPlaceholder')}
             />
           </FormField>
@@ -202,7 +234,10 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
               {t('filter.manageBlocks')}
             </span>
             <span className="shrink-0 tabular-nums">
-              {t('filter.manageBlocksCount', { users: blockedUsers, tags: blockedTags })}
+              {t('filter.manageBlocksCount', {
+                users: blockedUsers,
+                tags: blockedTags,
+              })}
             </span>
           </button>
         </div>
@@ -216,5 +251,5 @@ export function FilterDialog(props: FilterDialogProps): React.JSX.Element {
         />
       ) : null}
     </DialogShell>
-  )
+  );
 }

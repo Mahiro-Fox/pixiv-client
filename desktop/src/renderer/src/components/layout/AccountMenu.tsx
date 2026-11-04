@@ -1,3 +1,5 @@
+import { useI18n } from '@renderer/i18n';
+import type { SelfUser } from '@shared/types';
 import {
   Bookmark,
   ChevronRight,
@@ -6,23 +8,21 @@ import {
   LogIn,
   Settings2,
   User,
-  Users
-} from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type * as React from 'react'
-import type { SelfUser } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { Button } from '../ui/button'
+  Users,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
+import { Button } from '../ui/button';
 
 interface AccountMenuProps {
-  selfUser: SelfUser | null
-  hasCookie: boolean
-  loggingIn: boolean
-  onLogin: () => void
-  onOpenFollowing: () => void
-  onOpenFavorites: () => void
-  onOpenHistory: () => void
-  onOpenSettings: () => void
+  selfUser: SelfUser | null;
+  hasCookie: boolean;
+  loggingIn: boolean;
+  onLogin: () => void;
+  onOpenFollowing: () => void;
+  onOpenFavorites: () => void;
+  onOpenHistory: () => void;
+  onOpenSettings: () => void;
 }
 
 /**
@@ -30,51 +30,52 @@ interface AccountMenuProps {
  * 关注列表入口（关注数来自接口）以及收藏 / 浏览记录等预备入口。
  */
 export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
-  const { t } = useI18n()
-  const [open, setOpen] = useState(false)
-  const [following, setFollowing] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
-  const root = useRef<HTMLDivElement | null>(null)
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [following, setFollowing] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const root = useRef<HTMLDivElement | null>(null);
 
   // 点击外部或按 Esc 关闭浮层
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onPointerDown = (event: MouseEvent): void => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false)
-    }
+      if (root.current && !root.current.contains(event.target as Node))
+        setOpen(false);
+    };
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   // 关注数在每次打开浮层时刷新：关注 / 取关会改变总数，缓存住会一直显示旧值。
   // limit 传 1，只关心 total。
   useEffect(() => {
-    if (!open || !props.selfUser) return
-    let alive = true
-    setLoading(true)
+    if (!open || !props.selfUser) return;
+    let alive = true;
+    setLoading(true);
     void window.pixiv
       .getFollowing({ userId: '', offset: 0, limit: 1 })
       .then((result) => {
-        if (alive) setFollowing(result.total)
+        if (alive) setFollowing(result.total);
       })
       .catch(() => {
         // 取失败时别把已有数字清成 0，只有首次失败才回落
-        if (alive) setFollowing((previous) => previous ?? 0)
+        if (alive) setFollowing((previous) => previous ?? 0);
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
     return () => {
-      alive = false
-    }
-  }, [open, props.selfUser])
+      alive = false;
+    };
+  }, [open, props.selfUser]);
 
   if (!props.selfUser) {
     // 有登录凭据但还没取到账号信息时，不要退化成「登录」按钮，
@@ -90,24 +91,29 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
           <User className="h-4 w-4" />
           {t('header.loggedIn')}
         </button>
-      )
+      );
     }
     return (
-      <Button size="sm" data-tour="account-menu" disabled={props.loggingIn} onClick={props.onLogin}>
+      <Button
+        size="sm"
+        data-tour="account-menu"
+        disabled={props.loggingIn}
+        onClick={props.onLogin}
+      >
         {props.loggingIn ? <Loader2 className="animate-spin" /> : <LogIn />}
         {props.loggingIn ? t('header.loggingIn') : t('header.login')}
       </Button>
-    )
+    );
   }
 
-  const user = props.selfUser
+  const user = props.selfUser;
   const itemClass =
-    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/85 transition-colors hover:bg-secondary/60'
+    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/85 transition-colors hover:bg-secondary/60';
 
   const go = (action: () => void): void => {
-    setOpen(false)
-    action()
-  }
+    setOpen(false);
+    action();
+  };
 
   return (
     <div ref={root} data-tour="account-menu" className="relative">
@@ -130,7 +136,9 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
             <User className="h-4 w-4" />
           </span>
         )}
-        <span className="max-w-[9rem] truncate text-xs font-medium leading-4">{user.name}</span>
+        <span className="max-w-[9rem] truncate text-xs font-medium leading-4">
+          {user.name}
+        </span>
         {user.premium ? (
           <span className="rounded bg-amber-500/15 px-1 text-[10px] leading-4 text-amber-500">
             {t('header.premium')}
@@ -207,5 +215,5 @@ export function AccountMenu(props: AccountMenuProps): React.JSX.Element {
         </div>
       ) : null}
     </div>
-  )
+  );
 }

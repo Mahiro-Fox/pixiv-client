@@ -1,11 +1,14 @@
-import { cva, type VariantProps } from 'class-variance-authority'
-import type * as React from 'react'
-import { useMemo } from 'react'
-import { cn } from '@renderer/utils/ui'
-import { Label } from './label'
-import { Separator } from './separator'
+import { cn } from '@renderer/utils/ui';
+import { cva, type VariantProps } from 'class-variance-authority';
+import type * as React from 'react';
+import { useMemo } from 'react';
+import { Label } from './label';
+import { Separator } from './separator';
 
-function FieldSet({ className, ...props }: React.ComponentProps<'fieldset'>): React.JSX.Element {
+function FieldSet({
+  className,
+  ...props
+}: React.ComponentProps<'fieldset'>): React.JSX.Element {
   return (
     <fieldset
       data-slot="field-set"
@@ -16,14 +19,16 @@ function FieldSet({ className, ...props }: React.ComponentProps<'fieldset'>): Re
       )}
       {...props}
     />
-  )
+  );
 }
 
 function FieldLegend({
   className,
   variant = 'legend',
   ...props
-}: React.ComponentProps<'legend'> & { variant?: 'legend' | 'label' }): React.JSX.Element {
+}: React.ComponentProps<'legend'> & {
+  variant?: 'legend' | 'label';
+}): React.JSX.Element {
   return (
     <legend
       data-slot="field-legend"
@@ -36,10 +41,13 @@ function FieldLegend({
       )}
       {...props}
     />
-  )
+  );
 }
 
-function FieldGroup({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
+function FieldGroup({
+  className,
+  ...props
+}: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="field-group"
@@ -49,32 +57,36 @@ function FieldGroup({ className, ...props }: React.ComponentProps<'div'>): React
       )}
       {...props}
     />
-  )
+  );
 }
 
-const fieldVariants = cva('group/field flex w-full gap-3 data-[invalid=true]:text-destructive', {
-  variants: {
-    orientation: {
-      vertical: ['flex-col [&>*]:w-full [&>.sr-only]:w-auto'],
-      horizontal: [
-        'flex-row items-center',
-        '[&>[data-slot=field-label]]:flex-auto',
-        'has-[>[data-slot=field-content]]:items-start has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px'
-      ],
-      // 容器查询（@container）在 Tailwind 3 下需要额外插件，这里退化为纵向堆叠
-      responsive: ['flex-col [&>*]:w-full [&>.sr-only]:w-auto']
-    }
-  },
-  defaultVariants: {
-    orientation: 'vertical'
+const fieldVariants = cva(
+  'group/field flex w-full gap-3 data-[invalid=true]:text-destructive',
+  {
+    variants: {
+      orientation: {
+        vertical: ['flex-col [&>*]:w-full [&>.sr-only]:w-auto'],
+        horizontal: [
+          'flex-row items-center',
+          '[&>[data-slot=field-label]]:flex-auto',
+          'has-[>[data-slot=field-content]]:items-start has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
+        ],
+        // 容器查询（@container）在 Tailwind 3 下需要额外插件，这里退化为纵向堆叠
+        responsive: ['flex-col [&>*]:w-full [&>.sr-only]:w-auto'],
+      },
+    },
+    defaultVariants: {
+      orientation: 'vertical',
+    },
   }
-})
+);
 
 function Field({
   className,
   orientation = 'vertical',
   ...props
-}: React.ComponentProps<'div'> & VariantProps<typeof fieldVariants>): React.JSX.Element {
+}: React.ComponentProps<'div'> &
+  VariantProps<typeof fieldVariants>): React.JSX.Element {
   return (
     <div
       role="group"
@@ -83,20 +95,29 @@ function Field({
       className={cn(fieldVariants({ orientation }), className)}
       {...props}
     />
-  )
+  );
 }
 
-function FieldContent({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
+function FieldContent({
+  className,
+  ...props
+}: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="field-content"
-      className={cn('group/field-content flex flex-1 flex-col gap-1.5 leading-snug', className)}
+      className={cn(
+        'group/field-content flex flex-1 flex-col gap-1.5 leading-snug',
+        className
+      )}
       {...props}
     />
-  )
+  );
 }
 
-function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>): React.JSX.Element {
+function FieldLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof Label>): React.JSX.Element {
   return (
     <Label
       data-slot="field-label"
@@ -108,10 +129,13 @@ function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>)
       )}
       {...props}
     />
-  )
+  );
 }
 
-function FieldTitle({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
+function FieldTitle({
+  className,
+  ...props
+}: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="field-label"
@@ -121,22 +145,25 @@ function FieldTitle({ className, ...props }: React.ComponentProps<'div'>): React
       )}
       {...props}
     />
-  )
+  );
 }
 
-function FieldDescription({ className, ...props }: React.ComponentProps<'p'>): React.JSX.Element {
+function FieldDescription({
+  className,
+  ...props
+}: React.ComponentProps<'p'>): React.JSX.Element {
   return (
     <p
       data-slot="field-description"
       className={cn(
         'text-sm font-normal leading-normal text-muted-foreground group-has-[[data-orientation=horizontal]]/field:text-balance',
-        'last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5',
+        'nth-last-2:-mt-1 last:mt-0 [[data-variant=legend]+&]:-mt-1.5',
         '[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
 function FieldSeparator({
@@ -144,7 +171,7 @@ function FieldSeparator({
   className,
   ...props
 }: React.ComponentProps<'div'> & {
-  children?: React.ReactNode
+  children?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div
@@ -166,7 +193,7 @@ function FieldSeparator({
         </span>
       )}
     </div>
-  )
+  );
 }
 
 function FieldError({
@@ -175,32 +202,33 @@ function FieldError({
   errors,
   ...props
 }: React.ComponentProps<'div'> & {
-  errors?: Array<{ message?: string } | undefined>
+  errors?: Array<{ message?: string } | undefined>;
 }): React.JSX.Element | null {
   const content = useMemo(() => {
     if (children) {
-      return children
+      return children;
     }
 
     if (!errors) {
-      return null
+      return null;
     }
 
     if (errors.length === 1 && errors[0]?.message) {
-      return errors[0].message
+      return errors[0].message;
     }
 
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
         {errors.map(
-          (error, index) => error?.message && <li key={index}>{error.message}</li>
+          (error, index) =>
+            error?.message && <li key={index}>{error.message}</li>
         )}
       </ul>
-    )
-  }, [children, errors])
+    );
+  }, [children, errors]);
 
   if (!content) {
-    return null
+    return null;
   }
 
   return (
@@ -212,7 +240,7 @@ function FieldError({
     >
       {content}
     </div>
-  )
+  );
 }
 
 export {
@@ -225,5 +253,5 @@ export {
   FieldLegend,
   FieldSeparator,
   FieldSet,
-  FieldTitle
-}
+  FieldTitle,
+};

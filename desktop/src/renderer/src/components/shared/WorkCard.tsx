@@ -1,14 +1,14 @@
-import { Bookmark, Check, ExternalLink, ImageOff } from 'lucide-react'
-import type * as React from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import type { SearchWork } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { useWorkContextMenu } from '@renderer/hooks/useCardMenu'
-import { openPreview } from '@renderer/hooks/useWorkPreview'
-import { cn } from '@renderer/utils/ui'
-import { AuthorPopover } from './AuthorPopover'
-import { Badge } from '../ui/badge'
+import { useWorkContextMenu } from '@renderer/hooks/useCardMenu';
+import { openPreview } from '@renderer/hooks/useWorkPreview';
+import { useI18n } from '@renderer/i18n';
+import { cn } from '@renderer/utils/ui';
+import type { SearchWork } from '@shared/types';
+import { Bookmark, Check, ExternalLink, ImageOff } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import type * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Badge } from '../ui/badge';
+import { AuthorPopover } from './AuthorPopover';
 
 /**
  * 一张作品卡需要的最小字段。
@@ -17,55 +17,55 @@ import { Badge } from '../ui/badge'
  * 都能直接喂进来，页面不必各自搭一套卡片骨架。
  */
 export interface WorkCardData {
-  id: string
-  title: string
+  id: string;
+  title: string;
   /** 列表缩略图（约 250px） */
-  thumbnail?: string
+  thumbnail?: string;
   /** 工作台的 PixivWork 用 url 装同一张图 */
-  url?: string
-  userId?: string
-  userName?: string
+  url?: string;
+  userId?: string;
+  userName?: string;
   /** 作者头像；没有时作者行显示占位圆点 */
-  profileImageUrl?: string
-  pageCount?: number
+  profileImageUrl?: string;
+  pageCount?: number;
   /** 传数字才显示收藏数，本地记录类列表没有这个字段 */
-  bookmarkCount?: number
-  xRestrict?: number
-  illustType?: number
-  aiType?: number
+  bookmarkCount?: number;
+  xRestrict?: number;
+  illustType?: number;
+  aiType?: number;
   /** 排行榜名次 */
-  rank?: number
+  rank?: number;
 }
 
 export interface WorkCardProps {
-  work: WorkCardData
+  work: WorkCardData;
   /** 在当前列表里的序号：用来做入场错峰，避免上百张卡片同时放大招 */
-  index?: number
+  index?: number;
   /** 点卡片打开作品（预览弹窗 / 详情）。与 onToggle 同时传时，整卡点击优先走 onToggle */
-  onOpen?: () => void
+  onOpen?: () => void;
   /** 整卡点击切换选中：工作台的多选卡片 */
-  onToggle?: () => void
-  selected?: boolean
-  downloaded?: boolean
+  onToggle?: () => void;
+  selected?: boolean;
+  downloaded?: boolean;
   /** 封面左上角追加角标（如系列话序号） */
-  badge?: React.ReactNode
+  badge?: React.ReactNode;
   /** 封面右上角操作按钮（去 pixiv / 移出稍后看），样式由调用方给 */
-  action?: React.ReactNode
+  action?: React.ReactNode;
   /** 标题下方追加一行（浏览时间等） */
-  meta?: React.ReactNode
+  meta?: React.ReactNode;
   /** 作者行右侧的操作（工作台的「详情」）；不传时按收藏数占位 */
-  footerAction?: React.ReactNode
+  footerAction?: React.ReactNode;
   /** 作者名悬停弹出资料卡：搜索类列表用，本地记录列表保持纯文本 */
-  authorHover?: boolean
-  showAuthor?: boolean
+  authorHover?: boolean;
+  showAuthor?: boolean;
   /** 封面右上角的「在 pixiv 打开」图标（搜索类列表默认开） */
-  showWebLink?: boolean
+  showWebLink?: boolean;
   /** 封面比例：插画按方图，漫画系列按 3:4 */
-  aspect?: 'square' | 'poster'
-  onContextMenu?: (event: React.MouseEvent) => void
+  aspect?: 'square' | 'poster';
+  onContextMenu?: (event: React.MouseEvent) => void;
   /** 卡片内的附加节点（右键菜单的 portal 等） */
-  children?: React.ReactNode
-  className?: string
+  children?: React.ReactNode;
+  className?: string;
 }
 
 /**
@@ -76,37 +76,39 @@ export interface WorkCardProps {
  * 各页面只决定「点击做什么」和「右下角放什么」，不再重复写卡片骨架。
  */
 export function WorkCard(props: WorkCardProps): React.JSX.Element {
-  const { t } = useI18n()
-  const work = props.work
-  const reduce = useReducedMotion()
-  const cover = (work.thumbnail || work.url || '').trim()
-  const selectable = typeof props.onToggle === 'function'
-  const showAuthor = props.showAuthor !== false && Boolean(work.userName || work.userId)
-  const showBookmarks = typeof work.bookmarkCount === 'number' && props.footerAction == null
-  const pageCount = Number(work.pageCount || 0)
+  const { t } = useI18n();
+  const work = props.work;
+  const reduce = useReducedMotion();
+  const cover = (work.thumbnail || work.url || '').trim();
+  const selectable = typeof props.onToggle === 'function';
+  const showAuthor =
+    props.showAuthor !== false && Boolean(work.userName || work.userId);
+  const showBookmarks =
+    typeof work.bookmarkCount === 'number' && props.footerAction == null;
+  const pageCount = Number(work.pageCount || 0);
 
   /** 缩略图解码完成后再淡入，避免占位底色上一块块「啪」地出现 */
-  const [thumbLoaded, setThumbLoaded] = useState(false)
-  const thumbRef = useRef<HTMLImageElement | null>(null)
+  const [thumbLoaded, setThumbLoaded] = useState(false);
+  const thumbRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     // 命中缓存时 onLoad 可能早于 React 挂载，直接看 complete 补齐首帧
-    if (thumbRef.current?.complete) setThumbLoaded(true)
-  }, [cover])
+    if (thumbRef.current?.complete) setThumbLoaded(true);
+  }, [cover]);
 
   /** 工作台的整卡点击是「选中」，其余页面是「打开」 */
   const activate = (): void => {
-    if (props.onToggle) props.onToggle()
-    else props.onOpen?.()
-  }
+    if (props.onToggle) props.onToggle();
+    else props.onOpen?.();
+  };
 
   /** 键盘 Enter / Space 等同点击（详情按钮与勾选框自行 stopPropagation） */
   const onKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      activate()
+      event.preventDefault();
+      activate();
     }
-  }
+  };
 
   return (
     <motion.li
@@ -119,7 +121,7 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
         duration: 0.18,
         ease: 'easeOut',
         // 错峰上限 0.18s：翻页一次 50 张也只在半秒内铺完，不会让人等
-        delay: reduce ? 0 : Math.min((props.index ?? 0) * 0.012, 0.18)
+        delay: reduce ? 0 : Math.min((props.index ?? 0) * 0.012, 0.18),
       }}
       // 可多选的卡片整张都是点击区（与工作台原来的「点任意位置切换选中」一致）；
       // 其余页面的点击区只在封面上，避免选中文字时误触
@@ -165,7 +167,7 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
               thumbLoaded ? 'opacity-100' : 'opacity-0'
             )}
             onError={(event) => {
-              event.currentTarget.style.visibility = 'hidden'
+              event.currentTarget.style.visibility = 'hidden';
             }}
           />
         ) : (
@@ -177,10 +179,12 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
         {selectable ? (
           <button
             type="button"
-            aria-label={props.selected ? t('works.deselect') : t('works.select')}
+            aria-label={
+              props.selected ? t('works.deselect') : t('works.select')
+            }
             onClick={(event) => {
-              event.stopPropagation()
-              props.onToggle?.()
+              event.stopPropagation();
+              props.onToggle?.();
             }}
             className={cn(
               'absolute left-2 top-1.5 flex h-5 w-5 items-center justify-center rounded-md border transition-colors',
@@ -211,12 +215,17 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
             </Badge>
           ) : null}
           {Number(work.xRestrict || 0) >= 1 ? (
-            <Badge variant="destructive" className="bg-red-500/85 px-1 py-0 text-[10px] text-white">
+            <Badge
+              variant="destructive"
+              className="bg-red-500/85 px-1 py-0 text-[10px] text-white"
+            >
               R-18
             </Badge>
           ) : null}
           {Number(work.aiType || 0) === 2 ? (
-            <Badge className="bg-violet-500/80 px-1 py-0 text-[10px] text-white">AI</Badge>
+            <Badge className="bg-violet-500/80 px-1 py-0 text-[10px] text-white">
+              AI
+            </Badge>
           ) : null}
           {props.badge}
         </div>
@@ -239,14 +248,19 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
         </div>
 
         {props.downloaded ? (
-          <Badge variant="success" className="absolute bottom-2 left-2 bg-black/45 backdrop-blur">
+          <Badge
+            variant="success"
+            className="absolute bottom-2 left-2 bg-black/45 backdrop-blur"
+          >
             {t('works.downloaded')}
           </Badge>
         ) : null}
       </div>
 
       <div className="flex min-w-0 flex-col gap-1 px-2.5 py-2">
-        <p className="line-clamp-2 text-xs font-medium leading-4">{work.title}</p>
+        <p className="line-clamp-2 text-xs font-medium leading-4">
+          {work.title}
+        </p>
         {showAuthor || showBookmarks || props.footerAction ? (
           <div className="flex items-center justify-between gap-1.5 text-[11px] text-muted-foreground">
             <span className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -259,7 +273,9 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
                     avatar={work.profileImageUrl || ''}
                   />
                 ) : (
-                  <span className="truncate">{work.userName || work.userId}</span>
+                  <span className="truncate">
+                    {work.userName || work.userId}
+                  </span>
                 )
               ) : null}
             </span>
@@ -267,7 +283,9 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
               (showBookmarks ? (
                 <span
                   className="flex shrink-0 items-center gap-0.5"
-                  title={t('works.bookmarks', { count: work.bookmarkCount ?? 0 })}
+                  title={t('works.bookmarks', {
+                    count: work.bookmarkCount ?? 0,
+                  })}
                 >
                   <Bookmark className="h-4 w-4" />
                   {work.bookmarkCount}
@@ -285,18 +303,18 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
 
       {props.children}
     </motion.li>
-  )
+  );
 }
 
 /** 搜索结果 / 用户主页共用的作品卡片：自带右键菜单与「去 pixiv」入口 */
 export function SearchWorkCard(props: {
-  work: SearchWork
+  work: SearchWork;
   /** 在当前列表里的序号，用于入场错峰 */
-  index?: number
+  index?: number;
 }): React.JSX.Element {
-  const work = props.work
+  const work = props.work;
   /** 右键菜单：下载 / 稍后看 / 复制 / 屏蔽作者 */
-  const menu = useWorkContextMenu({ onPreview: openPreview })
+  const menu = useWorkContextMenu({ onPreview: openPreview });
 
   return (
     <WorkCard
@@ -309,5 +327,5 @@ export function SearchWorkCard(props: {
     >
       {menu.menuNode}
     </WorkCard>
-  )
+  );
 }

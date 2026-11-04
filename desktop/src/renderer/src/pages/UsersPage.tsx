@@ -1,35 +1,39 @@
-import { Loader2, Search, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type * as React from 'react'
-import { useSearchParams } from 'react-router-dom'
-import type { CookieStatus, UserSearchResult } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { Pager } from '@renderer/components/shared/Pager'
-import { UserCard } from '@renderer/components/shared/UserCard'
-import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
-import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
-import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
-import { toast } from '@renderer/utils/toast'
+import { Pager } from '@renderer/components/shared/Pager';
+import { UserCard } from '@renderer/components/shared/UserCard';
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery';
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory';
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit';
+import { useI18n } from '@renderer/i18n';
+import { toast } from '@renderer/utils/toast';
+import type { CookieStatus, UserSearchResult } from '@shared/types';
+import { Loader2, Search, Users } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import type * as React from 'react';
 
 /** 用户搜索页：关键词来自顶栏搜索框，筛选「只看投稿过作品的用户」 */
-export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JSX.Element {
-  const { t } = useI18n()
+export function UsersPage({
+  cookie,
+}: {
+  cookie: CookieStatus | null;
+}): React.JSX.Element {
+  const { t } = useI18n();
   /** Cookie 状态还没读回来时按「未判定」处理，避免启动时误报未登录 */
-  const loggedOut = cookie !== null && !cookie.hasCookie
-  const [params, setParams] = useSearchParams()
+  const loggedOut = cookie !== null && !cookie.hasCookie;
+  const [params, setParams] = useSearchParams();
   /** 用户卡片右侧的四张作品缩略图共用同一套应用内预览 */
 
-  const word = params.get('word') || ''
-  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
-  const postedOnly = params.get('mode') !== 'all'
+  const word = params.get('word') || '';
+  const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1));
+  const postedOnly = params.get('mode') !== 'all';
 
   /** 接口未给出每页条数，用第一页结果条数推算总页数（避免按最后一页的少量结果算错） */
-  const [pageSize, setPageSize] = useState(48)
+  const [pageSize, setPageSize] = useState(48);
 
   /** 顶栏回车提交的序号：同一个关键词再提交一次也要刷新 */
-  const submitVersion = useSearchSubmitVersion()
+  const submitVersion = useSearchSubmitVersion();
   /** 滚动位置记忆：挂到真正的滚动容器上，keep-alive 激活时由 hook 拨回原位 */
-  const scroll = useKeepAliveScroll<HTMLDivElement>('users')
+  const scroll = useKeepAliveScroll<HTMLDivElement>('users');
 
   const { data: result, loading } = usePagedQuery<UserSearchResult>({
     page,
@@ -39,32 +43,32 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
     query: (next) => window.pixiv.searchUsers({ word, page: next, postedOnly }),
     onData: (data) => {
       // 第一页最接近整页条数（末页往往不满，会算大总页数）
-      if (page === 1 && data.users.length > 0) setPageSize(data.users.length)
-    }
-  })
+      if (page === 1 && data.users.length > 0) setPageSize(data.users.length);
+    },
+  });
 
   // 用户搜索在未登录时会直接失败：跳过请求，改用「需要登录」的轻提示；
   // 把提交序号带进依赖，同一个关键词再提交一次也能重新提示
   useEffect(() => {
-    if (word && loggedOut) toast.error(t('app.needLogin'))
-  }, [word, loggedOut, submitVersion])
+    if (word && loggedOut) toast.error(t('app.needLogin'));
+  }, [word, loggedOut, submitVersion]);
 
   const apply = (patch: Record<string, string>): void => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([key, value]) => {
-      if (value) next.set(key, value)
-      else next.delete(key)
-    })
-    setParams(next)
-  }
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    setParams(next);
+  };
 
-  const lastPage = Math.max(1, Math.ceil((result?.total || 0) / pageSize))
+  const lastPage = Math.max(1, Math.ceil((result?.total || 0) / pageSize));
   const chipClass = (active: boolean): string =>
     `rounded-full border px-2.5 py-1 text-xs transition-colors ${
       active
         ? 'border-primary/60 bg-primary/15 text-primary'
         : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary'
-    }`
+    }`;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-6 py-4">
@@ -84,7 +88,9 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
           {t('users.all')}
         </button>
         {result && word ? (
-          <span className="ml-auto text-[11px]">{t('users.total', { total: result.total })}</span>
+          <span className="ml-auto text-[11px]">
+            {t('users.total', { total: result.total })}
+          </span>
         ) : null}
       </div>
 
@@ -98,19 +104,24 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
           <Users className="h-10 w-10 opacity-40" />
           <p className="text-sm">{t('users.empty')}</p>
-          <p className="text-[11px] text-muted-foreground/70">{t('users.searchHint')}</p>
+          <p className="text-[11px] text-muted-foreground/70">
+            {t('users.searchHint')}
+          </p>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div ref={scroll.ref} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+          <div
+            ref={scroll.ref}
+            className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1"
+          >
             {loading ? (
-              <div className="flex h-42 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="h-42 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('users.loading')}
               </div>
             ) : null}
             {!loading && result && result.users.length === 0 ? (
-              <div className="flex h-42 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="h-42 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Search className="h-6 w-6" />
                 {t('users.noResult')}
               </div>
@@ -135,5 +146,5 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
         </div>
       )}
     </main>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import type * as React from 'react'
-import { Field, FieldDescription, FieldLabel } from '../ui/field'
+import type * as React from 'react';
+import { Field, FieldDescription, FieldLabel } from '../ui/field';
 
 /**
  * 表单字段：标签 + 控件 + 可选说明；`required` 在标签后加红色星号。
@@ -10,12 +10,12 @@ export function FormField({
   label,
   hint,
   required,
-  children
+  children,
 }: {
-  label: string
-  hint?: string
-  required?: boolean
-  children: React.ReactNode
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
 }): React.JSX.Element {
   return (
     <Field className="gap-1.5">
@@ -34,5 +34,5 @@ export function FormField({
         </FieldDescription>
       ) : null}
     </Field>
-  )
+  );
 }

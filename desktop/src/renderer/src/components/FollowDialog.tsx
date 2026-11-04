@@ -1,18 +1,31 @@
 // 批量同步入口已临时屏蔽：勾选框使用的 Check 图标随对应 JSX 一并注释保留，
 // 恢复时请把 Check 加回这里。
-import { ChevronLeft, ChevronRight, ExternalLink, Loader2, Search, Users, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type * as React from 'react'
-import type { BatchArtist, FollowUser } from '@shared/types'
-import { lastFollowPage, readFollowPage, rememberFollowPage, writeFollowPage } from '@renderer/utils/dialogCache'
-import { cn } from '@renderer/utils/ui'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { useI18n } from '@renderer/i18n';
+import {
+  lastFollowPage,
+  readFollowPage,
+  rememberFollowPage,
+  writeFollowPage,
+} from '@renderer/utils/dialogCache';
+import { toast } from '@renderer/utils/toast';
+import { cn } from '@renderer/utils/ui';
+import type { BatchArtist, FollowUser } from '@shared/types';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  Search,
+  Users,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type * as React from 'react';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
-const PAGE_SIZE = 48
+const PAGE_SIZE = 48;
 
 /**
  * ⚠️ 批量同步入口已临时屏蔽（代码保留，请勿删除）⚠️
@@ -30,16 +43,16 @@ const PAGE_SIZE = 48
  */
 
 interface FollowDialogProps {
-  onClose: () => void
+  onClose: () => void;
   /** 选中用户：回填用户 ID 并触发作品抓取 */
-  onPick: (userId: string) => void
+  onPick: (userId: string) => void;
   /** 批量同步：勾选的画师，按当前标签逐个抓取并下载（入口已屏蔽，回调保留以便恢复） */
-  onBatch: (artists: BatchArtist[]) => void
+  onBatch: (artists: BatchArtist[]) => void;
 }
 
 function messageOf(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error)
-  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 /**
@@ -47,23 +60,23 @@ function messageOf(error: unknown): string {
  * 点击任意用户即以该用户 ID 抓取作品列表。
  */
 export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
-  const { t } = useI18n()
+  const { t } = useI18n();
   // 打开时回到上次浏览的页码，并直接使用缓存数据（过期才重新请求）
-  const initial = readFollowPage(lastFollowPage())
-  const [page, setPage] = useState(lastFollowPage)
-  const [users, setUsers] = useState<FollowUser[]>(initial?.users ?? [])
-  const [total, setTotal] = useState(initial?.total ?? 0)
-  const [loading, setLoading] = useState(initial === null)
+  const initial = readFollowPage(lastFollowPage());
+  const [page, setPage] = useState(lastFollowPage);
+  const [users, setUsers] = useState<FollowUser[]>(initial?.users ?? []);
+  const [total, setTotal] = useState(initial?.total ?? 0);
+  const [loading, setLoading] = useState(initial === null);
   // —— 批量同步屏蔽：勾选状态与勾选逻辑，恢复时取消注释 ——
   // 勾选的画师跨页保留，顺序即勾选顺序
   // const [picked, setPicked] = useState<BatchArtist[]>([])
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState('');
   // 搜索需要跨页命中，边搜边把剩余页拉下来（并发 3，命中缓存就直接用）
-  const [allUsers, setAllUsers] = useState<FollowUser[] | null>(null)
-  const [loadingAll, setLoadingAll] = useState(false)
-  const [loadedPages, setLoadedPages] = useState(0)
+  const [allUsers, setAllUsers] = useState<FollowUser[] | null>(null);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadedPages, setLoadedPages] = useState(0);
   // StrictMode 下 effect 会执行两次，用 ref 挡住重复的整表加载
-  const loadingRef = useRef(false)
+  const loadingRef = useRef(false);
 
   // const selectedIds = new Set(picked.map((artist) => artist.id))
 
@@ -77,115 +90,122 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') props.onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [props])
+      if (event.key === 'Escape') props.onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [props]);
 
   useEffect(() => {
-    let alive = true
-    rememberFollowPage(page)
+    let alive = true;
+    rememberFollowPage(page);
 
-    const cached = readFollowPage(page)
+    const cached = readFollowPage(page);
     if (cached) {
-      setUsers(cached.users)
-      setTotal(cached.total)
-      setLoading(false)
+      setUsers(cached.users);
+      setTotal(cached.total);
+      setLoading(false);
       return () => {
-        alive = false
-      }
+        alive = false;
+      };
     }
 
-    setLoading(true)
+    setLoading(true);
 
     void window.pixiv
-      .getFollowing({ userId: '', offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE })
+      .getFollowing({
+        userId: '',
+        offset: (page - 1) * PAGE_SIZE,
+        limit: PAGE_SIZE,
+      })
       .then((result) => {
-        if (!alive) return
-        setUsers(result.users)
-        setTotal(result.total)
-        writeFollowPage(page, { users: result.users, total: result.total })
+        if (!alive) return;
+        setUsers(result.users);
+        setTotal(result.total);
+        writeFollowPage(page, { users: result.users, total: result.total });
       })
       .catch((reason: unknown) => {
-        if (!alive) return
-        setUsers([])
-        toast.error(messageOf(reason))
+        if (!alive) return;
+        setUsers([]);
+        toast.error(messageOf(reason));
       })
       .finally(() => {
-        if (alive) setLoading(false)
-      })
+        if (alive) setLoading(false);
+      });
 
     return () => {
-      alive = false
-    }
-  }, [page])
+      alive = false;
+    };
+  }, [page]);
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const hasPrev = page > 1
-  const hasNext = page < pageCount
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasPrev = page > 1;
+  const hasNext = page < pageCount;
 
   /** 把所有关注页读到内存：命中文档缓存就直接用，未命中的页并发 3 拉取 */
   const loadAllUsers = async (): Promise<void> => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-    setLoadingAll(true)
-    setLoadedPages(0)
-    const buckets: FollowUser[][] = []
-    let cursor = 0
-    let finished = 0
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    setLoadingAll(true);
+    setLoadedPages(0);
+    const buckets: FollowUser[][] = [];
+    let cursor = 0;
+    let finished = 0;
 
     const worker = async (): Promise<void> => {
       while (cursor < pages) {
-        const index = cursor
-        cursor += 1
-        const cached = readFollowPage(index + 1)
+        const index = cursor;
+        cursor += 1;
+        const cached = readFollowPage(index + 1);
         if (cached) {
-          buckets[index] = cached.users
+          buckets[index] = cached.users;
         } else {
           try {
             const result = await window.pixiv.getFollowing({
               userId: '',
               offset: index * PAGE_SIZE,
-              limit: PAGE_SIZE
-            })
-            buckets[index] = result.users
-            writeFollowPage(index + 1, { users: result.users, total: result.total })
+              limit: PAGE_SIZE,
+            });
+            buckets[index] = result.users;
+            writeFollowPage(index + 1, {
+              users: result.users,
+              total: result.total,
+            });
           } catch {
             // 单页失败不影响其余页的搜索
-            buckets[index] = []
+            buckets[index] = [];
           }
         }
-        finished += 1
-        setLoadedPages(finished)
+        finished += 1;
+        setLoadedPages(finished);
       }
-    }
+    };
 
-    await Promise.all([worker(), worker(), worker()])
-    setAllUsers(buckets.flat())
-    setLoadingAll(false)
-    loadingRef.current = false
-  }
+    await Promise.all([worker(), worker(), worker()]);
+    setAllUsers(buckets.flat());
+    setLoadingAll(false);
+    loadingRef.current = false;
+  };
 
-  const keyword = query.trim()
+  const keyword = query.trim();
 
   useEffect(() => {
-    if (!keyword || allUsers || loadingAll || total <= 0) return
-    void loadAllUsers()
-  }, [keyword, allUsers, loadingAll, total])
+    if (!keyword || allUsers || loadingAll || total <= 0) return;
+    void loadAllUsers();
+  }, [keyword, allUsers, loadingAll, total]);
 
   // 无关键词时仍按当前页展示；关键词命中名称 / 用户 ID / 简介
   const visibleUsers = useMemo(() => {
-    if (!keyword) return users
-    const needle = keyword.toLowerCase()
+    if (!keyword) return users;
+    const needle = keyword.toLowerCase();
     return (allUsers ?? users).filter(
       (user) =>
         user.name.toLowerCase().includes(needle) ||
         user.id.includes(needle) ||
         user.comment.toLowerCase().includes(needle)
-    )
-  }, [keyword, allUsers, users])
+    );
+  }, [keyword, allUsers, users]);
 
   // —— 批量同步屏蔽：全选本页逻辑，恢复时取消注释 ——
   // const allVisiblePicked =
@@ -221,9 +241,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
               <Users className="h-4 w-4 text-primary" />
               {t('follow.title')}
             </h2>
-            <p className="text-xs text-muted-foreground">
-              {t('follow.hint')}
-            </p>
+            <p className="text-xs text-muted-foreground">{t('follow.hint')}</p>
             {/* 批量同步屏蔽：勾选提示文案，恢复时取消注释 */}
             {/* <p className="text-[11px] text-muted-foreground/70">{t('batch.selectHint')}</p> */}
           </div>
@@ -261,7 +279,10 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
           {keyword ? (
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {loadingAll
-                ? t('follow.searchLoading', { done: loadedPages, total: pageCount })
+                ? t('follow.searchLoading', {
+                    done: loadedPages,
+                    total: pageCount,
+                  })
                 : t('follow.searchCount', { count: visibleUsers.length })}
             </p>
           ) : null}
@@ -275,7 +296,11 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
             </div>
           ) : visibleUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
-              {keyword ? <Search className="h-6 w-6" /> : <Users className="h-6 w-6" />}
+              {keyword ? (
+                <Search className="h-6 w-6" />
+              ) : (
+                <Users className="h-6 w-6" />
+              )}
               {keyword ? t('follow.searchEmpty') : t('follow.empty')}
             </div>
           ) : (
@@ -288,8 +313,8 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                   onClick={() => props.onPick(user.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      props.onPick(user.id)
+                      event.preventDefault();
+                      props.onPick(user.id);
                     }
                   }}
                   className={cn(
@@ -329,7 +354,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                       decoding="async"
                       className="h-12 w-12 shrink-0 rounded-full border border-border/60 object-cover"
                       onError={(event) => {
-                        event.currentTarget.style.visibility = 'hidden'
+                        event.currentTarget.style.visibility = 'hidden';
                       }}
                     />
                   ) : (
@@ -340,8 +365,13 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
 
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-1.5">
-                      <p className="min-w-0 truncate text-sm font-medium">{user.name}</p>
-                      <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                      <p className="min-w-0 truncate text-sm font-medium">
+                        {user.name}
+                      </p>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 px-1.5 py-0 text-[10px]"
+                      >
                         {user.id}
                       </Badge>
                     </div>
@@ -352,8 +382,8 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                       <button
                         type="button"
                         onClick={(event) => {
-                          event.stopPropagation()
-                          props.onPick(user.id)
+                          event.stopPropagation();
+                          props.onPick(user.id);
                         }}
                         className="rounded px-1.5 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/10"
                       >
@@ -386,7 +416,7 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                   ? t('follow.count', {
                       from: (page - 1) * PAGE_SIZE + 1,
                       to: Math.min(page * PAGE_SIZE, total),
-                      total
+                      total,
                     })
                   : t('follow.none')}
             </p>
@@ -422,19 +452,25 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
                   variant="ghost"
                   size="sm"
                   disabled={!hasPrev || loading}
-                  onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+                  onClick={() =>
+                    setPage((previous) => Math.max(1, previous - 1))
+                  }
                 >
                   <ChevronLeft />
                   {t('follow.prev')}
                 </Button>
-                <span className={cn('text-xs tabular-nums text-muted-foreground')}>
+                <span
+                  className={cn('text-xs tabular-nums text-muted-foreground')}
+                >
                   {page} / {pageCount}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={!hasNext || loading}
-                  onClick={() => setPage((previous) => Math.min(pageCount, previous + 1))}
+                  onClick={() =>
+                    setPage((previous) => Math.min(pageCount, previous + 1))
+                  }
                 >
                   {t('follow.next')}
                   <ChevronRight />
@@ -445,5 +481,5 @@ export function FollowDialog(props: FollowDialogProps): React.JSX.Element {
         </footer>
       </div>
     </div>
-  )
+  );
 }

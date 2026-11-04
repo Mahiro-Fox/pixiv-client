@@ -1,10 +1,10 @@
-import { RotateCcw, Sparkles } from 'lucide-react'
-import type * as React from 'react'
-import type { UpdateStatus } from '@shared/types'
-import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/utils/toast'
-import { Button } from '../ui/button'
-import { DialogShell } from '../shared/DialogShell'
+import { useI18n } from '@renderer/i18n';
+import { toast } from '@renderer/utils/toast';
+import type { UpdateStatus } from '@shared/types';
+import { RotateCcw, Sparkles } from 'lucide-react';
+import type * as React from 'react';
+import { DialogShell } from '../shared/DialogShell';
+import { Button } from '../ui/button';
 
 /**
  * 自动更新弹窗。
@@ -14,19 +14,19 @@ import { DialogShell } from '../shared/DialogShell'
  * 安装包留在缓存里，下次启动会再问一次，不会重新下载。
  */
 export function UpdateDialog(props: {
-  status: UpdateStatus
-  onClose: () => void
+  status: UpdateStatus;
+  onClose: () => void;
 }): React.JSX.Element | null {
-  const { t } = useI18n()
-  const { status } = props
+  const { t } = useI18n();
+  const { status } = props;
 
-  if (status.state !== 'downloaded') return null
+  if (status.state !== 'downloaded') return null;
 
   const restart = async (): Promise<void> => {
     // 恢复自上次启动的「已就绪」需要主进程补一次校验，失败时别静悄悄没反应
-    const ok = await window.pixiv.installUpdate()
-    if (!ok) toast.error(t('update.installFailed'))
-  }
+    const ok = await window.pixiv.installUpdate();
+    if (!ok) toast.error(t('update.installFailed'));
+  };
 
   return (
     <DialogShell
@@ -43,7 +43,7 @@ export function UpdateDialog(props: {
           <Button
             size="sm"
             onClick={() => {
-              void restart()
+              void restart();
             }}
           >
             <RotateCcw />
@@ -54,5 +54,5 @@ export function UpdateDialog(props: {
     >
       <p className="text-xs text-muted-foreground">{t('update.laterHint')}</p>
     </DialogShell>
-  )
+  );
 }
