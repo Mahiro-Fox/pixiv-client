@@ -3,6 +3,7 @@ import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid';
 import { Button } from '@renderer/components/ui/button';
 import { Input } from '@renderer/components/ui/input';
 import { usePagedQuery } from '@renderer/hooks/usePagedQuery';
+import { usePageActive } from '@renderer/hooks/usePageActive';
 import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory';
 import { useI18n } from '@renderer/i18n';
 import type { MessageKey } from '@renderer/i18n/messages';
@@ -16,7 +17,7 @@ import type {
 } from '@shared/types';
 import { ChevronDown, Loader2, RefreshCw, Trophy } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type * as React from 'react';
 
 /** 未登录时网页 ranking.php 仍可用的榜单 */
@@ -318,7 +319,13 @@ const CATEGORIES: RankingCategory[] = [
 const RATINGS: RankingRating[] = ['normal', 'r18', 'r18g'];
 
 /** App 来源的内容过滤参数，网页接口忽略它 */
-const FILTERS: AppRankingFilter[] = ['for_android', 'for_ios'];
+const FILTERS: AppRankingFilter[] = ['for_android', 'for_ios']
+
+/** 会被记住的筛选参数；不含 page，切页后仍从第一页开始 */
+const FILTER_KEYS = ['mode', 'kind', 'date', 'filter'] as const
+
+/** 侧栏跳回排行榜时用它恢复上次筛选，避免 NavLink 的 /ranking 丢掉 query */
+export const RANKING_FILTER_KEY = 'pixiv:ranking:filters';
 
 /** 界面用 YYYY-MM-DD（原生日期控件），接口要 YYYYMMDD */
 function toInputDate(value: string): string {
@@ -354,6 +361,26 @@ export function RankingPage({
   const [params, setParams] = useSearchParams();
   /** 默认折叠，需要时再展开 */
   const [filtersOpen, setFiltersOpen] = useState(false);
+  /** keep-alive 缓存期间 useSearchParams 读到的是全局位置，切走时不能拿别的页面的空参数覆盖记录 */
+  const active = usePageActive();
+
+  /**
+   * 侧栏 NavLink 固定跳到 /ranking，会把 URL 里的筛选参数清空。
+   * 这里把最后一次筛选存起来，排行榜入口再点回来时由导航带着它恢复。
+   */
+  useEffect(() => {
+    if (!active) return;
+    const saved = new URLSearchParams();
+    FILTER_KEYS.forEach((key) => {
+      const value = params.get(key);
+      if (value) saved.set(key, value);
+    });
+    try {
+      localStorage.setItem(RANKING_FILTER_KEY, saved.toString());
+    } catch {
+      // 存储不可用时只影响「切页保留筛选」，不影响页面本身
+    }
+  }, [params, active]);
 
   const loggedIn = oauth?.connected === true;
   const kind: WorkSearchKind =

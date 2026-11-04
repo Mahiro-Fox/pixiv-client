@@ -57,7 +57,7 @@ import { NovelLocalReaderPage } from './pages/NovelLocalReaderPage';
 import { NovelReaderPage } from './pages/NovelReaderPage';
 import { NovelSearchPage } from './pages/NovelSearchPage';
 import { NovelSeriesPage } from './pages/NovelSeriesPage';
-import { RankingPage } from './pages/RankingPage';
+import { RANKING_FILTER_KEY, RankingPage } from './pages/RankingPage';
 import { RecommendPage } from './pages/RecommendPage';
 import { SeriesPage } from './pages/SeriesPage';
 import { UserDetailPage } from './pages/UserDetailPage';
@@ -416,6 +416,17 @@ export default function App(): React.JSX.Element {
               </NavLink>
               <NavLink
                 to="/ranking"
+                onClick={(event) => {
+                  /** 直接跳 /ranking 会把 URL 里的筛选参数清空，这里带上最后保存的一份 */
+                  event.preventDefault()
+                  let saved = ''
+                  try {
+                    saved = localStorage.getItem(RANKING_FILTER_KEY) || ''
+                  } catch {
+                    saved = ''
+                  }
+                  navigate(saved ? `/ranking?${saved}` : '/ranking')
+                }}
                 className={({ isActive }) => navClassMain(isActive)}
               >
                 {({ isActive }) => (
