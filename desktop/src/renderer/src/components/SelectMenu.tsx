@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 export interface SelectOption {

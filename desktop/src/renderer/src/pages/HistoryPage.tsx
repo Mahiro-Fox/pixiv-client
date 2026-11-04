@@ -7,12 +7,12 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pager } from '@renderer/components/Pager'
 import { WorkCard } from '@renderer/components/WorkCard'
-import { messageOf } from '@renderer/lib/errors'
-import { toast } from '@renderer/lib/toast'
-import { useWorkContextMenu } from '@renderer/lib/cardMenu'
-import { useLocalPage } from '@renderer/lib/usePagedQuery'
-import { recordToSearchWork } from '@renderer/lib/workRecords'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { messageOf } from '@renderer/utils/errors'
+import { toast } from '@renderer/utils/toast'
+import { useWorkContextMenu } from '@renderer/hooks/useCardMenu'
+import { useLocalPage } from '@renderer/hooks/usePagedQuery'
+import { recordToSearchWork } from '@renderer/utils/workRecords'
+import { openPreview } from '@renderer/hooks/useWorkPreview'
 
 const PAGE_SIZE = 24
 
@@ -22,7 +22,6 @@ const PAGE_SIZE = 24
  */
 export function HistoryPage(): React.JSX.Element {
   const { t } = useI18n()
-  const { openPreview, previewNode } = useWorkPreview()
   /** 记录卡片与搜索结果共用同一套右键菜单（下载 / 复制 / 屏蔽作者） */
   const menu = useWorkContextMenu({ onPreview: openPreview })
   const [items, setItems] = useState<ViewHistoryEntry[]>([])
@@ -186,9 +185,7 @@ export function HistoryPage(): React.JSX.Element {
                 index={index}
                 onOpen={() => openPreview(recordToSearchWork(entry))}
                 onContextMenu={(event) => menu.onContextMenu(event, recordToSearchWork(entry))}
-                meta={
-                  <p className="text-[10px] text-muted-foreground/70">{timeText(entry.at)}</p>
-                }
+                meta={<p className="text-[10px] text-muted-foreground/70">{timeText(entry.at)}</p>}
               />
             ))}
           </ul>
@@ -199,7 +196,6 @@ export function HistoryPage(): React.JSX.Element {
         <Pager page={page} lastPage={lastPage} onChange={setPage} />
       ) : null}
 
-      {previewNode}
       {menu.menuNode}
     </main>
   )

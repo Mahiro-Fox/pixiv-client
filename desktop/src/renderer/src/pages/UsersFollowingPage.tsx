@@ -6,9 +6,8 @@ import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Pager } from '@renderer/components/Pager'
 import { UserCard } from '@renderer/components/UserCard'
-import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
-import { usePagedQuery } from '@renderer/lib/usePagedQuery'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 
 const PAGE_SIZE = 48
 
@@ -16,7 +15,6 @@ const PAGE_SIZE = 48
 export function UsersFollowingPage(): React.JSX.Element {
   const { t } = useI18n()
   /** 关注列表与搜索用户页共用同一套四图预览 */
-  const { openPreview, previewNode } = useWorkPreview()
   const [page, setPage] = useState(1)
   /** 本页在 keep-alive 里，进用户主页再回来要停在原来的位置 */
   const scroll = useKeepAliveScroll<HTMLDivElement>('users:following')
@@ -72,7 +70,7 @@ export function UsersFollowingPage(): React.JSX.Element {
         ) : (
           <div className="grid gap-2">
             {users.map((user) => (
-              <UserCard key={user.id} user={user} onPreview={openPreview} />
+              <UserCard key={user.id} user={user} />
             ))}
           </div>
         )}
@@ -81,8 +79,6 @@ export function UsersFollowingPage(): React.JSX.Element {
       {pageCount > 1 ? (
         <Pager page={page} lastPage={pageCount} onChange={setPage} disabled={loading} />
       ) : null}
-
-      {previewNode}
     </main>
   )
 }

@@ -2,7 +2,7 @@ import { Minus, Plus, Type } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useI18n } from '@renderer/i18n'
-import { READER_WIDTHS, type ReaderSettings } from '@renderer/lib/novel'
+import { READER_WIDTHS, type ReaderSettings } from '@renderer/utils/novel'
 
 interface NovelReaderSettingsProps {
   settings: ReaderSettings

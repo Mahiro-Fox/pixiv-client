@@ -14,10 +14,9 @@ import { useI18n } from '@renderer/i18n'
 import { Pager } from '@renderer/components/Pager'
 import { SelectMenu } from '@renderer/components/SelectMenu'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
-import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
-import { usePagedQuery } from '@renderer/lib/usePagedQuery'
-import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
 
 /** 校验 URL 里的排序值；热门度排序属会员功能，不在下拉里提供 */
 const ORDERS: WorkSearchOrder[] = [
@@ -46,12 +45,11 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
   const { t } = useI18n()
   const [params, setParams] = useSearchParams()
   /** 点击作品缩略图在应用内预览，右上角图标才跳 pixiv */
-  const { openPreview, previewNode } = useWorkPreview()
 
   const word = params.get('word') || ''
-  const order = (ORDERS.includes(params.get('order') as WorkSearchOrder)
-    ? params.get('order')
-    : 'date_d') as WorkSearchOrder
+  const order = (
+    ORDERS.includes(params.get('order') as WorkSearchOrder) ? params.get('order') : 'date_d'
+  ) as WorkSearchOrder
   const mode: WorkSearchMode =
     params.get('mode') === 'safe' || params.get('mode') === 'r18'
       ? (params.get('mode') as WorkSearchMode)
@@ -140,12 +138,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
     if (delta.scope && delta.scope !== scope) return false
     if (delta.includeManga && !includeManga) return false
     return Boolean(
-      delta.order ||
-        delta.mode ||
-        delta.csw ||
-        delta.blt ||
-        delta.scope ||
-        delta.includeManga
+      delta.order || delta.mode || delta.csw || delta.blt || delta.scope || delta.includeManga
     )
   }
 
@@ -260,7 +253,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
               </div>
             ) : null}
             {!loading && result && result.works.length > 0 ? (
-              <SearchWorkGrid works={result.works} onPreview={openPreview} />
+              <SearchWorkGrid works={result.works} />
             ) : null}
           </div>
 
@@ -274,8 +267,6 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
           ) : null}
         </div>
       )}
-
-      {previewNode}
     </main>
   )
 }

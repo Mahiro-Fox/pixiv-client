@@ -848,7 +848,7 @@ const zhCN = {
     '菜单里能应用内预览、在 pixiv 打开、进作者主页、加入下载队列、稍后看、复制链接与 ID，也能一键屏蔽作者。',
   'tour.collect.title': '采集来源',
   'tour.collect.body':
-    '列表还是空的话，这一步会自动填一个示例作者并抓一页，后面的步骤才有东西可指。作品列表上方的栏目条可以切全部 / 插画 / 漫画 / 收藏；「收藏」取的就是这个用户 ID 的收藏夹（留空则用当前登录账号）。多个标签用空格隔开，按「与」组合。',
+    '输入画师id，抓取此画师的所有作品。多个标签用空格隔开，按「与」组合。',
   'tour.toolbar.title': '作品工具栏',
   'tour.toolbar.body': '可以排序、导出勾选清单、只看未下载；每页 50 条，离开再回来不会丢位置。',
   'tour.tabs.title': '三个标签',
@@ -1738,7 +1738,7 @@ const en: Record<MessageKey, string> = {
     'The menu previews in-app, opens the work on pixiv, jumps to the artist page, queues a download, saves it for later, copies the link or ID, and can block the artist in one click.',
   'tour.collect.title': 'Where to collect from',
   'tour.collect.body':
-    'If the list is still empty, this step fills in a sample author and collects one page so the next steps have something to point at. The tabs above the works list switch between All / Illustrations / Manga / Bookmarks; Bookmarks takes the bookmarks of that user ID (empty means the signed-in account). Separate tags with spaces to combine them.',
+    'Input the artist ID to retrieve all works by this artist. Multiple tags should be separated by spaces and combined using the "AND" operator.',
   'tour.toolbar.title': 'Works toolbar',
   'tour.toolbar.body':
     'Sort, export the selected list, or show only undownloaded works. 50 per page — your position survives leaving and coming back.',
@@ -2630,7 +2630,7 @@ const ja: Record<MessageKey, string> = {
     'メニューからはアプリ内プレビュー、pixiv で開く、作者ページへ、ダウンロードキューに追加、あとで見る、リンクや ID のコピー、作者のブロックができます。',
   'tour.collect.title': '収集元',
   'tour.collect.body':
-    'リストが空の場合は、このステップでサンプル作者を入れて 1 ページ分を取得します（次のステップで指し示すため）。作品一覧上部のタブで すべて / イラスト / マンガ / ブックマーク を切り替えられ、「ブックマーク」はそのユーザー ID のブックマークを取得します（空欄ならログイン中のアカウント）。複数のタグは空白区切りで AND 条件になります。',
+    '画家IDを入力し、その画家のすべての作品を取得します。複数のタグはスペースで区切り、「かつ」で組み合わせます。',
   'tour.toolbar.title': '作品ツールバー',
   'tour.toolbar.body':
     '並び替え、選択分の書き出し、未ダウンロードのみ表示ができます。1 ページ 50 件で、離れて戻っても位置は失われません。',

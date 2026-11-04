@@ -21,7 +21,7 @@ import type {
   NovelSeriesDetail
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
+import { toast } from '@renderer/utils/toast'
 import {
   loadReaderSettings,
   loadReadingProgress,
@@ -34,7 +34,7 @@ import {
   saveSeriesPosition,
   splitNovelPages,
   type ReaderSettings
-} from '@renderer/lib/novel'
+} from '@renderer/utils/novel'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
@@ -173,7 +173,10 @@ export function NovelReaderPage(): React.JSX.Element {
     try {
       const result = await window.pixiv.downloadNovel({ novelId: detail.id })
       toast.success(t('novel.saved', { path: result.path }), {
-        action: { label: t('novel.openDir'), onClick: () => void window.pixiv.openDir(dirOf(result.path)) }
+        action: {
+          label: t('novel.openDir'),
+          onClick: () => void window.pixiv.openDir(dirOf(result.path))
+        }
       })
     } catch (reason) {
       toast.error(messageOf(reason))
@@ -206,7 +209,8 @@ export function NovelReaderPage(): React.JSX.Element {
 
   const themeClass =
     settings.theme === 'dark'
-      ? 'bg-[#15161a] text-[#c8c8d0]'      : settings.theme === 'light'
+      ? 'bg-[#15161a] text-[#c8c8d0]'
+      : settings.theme === 'light'
         ? 'bg-[#fbfbfa] text-[#232323]'
         : 'bg-[#f4ecd8] text-[#3a3128]'
 
@@ -307,12 +311,13 @@ export function NovelReaderPage(): React.JSX.Element {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => window.open(`https://www.pixiv.net/novel/show.php?id=${detail.id}`, '_blank')}
+          onClick={() =>
+            window.open(`https://www.pixiv.net/novel/show.php?id=${detail.id}`, '_blank')
+          }
         >
           {t('novel.openWeb')}
         </Button>
       </div>
-
 
       <div
         ref={scrollRef}
@@ -359,7 +364,10 @@ export function NovelReaderPage(): React.JSX.Element {
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {detail.tags.slice(0, 12).map((tag) => (
-                <span key={tag} className="rounded bg-[rgba(128,128,128,0.14)] px-1.5 py-0.5 text-[10px] opacity-80">
+                <span
+                  key={tag}
+                  className="rounded bg-[rgba(128,128,128,0.14)] px-1.5 py-0.5 text-[10px] opacity-80"
+                >
                   {tag}
                 </span>
               ))}
@@ -396,7 +404,11 @@ export function NovelReaderPage(): React.JSX.Element {
               <span />
             )}
             {seriesNav ? (
-              <Button variant="ghost" size="sm" onClick={() => navigate(`/novel/series/${seriesNav.id}`)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/novel/series/${seriesNav.id}`)}
+              >
                 <BookOpen />
                 {t('novel.toc')}
               </Button>
@@ -418,13 +430,18 @@ export function NovelReaderPage(): React.JSX.Element {
       </div>
 
       {tocOpen ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={() => setTocOpen(false)}>
+        <div
+          className="fixed inset-0 z-40 flex justify-end bg-black/40"
+          onClick={() => setTocOpen(false)}
+        >
           <aside
             className="scrollbar-thin h-full w-80 overflow-y-auto border-l border-border/60 bg-background p-3"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium">{series?.series.title || seriesNav?.title || t('novel.toc')}</p>
+              <p className="text-xs font-medium">
+                {series?.series.title || seriesNav?.title || t('novel.toc')}
+              </p>
               <button
                 type="button"
                 onClick={() => setTocOpen(false)}

@@ -6,11 +6,10 @@ import type { CookieStatus, UserSearchResult } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Pager } from '@renderer/components/Pager'
 import { UserCard } from '@renderer/components/UserCard'
-import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
-import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
-import { usePagedQuery } from '@renderer/lib/usePagedQuery'
-import { toast } from '@renderer/lib/toast'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
+import { toast } from '@renderer/utils/toast'
 
 /** 用户搜索页：关键词来自顶栏搜索框，筛选「只看投稿过作品的用户」 */
 export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JSX.Element {
@@ -19,7 +18,6 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
   const loggedOut = cookie !== null && !cookie.hasCookie
   const [params, setParams] = useSearchParams()
   /** 用户卡片右侧的四张作品缩略图共用同一套应用内预览 */
-  const { openPreview, previewNode } = useWorkPreview()
 
   const word = params.get('word') || ''
   const page = Math.max(1, Math.round(Number(params.get('page') || 1) || 1))
@@ -120,7 +118,7 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
             {!loading && result && result.users.length > 0 ? (
               <div className="grid gap-2">
                 {result.users.map((user) => (
-                  <UserCard key={user.id} user={user} onPreview={openPreview} />
+                  <UserCard key={user.id} user={user} />
                 ))}
               </div>
             ) : null}
@@ -136,8 +134,6 @@ export function UsersPage({ cookie }: { cookie: CookieStatus | null }): React.JS
           ) : null}
         </div>
       )}
-
-      {previewNode}
     </main>
   )
 }

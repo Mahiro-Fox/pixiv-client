@@ -1,11 +1,6 @@
 import type { PixivWork, SearchWork } from '@shared/types'
-import {
-  blockRulesOf,
-  blockedUserTerms,
-  joinBlockTerms,
-  splitBlockTermsRaw
-} from '@shared/block'
-import { toPixivWork } from './workPreview'
+import { blockRulesOf, blockedUserTerms, joinBlockTerms, splitBlockTermsRaw } from '@shared/block'
+import { toPixivWork } from './work'
 import { worksTag } from './files'
 
 /**

@@ -6,9 +6,9 @@ import type {
   PixivWork,
   QueueSummary
 } from '@shared/types'
-import { messageOf } from './errors'
-import { toast } from './toast'
-import { worksTag } from './files'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
+import { worksTag } from '../utils/files'
 import { translate } from '../i18n'
 import type { Translate } from '../i18n'
 

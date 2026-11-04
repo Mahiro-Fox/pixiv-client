@@ -1,7 +1,7 @@
 import { FilterX } from 'lucide-react'
 import type * as React from 'react'
 import { useI18n } from '@renderer/i18n'
-import { useFilterContext } from '@renderer/lib/filterContext'
+import { useFilterContext } from '@renderer/hooks/useFilterContext'
 import { Button } from './ui/button'
 
 /**

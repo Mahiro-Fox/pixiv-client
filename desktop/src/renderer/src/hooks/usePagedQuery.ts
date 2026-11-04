@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { messageOf } from './errors'
-import { toast } from './toast'
-import { usePageActive } from './pageActive'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
+import { usePageActive } from './usePageActive'
 
 /**
  * 统一分页取数。

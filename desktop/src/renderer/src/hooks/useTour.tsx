@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { TourOverlay } from '@renderer/components/tour/TourOverlay'
-import { hasSeenTour, markTourSeen, TOUR_STEPS, type TourAction } from './steps'
+import { hasSeenTour, markTourSeen, TOUR_STEPS, type TourAction } from '../utils/tourSteps'
 import { useAnchorRect } from './useAnchorRect'
 
 /**
@@ -62,8 +62,7 @@ export function TourProvider(props: {
   const primary = active && step?.anchor ? `[data-tour="${step.anchor}"]` : null
   const primaryRect = useAnchorRect(primary)
   // 主锚点不存在时的替补（工作台没抓过作品时没有工具栏，就高亮整个作品区）
-  const spare =
-    active && !primaryRect && step?.fallback ? `[data-tour="${step.fallback}"]` : null
+  const spare = active && !primaryRect && step?.fallback ? `[data-tour="${step.fallback}"]` : null
   const spareRect = useAnchorRect(spare)
   const rect = primaryRect ?? spareRect
   // 右键菜单是 portal 到 body 的独立节点，只能等它出现后再量
@@ -179,9 +178,7 @@ export function TourProvider(props: {
       const target = event.target as HTMLElement | null
       const typing =
         Boolean(target) &&
-        (target!.tagName === 'INPUT' ||
-          target!.tagName === 'TEXTAREA' ||
-          target!.isContentEditable)
+        (target!.tagName === 'INPUT' || target!.tagName === 'TEXTAREA' || target!.isContentEditable)
 
       if (event.key === 'Escape') {
         event.preventDefault()

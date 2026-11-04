@@ -24,7 +24,7 @@ import {
 import type * as React from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useI18n } from '@renderer/i18n'
-import { useUgoiraFrames, type UgoiraSource } from '@renderer/lib/ugoira'
+import { useUgoiraFrames, type UgoiraSource } from '@renderer/hooks/useUgoira'
 import { UgoiraPlayer } from './UgoiraPlayer'
 
 /* -------------------------------- 常量 / 类型 -------------------------------- */

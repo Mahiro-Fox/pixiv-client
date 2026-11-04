@@ -9,8 +9,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Pager } from '@renderer/components/Pager'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
-import { usePagedQuery } from '@renderer/lib/usePagedQuery'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 
 const PAGE_SIZE = 48
 
@@ -21,7 +20,6 @@ const PAGE_SIZE = 48
 export function FavoritesPage(): React.JSX.Element {
   const { t } = useI18n()
   const [params, setParams] = useSearchParams()
-  const { openPreview, previewNode } = useWorkPreview()
 
   const [self, setSelf] = useState<SelfUser | null>(null)
   const [cookieReady, setCookieReady] = useState(false)
@@ -187,7 +185,7 @@ export function FavoritesPage(): React.JSX.Element {
           ) : null}
 
           {!loading && content && content.works.length > 0 ? (
-            <SearchWorkGrid works={content.works} onPreview={openPreview} />
+            <SearchWorkGrid works={content.works} />
           ) : null}
 
           {!loading && content && content.works.length === 0 ? (
@@ -206,8 +204,6 @@ export function FavoritesPage(): React.JSX.Element {
           ) : null}
         </>
       )}
-
-      {previewNode}
     </main>
   )
 }

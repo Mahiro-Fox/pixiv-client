@@ -50,7 +50,7 @@ import {
 import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle'
 import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n'
 import type { Translate } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
+import { toast } from '@renderer/utils/toast'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { DialogShell } from './DialogShell'

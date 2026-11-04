@@ -45,7 +45,8 @@ function show(message: string, kind: ToastKind, options?: ToastOptions): string 
 }
 
 export const toast = {
-  info: (message: string, options?: ToastOptions): string | number => show(message, 'info', options),
+  info: (message: string, options?: ToastOptions): string | number =>
+    show(message, 'info', options),
   success: (message: string, options?: ToastOptions): string | number =>
     show(message, 'success', options),
   error: (message: string, options?: ToastOptions): string | number =>

@@ -11,15 +11,14 @@ import type {
   WorkContent,
   WorkSort
 } from '@shared/types'
-import { applyWorkFilters } from './filters'
-import { worksTag } from './files'
-import { CONFIG_CHANGED_EVENT } from './workActions'
-import { messageOf } from './errors'
-import { toast } from './toast'
+import { applyWorkFilters } from '../utils/filters'
+import { worksTag } from '../utils/files'
+import { CONFIG_CHANGED_EVENT } from '../utils/workActions'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
 import { translate } from '../i18n'
 import type { Translate } from '../i18n'
 import type { CookieSessionState } from './useCookieSession'
-import { TOUR_DEMO_AUTHOR, type TourAction } from './tour/steps'
 
 /** 结果排序；'default' 保留接口原始顺序 */
 function sortWorks(works: PixivWork[], sort: WorkSort): PixivWork[] {
@@ -83,7 +82,6 @@ export interface WorkCollectionState {
   collect: (patch?: Partial<AppConfig>, options?: { quietEmpty?: boolean }) => Promise<void>
   switchContent: (next: WorkContent) => void
   openAuthorDownload: (userId: string) => void
-  prepareTourWorks: (action: TourAction) => void
   batchSync: (artists: BatchArtist[]) => Promise<void>
 
   toggleWork: (id: string) => void
@@ -384,24 +382,6 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
    * 只影响这一次抓取，不改变下载行为。
    * 已经抓过、或用户自己填过条件（只是没点「抓取」）时不覆盖他的参数。
    */
-  const prepareTourWorks = (action: TourAction): void => {
-    if (action !== 'demo-works') return
-    if (!config || collecting || works.length > 0) return
-
-    const hasParams = Boolean(config.userId.trim() || config.tag.trim() || config.tagExtra.trim())
-    if (hasParams) {
-      void collect()
-      return
-    }
-
-    void collect({
-      userId: TOUR_DEMO_AUTHOR,
-      tag: '',
-      tagExtra: '',
-      tagExclude: '',
-      offset: 0
-    })
-  }
 
   /**
    * 批量同步：按当前标签与过滤规则逐位画师「抓取 → 下载」。
@@ -540,7 +520,6 @@ export function useWorkCollection(options: UseWorkCollectionOptions): WorkCollec
     collect,
     switchContent,
     openAuthorDownload,
-    prepareTourWorks,
     batchSync,
     toggleWork,
     toggleAll,

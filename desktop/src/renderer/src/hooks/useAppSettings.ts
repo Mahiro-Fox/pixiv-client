@@ -8,9 +8,9 @@ import type {
   ProxyTestResult,
   UpdateStatus
 } from '@shared/types'
-import { applyTheme, watchSystemTheme } from './theme'
-import { messageOf } from './errors'
-import { toast } from './toast'
+import { applyTheme, watchSystemTheme } from '../utils/theme'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
 import { translate } from '../i18n'
 import type { Translate } from '../i18n'
 

@@ -1,7 +1,7 @@
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import * as React from 'react'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 
 /** shadcn 的 Select（Radix 底座）。项目里按 options 数组调用的封装在 `components/SelectMenu.tsx`。 */
 const Select = SelectPrimitive.Root

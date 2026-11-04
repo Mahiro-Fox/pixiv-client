@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { UserProfile } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
+import { toast } from '@renderer/utils/toast'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 

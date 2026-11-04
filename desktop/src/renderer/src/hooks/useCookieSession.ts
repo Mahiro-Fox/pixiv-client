@@ -7,7 +7,7 @@ import type {
   OAuthStatus,
   SelfUser
 } from '@shared/types'
-import { messageOf } from './errors'
+import { messageOf } from '../utils/errors'
 
 export interface CookieSessionState {
   cookie: CookieStatus | null

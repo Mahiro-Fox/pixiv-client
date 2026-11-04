@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useReducedMotion } from 'motion/react'
 import { useI18n } from '@renderer/i18n'
-import type { UgoiraFrameView } from '@renderer/lib/ugoira'
+import type { UgoiraFrameView } from '@renderer/hooks/useUgoira'
 
 interface UgoiraPlayerProps {
   /** 已按播放顺序排好的帧（blob 地址 + 每帧时长） */

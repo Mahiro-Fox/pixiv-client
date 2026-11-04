@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { UgoiraFrames } from '@shared/types'
-import { messageOf } from './errors'
-import { toast } from './toast'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
 
 /**
  * 动图帧的来源。

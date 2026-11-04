@@ -1,12 +1,5 @@
-import {
-  AlertTriangle,
-  Images,
-  ListRestart,
-  Loader2,
-  ScrollText,
-  X,
-} from "lucide-react";
-import type * as React from "react";
+import { AlertTriangle, Images, ListRestart, Loader2, ScrollText, X } from 'lucide-react'
+import type * as React from 'react'
 import type {
   AppConfig,
   BatchSyncProgress,
@@ -19,24 +12,19 @@ import type {
   TagSuggestion,
   ThrottleState,
   WorkContent,
-  WorkSort,
-} from "@shared/types";
-import { useI18n } from "@renderer/i18n";
-import { Button } from "@renderer/components/ui/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@renderer/components/ui/tabs";
-import { CollectPanel } from "@renderer/components/CollectPanel";
-import { LogPanel } from "@renderer/components/LogPanel";
-import { ProgressPanel } from "@renderer/components/ProgressPanel";
-import { QueuePanel } from "@renderer/components/QueuePanel";
-import { WorksGrid } from "@renderer/components/WorksGrid";
+  WorkSort
+} from '@shared/types'
+import { useI18n } from '@renderer/i18n'
+import { Button } from '@renderer/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
+import { CollectPanel } from '@renderer/components/CollectPanel'
+import { LogPanel } from '@renderer/components/LogPanel'
+import { ProgressPanel } from '@renderer/components/ProgressPanel'
+import { QueuePanel } from '@renderer/components/QueuePanel'
+import { WorksGrid } from '@renderer/components/WorksGrid'
 
 /** 工作台作品栏目的固定顺序；「全部」放第一位，保持与旧行为一致 */
-const CONTENT_TABS: WorkContent[] = ["all", "illust", "manga", "bookmarks"];
+const CONTENT_TABS: WorkContent[] = ['all', 'illust', 'manga', 'bookmarks']
 
 /**
  * Cookie 失效提醒条。
@@ -44,38 +32,33 @@ const CONTENT_TABS: WorkContent[] = ["all", "illust", "manga", "bookmarks"];
  * 只有 provider 下面的组件才拿得到 useI18n。
  */
 function CookieExpiredBanner(props: {
-  loading: boolean;
-  onRelogin: () => void;
-  onRecheck: () => void;
-  onDismiss: () => void;
+  loading: boolean
+  onRelogin: () => void
+  onRecheck: () => void
+  onDismiss: () => void
 }): React.JSX.Element {
-  const { t } = useI18n();
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
       <AlertTriangle className="h-4 w-4 shrink-0" />
-      <p className="flex-1 leading-5">{t("cookie.expired")}</p>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={props.loading}
-        onClick={props.onRelogin}
-      >
+      <p className="flex-1 leading-5">{t('cookie.expired')}</p>
+      <Button variant="outline" size="sm" disabled={props.loading} onClick={props.onRelogin}>
         {props.loading ? <Loader2 className="animate-spin" /> : null}
-        {t("cookie.relogin")}
+        {t('cookie.relogin')}
       </Button>
       <Button variant="ghost" size="sm" onClick={props.onRecheck}>
-        {t("cookie.recheck")}
+        {t('cookie.recheck')}
       </Button>
       <button
         type="button"
         onClick={props.onDismiss}
-        aria-label={t("cookie.dismiss")}
+        aria-label={t('cookie.dismiss')}
         className="rounded p-0.5 text-amber-500/70 transition-colors hover:bg-amber-500/15 hover:text-amber-500"
       >
         <X className="h-4 w-4" />
       </button>
     </div>
-  );
+  )
 }
 
 /**
@@ -86,87 +69,87 @@ function CookieExpiredBanner(props: {
  */
 export interface WorkbenchPageProps {
   /* —— 采集参数 —— */
-  config: AppConfig;
-  selfUser: SelfUser | null;
-  hasCookie: boolean;
-  collecting: boolean;
+  config: AppConfig
+  selfUser: SelfUser | null
+  hasCookie: boolean
+  collecting: boolean
   /** 队列里已有未完成任务：采集面板的按钮文案随之变化 */
-  queued: boolean;
-  selectedCount: number;
+  queued: boolean
+  selectedCount: number
   /** 「正在抓取第 3/8 页」这类实时文案；为空时退回通用文案 */
-  collectText: string | null;
-  collectProgress: CollectProgress | null;
-  total: number;
-  worksCount: number;
+  collectText: string | null
+  collectProgress: CollectProgress | null
+  total: number
+  worksCount: number
 
   /* —— 采集动作 —— */
-  onConfigChange: (patch: Partial<AppConfig>) => void;
-  onCollect: () => void;
-  onDownload: () => void;
+  onConfigChange: (patch: Partial<AppConfig>) => void
+  onCollect: () => void
+  onDownload: () => void
   /** 清掉标签筛选，回到这位作者的全部作品 */
-  onClearTag: () => void;
-  onSwitchContent: (next: WorkContent) => void;
-  onSuggestTags: (word: string) => Promise<TagSuggestion[]>;
+  onClearTag: () => void
+  onSwitchContent: (next: WorkContent) => void
+  onSuggestTags: (word: string) => Promise<TagSuggestion[]>
 
   /* —— Cookie 失效提醒 —— */
-  cookieExpired: boolean;
-  loggingIn: boolean;
-  onRelogin: () => void;
-  onRecheckCookie: () => void;
-  onDismissCookieBanner: () => void;
+  cookieExpired: boolean
+  loggingIn: boolean
+  onRelogin: () => void
+  onRecheckCookie: () => void
+  onDismissCookieBanner: () => void
 
   /* —— 页签 —— */
-  tab: string;
-  onTabChange: (value: string) => void;
+  tab: string
+  onTabChange: (value: string) => void
 
   /* —— 作品网格（当前页、已选、筛选结果都由 App 算好） —— */
-  works: PixivWork[];
-  selected: Set<string>;
-  downloaded: Set<string>;
-  downloadedCount: number;
-  filteredTotal: number;
+  works: PixivWork[]
+  selected: Set<string>
+  downloaded: Set<string>
+  downloadedCount: number
+  filteredTotal: number
   /** 被过滤规则挡掉的作品数 */
-  filteredOut: number;
-  onlyNew: boolean;
-  sort: WorkSort;
-  activeFilterCount: number;
-  onSortChange: (sort: WorkSort) => void;
-  onOpenFilter: () => void;
-  onOpenTags: () => void;
-  onExport: () => void;
-  page: number;
-  pageCount: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onToggle: (id: string) => void;
-  onToggleAll: () => void;
-  onOpen: (work: PixivWork) => void;
-  onToggleOnlyNew: () => void;
+  filteredOut: number
+  onlyNew: boolean
+  sort: WorkSort
+  activeFilterCount: number
+  onSortChange: (sort: WorkSort) => void
+  onOpenFilter: () => void
+  onOpenTags: () => void
+  onExport: () => void
+  page: number
+  pageCount: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onToggle: (id: string) => void
+  onToggleAll: () => void
+  onOpen: (work: PixivWork) => void
+  onToggleOnlyNew: () => void
 
   /* —— 任务队列 —— */
-  queue: QueueSummary[];
+  queue: QueueSummary[]
   /** 正在跑的下载任务数 */
-  activeCount: number;
-  throttle: ThrottleState[];
-  batch: BatchSyncProgress | null;
-  onOpenSettings: () => void;
-  onCancelBatch: () => void;
-  onResume: (id: string) => void;
-  onPause: (id: string) => void;
-  onCancel: (id: string) => void;
-  onRemove: (id: string) => void;
-  onLoadFailures: (id: string) => Promise<FailureItem[]>;
-  onRetryFailure: (id: string, item: FailureItem) => Promise<void>;
-  onExportFailures: (id: string) => void;
-  onOpenDir: (dir: string) => void;
+  activeCount: number
+  throttle: ThrottleState[]
+  batch: BatchSyncProgress | null
+  onOpenSettings: () => void
+  onCancelBatch: () => void
+  onResume: (id: string) => void
+  onPause: (id: string) => void
+  onCancel: (id: string) => void
+  onRemove: (id: string) => void
+  onLoadFailures: (id: string) => Promise<FailureItem[]>
+  onRetryFailure: (id: string, item: FailureItem) => Promise<void>
+  onExportFailures: (id: string) => void
+  onOpenDir: (dir: string) => void
 
   /* —— 下载日志 —— */
-  items: DownloadItemEvent[];
-  running: boolean;
+  items: DownloadItemEvent[]
+  running: boolean
 }
 
 export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
-  const { t } = useI18n();
+  const { t } = useI18n()
   const {
     config,
     selfUser,
@@ -227,19 +210,19 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
     onExportFailures,
     onOpenDir,
     items,
-    running,
-  } = props;
+    running
+  } = props
 
   /** 作品列表的四个栏目与作者主页口径一致：全部 = 插画+漫画，收藏换的是数据来源 */
-  const contentTab = config.contentKind ?? "all";
-  const isBookmarks = config.contentKind === "bookmarks";
+  const contentTab = config.contentKind ?? 'all'
+  const isBookmarks = config.contentKind === 'bookmarks'
 
   const contentLabel = (value: WorkContent): string => {
-    if (value === "bookmarks") return t("workbench.contentBookmarks");
-    if (value === "illust") return t("workbench.contentIllust");
-    if (value === "manga") return t("workbench.contentManga");
-    return t("workbench.contentAll");
-  };
+    if (value === 'bookmarks') return t('workbench.contentBookmarks')
+    if (value === 'illust') return t('workbench.contentIllust')
+    if (value === 'manga') return t('workbench.contentManga')
+    return t('workbench.contentAll')
+  }
 
   return (
     <main className="grid min-h-0 flex-1 grid-cols-[380px_1fr]">
@@ -268,30 +251,23 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
           />
         ) : null}
 
-        <Tabs
-          value={tab}
-          onValueChange={onTabChange}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <div
-            className="flex items-center justify-between"
-            data-tour="workbench-tabs"
-          >
+        <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center justify-between" data-tour="workbench-tabs">
             <TabsList>
               <TabsTrigger value="works">
                 <Images className="h-4 w-4" />
-                {t("app.tabWorks")}
-                {worksCount > 0 ? `（${worksCount}）` : ""}
+                {t('app.tabWorks')}
+                {worksCount > 0 ? `（${worksCount}）` : ''}
               </TabsTrigger>
               <TabsTrigger value="tasks">
                 <ListRestart className="h-4 w-4" />
-                {t("app.tabTasks")}
-                {queue.length > 0 ? `（${queue.length}）` : ""}
+                {t('app.tabTasks')}
+                {queue.length > 0 ? `（${queue.length}）` : ''}
               </TabsTrigger>
               <TabsTrigger value="log">
                 <ScrollText className="h-4 w-4" />
-                {t("app.tabLog")}
-                {items.length > 0 ? `（${items.length}）` : ""}
+                {t('app.tabLog')}
+                {items.length > 0 ? `（${items.length}）` : ''}
               </TabsTrigger>
             </TabsList>
 
@@ -299,33 +275,27 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
               {collecting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {collectText ?? t("app.collectingWorks")}
+                  {collectText ?? t('app.collectingWorks')}
                 </>
               ) : null}
               {running ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  {t("app.downloadRunning")}
+                  {t('app.downloadRunning')}
                 </>
               ) : null}
-              {total > 0 && !collecting ? (
-                <span>{t("app.apiTotal", { total })}</span>
-              ) : null}
+              {total > 0 && !collecting ? <span>{t('app.apiTotal', { total })}</span> : null}
             </div>
           </div>
 
-          <TabsContent
-            value="works"
-            className="min-h-0 gap-2"
-            data-tour="works-panel"
-          >
+          <TabsContent value="works" className="min-h-0 gap-2" data-tour="works-panel">
             {/* 栏目与作者主页一致：全部 = 插画+漫画；收藏换的是数据来源 */}
             <div
               className="flex shrink-0 items-center gap-1 self-start rounded-lg bg-secondary/40 p-1"
               data-tour="works-content-tabs"
             >
               {CONTENT_TABS.map((value) => {
-                const active = contentTab === value;
+                const active = contentTab === value
                 return (
                   <button
                     key={value}
@@ -334,13 +304,13 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
                     disabled={collecting}
                     className={
                       active
-                        ? "rounded-md bg-background px-2.5 py-1 text-[11px] text-foreground shadow-sm transition-colors disabled:opacity-60"
-                        : "rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                        ? 'rounded-md bg-background px-2.5 py-1 text-[11px] text-foreground shadow-sm transition-colors disabled:opacity-60'
+                        : 'rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40'
                     }
                   >
                     {contentLabel(value)}
                   </button>
-                );
+                )
               })}
             </div>
 
@@ -359,7 +329,7 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
               activeFilterCount={activeFilterCount}
               onSortChange={onSortChange}
               onOpenFilter={onOpenFilter}
-              activeTag={isBookmarks ? "" : config.tag}
+              activeTag={isBookmarks ? '' : config.tag}
               // 标签弹窗列的是作者作品的标签；收藏栏的标签是收藏夹标签，只能手填
               onOpenTags={isBookmarks ? undefined : onOpenTags}
               onClearTag={isBookmarks ? undefined : onClearTag}
@@ -408,5 +378,5 @@ export function WorkbenchPage(props: WorkbenchPageProps): React.JSX.Element {
         </Tabs>
       </section>
     </main>
-  );
+  )
 }

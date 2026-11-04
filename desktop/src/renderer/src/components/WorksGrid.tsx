@@ -10,7 +10,7 @@ import {
 import { useEffect, useRef } from 'react'
 import type * as React from 'react'
 import type { PixivWork, WorkSort } from '@shared/types'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
 import { buildPageItems } from './Pager'

@@ -4,7 +4,7 @@ import { Toaster as Sonner } from 'sonner'
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 /**
- * 应用主题由 `lib/theme.ts` 直接切 html 上的 `dark` class，没有主题库。
+ * 应用主题由 `utils/theme.ts` 直接切 html 上的 `dark` class，没有主题库。
  * shadcn 原始模板用 next-themes 读主题，这里没必要——监听这个 class 就够了。
  */
 function useIsDark(): boolean {

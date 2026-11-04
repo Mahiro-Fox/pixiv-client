@@ -2,8 +2,8 @@ import { CheckCircle2, FolderCheck, Loader2, RefreshCcw, ScrollText, XCircle } f
 import { memo } from 'react'
 import type * as React from 'react'
 import type { DownloadItemEvent } from '@shared/types'
-import { formatBytes } from '@renderer/lib/utils'
-import { cn } from '@renderer/lib/utils'
+import { formatBytes } from '@renderer/utils/ui'
+import { cn } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
 
 interface LogPanelProps {

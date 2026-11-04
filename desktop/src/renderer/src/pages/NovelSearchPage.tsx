@@ -22,12 +22,12 @@ import type {
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { FilteredHint } from '@renderer/components/FilteredHint'
-import { useFilteredNovels } from '@renderer/lib/filterContext'
-import { toast } from '@renderer/lib/toast'
-import { readingMinutes } from '@renderer/lib/novel'
-import { usePageActive } from '@renderer/lib/pageActive'
-import { useSearchSubmitVersion } from '@renderer/lib/searchSubmit'
-import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
+import { useFilteredNovels } from '@renderer/hooks/useFilterContext'
+import { toast } from '@renderer/utils/toast'
+import { readingMinutes } from '@renderer/utils/novel'
+import { usePageActive } from '@renderer/hooks/usePageActive'
+import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { SelectMenu } from '@renderer/components/SelectMenu'
@@ -40,7 +40,11 @@ function messageOf(error: unknown): string {
   return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-function NovelRow(props: { novel: NovelWork; onOpen: (id: string) => void; onSeries: (id: string) => void }): React.JSX.Element {
+function NovelRow(props: {
+  novel: NovelWork
+  onOpen: (id: string) => void
+  onSeries: (id: string) => void
+}): React.JSX.Element {
   const { t } = useI18n()
   const { novel } = props
   return (
@@ -100,9 +104,7 @@ function NovelRow(props: { novel: NovelWork; onOpen: (id: string) => void; onSer
         <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
           <User className="h-4 w-4 shrink-0" />
           {novel.userName}
-          {novel.seriesTitle ? (
-            <span className="truncate">· {novel.seriesTitle}</span>
-          ) : null}
+          {novel.seriesTitle ? <span className="truncate">· {novel.seriesTitle}</span> : null}
         </p>
 
         {novel.description ? (
@@ -144,11 +146,15 @@ export function NovelSearchPage(): React.JSX.Element {
   const [params, setParams] = useSearchParams()
 
   const word = params.get('word') || ''
-  const order = (ORDERS.includes(params.get('order') as NovelOrder) ? params.get('order') : 'date_d') as NovelOrder
+  const order = (
+    ORDERS.includes(params.get('order') as NovelOrder) ? params.get('order') : 'date_d'
+  ) as NovelOrder
   const mode = (params.get('mode') === 'safe' ? 'safe' : 'all') as NovelSearchMode
-  const target = (TARGETS.includes(params.get('target') as NovelSearchTarget)
-    ? params.get('target')
-    : 's_tag_full') as NovelSearchTarget
+  const target = (
+    TARGETS.includes(params.get('target') as NovelSearchTarget)
+      ? params.get('target')
+      : 's_tag_full'
+  ) as NovelSearchTarget
   const page = Math.max(1, Math.min(10, Number(params.get('page') || 1) || 1))
 
   const [input, setInput] = useState(word)

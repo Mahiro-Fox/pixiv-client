@@ -28,20 +28,21 @@ import {
   useOutlet
 } from 'react-router-dom'
 import type { PixivWork } from '@shared/types'
-import { countActiveFilters } from './lib/filters'
-import { useAppSettings, bootLocale } from './lib/useAppSettings'
-import { useCookieSession } from './lib/useCookieSession'
-import { useDownloadEvents } from './lib/useDownloadEvents'
-import { useQueueActions } from './lib/useQueueActions'
-import { useTopbarSearch } from './lib/useTopbarSearch'
-import { useWorkCollection } from './lib/useWorkCollection'
+import { countActiveFilters } from './utils/filters'
+import { useAppSettings, bootLocale } from './hooks/useAppSettings'
+import { useCookieSession } from './hooks/useCookieSession'
+import { useDownloadEvents } from './hooks/useDownloadEvents'
+import { useQueueActions } from './hooks/useQueueActions'
+import { useTopbarSearch } from './hooks/useTopbarSearch'
+import { useWorkCollection } from './hooks/useWorkCollection'
+import { WorkPreviewHost } from './hooks/useWorkPreview'
 import { I18nProvider, translate } from './i18n'
 import type { Translate } from './i18n'
 import { FilterDialog } from './components/FilterDialog'
 import { UserTagDialog } from './components/UserTagDialog'
-import { FilterProvider } from './lib/filterContext'
+import { FilterProvider } from './hooks/useFilterContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { TourProvider, startTour } from './lib/tour/TourProvider'
+import { TourProvider, startTour } from './hooks/useTour'
 import { ImagePreviewProvider } from './components/ImagePreview'
 import { LibraryPanel } from './components/LibraryPanel'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -66,8 +67,8 @@ import { RankingPage } from './pages/RankingPage'
 import { RecommendPage } from './pages/RecommendPage'
 import { Button } from './components/ui/button'
 import { Toaster } from './components/ui/sonner'
-import { messageOf } from './lib/errors'
-import { toast } from './lib/toast'
+import { messageOf } from './utils/errors'
+import { toast } from './utils/toast'
 
 /**
  * 缓存范围：用户点名的六个浏览页。
@@ -238,7 +239,6 @@ export default function App(): React.JSX.Element {
     collect,
     switchContent,
     openAuthorDownload,
-    prepareTourWorks,
     toggleWork,
     toggleAll,
     toggleOnlyNew,
@@ -592,6 +592,9 @@ export default function App(): React.JSX.Element {
             />
           ) : null}
 
+          {/* 全站唯一的应用内预览：卡片直接调 openPreview，这里只负责渲染 */}
+          <WorkPreviewHost />
+
           {tagsOpen ? (
             <UserTagDialog
               userId={config.userId}
@@ -652,10 +655,7 @@ export default function App(): React.JSX.Element {
             />
           ) : null}
         </div>
-        <TourProvider
-          blocked={settingsOpen || filterOpen || tagsOpen || updateOpen || Boolean(preview)}
-          onAction={prepareTourWorks}
-        />
+        <TourProvider blocked={settingsOpen || filterOpen || tagsOpen || updateOpen || Boolean(preview)} />
         {/* 位置与可关闭沿用旧提示条的习惯：底部居中、最多同时 3 条 */}
         <Toaster position="bottom-center" closeButton visibleToasts={3} />
       </ImagePreviewProvider>

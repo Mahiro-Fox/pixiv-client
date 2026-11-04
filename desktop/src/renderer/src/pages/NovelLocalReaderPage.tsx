@@ -3,14 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
+import { toast } from '@renderer/utils/toast'
 import {
   loadReaderSettings,
   loadReadingProgress,
   saveReaderSettings,
   saveReadingProgress,
   type ReaderSettings
-} from '@renderer/lib/novel'
+} from '@renderer/utils/novel'
 import { Button } from '@renderer/components/ui/button'
 import { NovelReaderSettings } from '@renderer/components/NovelReaderSettings'
 
@@ -123,7 +123,6 @@ export function NovelLocalReaderPage(): React.JSX.Element {
           {t('novel.openDir')}
         </Button>
       </div>
-
 
       <div
         ref={scrollRef}

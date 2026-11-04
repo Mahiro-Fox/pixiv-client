@@ -99,7 +99,8 @@ export function loadReaderSettings(): ReaderSettings {
     return {
       fontSize: Math.round(clamp(parsed.fontSize, 14, 26, READER_DEFAULT.fontSize)),
       // 行高按 0.1 取整，避免出现 1.9999999 这样的显示
-      lineHeight: Math.round(clamp(parsed.lineHeight, 1.4, 2.6, READER_DEFAULT.lineHeight) * 10) / 10,
+      lineHeight:
+        Math.round(clamp(parsed.lineHeight, 1.4, 2.6, READER_DEFAULT.lineHeight) * 10) / 10,
       maxWidth: READER_WIDTHS.includes(
         clamp(parsed.maxWidth, 640, 896, READER_DEFAULT.maxWidth) as (typeof READER_WIDTHS)[number]
       )

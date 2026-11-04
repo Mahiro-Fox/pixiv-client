@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import { useI18n } from '@renderer/i18n'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 import { Button, buttonVariants } from './ui/button'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from './ui/pagination'
 

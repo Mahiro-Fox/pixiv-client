@@ -6,19 +6,10 @@ import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Pager } from '@renderer/components/Pager'
 import { SearchWorkGrid } from '@renderer/components/WorkCard'
-import { useKeepAliveScroll } from '@renderer/lib/scrollMemory'
-import { usePagedQuery } from '@renderer/lib/usePagedQuery'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
+import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 
-const MODES: RankingMode[] = [
-  'daily',
-  'weekly',
-  'monthly',
-  'rookie',
-  'original',
-  'male',
-  'female'
-]
+const MODES: RankingMode[] = ['daily', 'weekly', 'monthly', 'rookie', 'original', 'male', 'female']
 
 /** 文案键单独列一份，避免用模板字符串拼 key 时丢掉类型检查 */
 const MODE_KEYS = {
@@ -56,7 +47,6 @@ function formatApiDate(value: string): string {
 export function RankingPage(): React.JSX.Element {
   const { t } = useI18n()
   const [params, setParams] = useSearchParams()
-  const { openPreview, previewNode } = useWorkPreview()
 
   const kind: WorkSearchKind = params.get('kind') === 'manga' ? 'manga' : 'illust'
   const rawMode = params.get('mode') || 'daily'
@@ -70,7 +60,11 @@ export function RankingPage(): React.JSX.Element {
   /** 滚动位置记忆：本页的滚动容器就是外层 main，keep-alive 激活时由 hook 拨回原位 */
   const scroll = useKeepAliveScroll<HTMLElement>('ranking')
 
-  const { data: result, loading, reload } = usePagedQuery<RankingResult>({
+  const {
+    data: result,
+    loading,
+    reload
+  } = usePagedQuery<RankingResult>({
     page,
     signature: [kind, mode, date].join('|'),
     scroll,
@@ -92,9 +86,7 @@ export function RankingPage(): React.JSX.Element {
   }
 
   return (
-    <main
-      className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4"
-    >
+    <main className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Trophy className="h-4 w-4 text-primary" />
@@ -146,7 +138,11 @@ export function RankingPage(): React.JSX.Element {
               disabled={loading}
               onClick={reload}
             >
-              {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="animate-spin h-4 w-4" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               {t('ranking.refresh')}
             </Button>
           </div>
@@ -194,7 +190,7 @@ export function RankingPage(): React.JSX.Element {
       ) : null}
 
       {result && result.works.length > 0 ? (
-        <SearchWorkGrid ref={scroll.ref} works={result.works} onPreview={openPreview} />
+        <SearchWorkGrid ref={scroll.ref} works={result.works} />
       ) : null}
 
       {!loading && result && result.works.length === 0 ? (
@@ -211,8 +207,6 @@ export function RankingPage(): React.JSX.Element {
           disabled={loading}
         />
       ) : null}
-
-      {previewNode}
     </main>
   )
 }

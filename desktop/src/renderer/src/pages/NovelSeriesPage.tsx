@@ -16,12 +16,8 @@ import type * as React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { NovelDownloadProgress, NovelSeriesDetail } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
-import {
-  loadReadNovels,
-  loadSeriesPosition,
-  readingMinutes
-} from '@renderer/lib/novel'
+import { toast } from '@renderer/utils/toast'
+import { loadReadNovels, loadSeriesPosition, readingMinutes } from '@renderer/utils/novel'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 
@@ -124,7 +120,10 @@ export function NovelSeriesPage(): React.JSX.Element {
     try {
       const result = await window.pixiv.downloadNovel({ seriesId })
       toast.success(t('novel.saved', { path: result.path }), {
-        action: { label: t('novel.openDir'), onClick: () => void window.pixiv.openDir(dirOf(result.path)) }
+        action: {
+          label: t('novel.openDir'),
+          onClick: () => void window.pixiv.openDir(dirOf(result.path))
+        }
       })
     } catch (reason) {
       toast.error(messageOf(reason))
@@ -163,7 +162,6 @@ export function NovelSeriesPage(): React.JSX.Element {
         </Button>
       </div>
 
-
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
           {detail.series.cover ? (
@@ -188,9 +186,7 @@ export function NovelSeriesPage(): React.JSX.Element {
             ) : (
               <Badge variant="success">{t('novel.serializing')}</Badge>
             )}
-            {detail.series.xRestrict >= 1 ? (
-              <Badge variant="destructive">R-18</Badge>
-            ) : null}
+            {detail.series.xRestrict >= 1 ? <Badge variant="destructive">R-18</Badge> : null}
           </div>
 
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -236,7 +232,12 @@ export function NovelSeriesPage(): React.JSX.Element {
               <Play />
               {position ? t('novel.continueReading') : t('novel.read')}
             </Button>
-            <Button variant="outline" size="sm" disabled={downloading || !firstEpisode} onClick={() => void download()}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={downloading || !firstEpisode}
+              onClick={() => void download()}
+            >
               {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
               {downloading ? t('novel.downloading') : t('novel.downloadSeries')}
             </Button>
@@ -291,7 +292,9 @@ export function NovelSeriesPage(): React.JSX.Element {
                 onClick={() => navigate(`/novel/${episode.id}`)}
                 className="flex w-full items-center gap-3 rounded-lg border border-border/50 bg-card/30 px-3 py-2 text-left transition-colors hover:border-border hover:bg-card/60"
               >
-                <span className="w-8 shrink-0 text-[11px] text-muted-foreground">{episode.order}</span>
+                <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
+                  {episode.order}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-xs">{episode.title}</span>
                 <span className="shrink-0 text-[10px] text-muted-foreground">
                   {t('novel.chars', { count: episode.textCount })}

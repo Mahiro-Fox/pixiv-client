@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '@renderer/i18n'
-import { useViewportSize } from '@renderer/lib/tour/useAnchorRect'
-import type { TourStep } from '@renderer/lib/tour/steps'
+import { useViewportSize } from '@renderer/hooks/useAnchorRect'
+import type { TourStep } from '@renderer/utils/tourSteps'
 import { Button } from '../ui/button'
 
 /** 高亮框在锚点外扩的像素：让描边不贴着元素边缘，也不切断阴影 */

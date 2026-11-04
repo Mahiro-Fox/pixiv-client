@@ -66,8 +66,7 @@ export function useViewportSize(): { width: number; height: number } {
   }))
 
   useEffect(() => {
-    const onResize = (): void =>
-      setSize({ width: window.innerWidth, height: window.innerHeight })
+    const onResize = (): void => setSize({ width: window.innerWidth, height: window.innerHeight })
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])

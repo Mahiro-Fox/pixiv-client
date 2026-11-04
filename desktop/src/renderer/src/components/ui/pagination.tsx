@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 import * as React from 'react'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 import { buttonVariants, type ButtonProps } from './button'
 
 /** shadcn 的 Pagination：只负责结构与样式，翻页逻辑在 `components/Pager.tsx`。 */

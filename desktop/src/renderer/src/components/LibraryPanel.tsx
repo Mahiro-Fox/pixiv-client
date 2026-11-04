@@ -29,10 +29,10 @@ import type {
   NovelTextSearchResult
 } from '@shared/types'
 import type { LocalContent } from '@shared/layout'
-import { dirOf, formatBytes, toLocalUrl } from '@renderer/lib/files'
-import { cn } from '@renderer/lib/utils'
+import { dirOf, formatBytes, toLocalUrl } from '@renderer/utils/files'
+import { cn } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
+import { toast } from '@renderer/utils/toast'
 import { useImagePreview } from './ImagePreview'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'

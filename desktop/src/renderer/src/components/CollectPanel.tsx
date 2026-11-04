@@ -19,7 +19,7 @@ import type {
   TagSuggestion
 } from '@shared/types'
 import { validateTemplate } from '@shared/template'
-import { cn } from '@renderer/lib/utils'
+import { cn } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
 import type { MessageKey } from '@renderer/i18n'
 import { Button } from './ui/button'

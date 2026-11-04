@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { SearchWork } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { useWorkContextMenu } from '@renderer/lib/cardMenu'
-import { useFilteredWorks } from '@renderer/lib/filterContext'
-import { cn } from '@renderer/lib/utils'
+import { useWorkContextMenu } from '@renderer/hooks/useCardMenu'
+import { useFilteredWorks } from '@renderer/hooks/useFilterContext'
+import { openPreview } from '@renderer/hooks/useWorkPreview'
+import { cn } from '@renderer/utils/ui'
 import { AuthorPopover } from './AuthorPopover'
 import { FilteredHint } from './FilteredHint'
 import { Badge } from './ui/badge'
@@ -212,10 +213,7 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
             </Badge>
           ) : null}
           {Number(work.xRestrict || 0) >= 1 ? (
-            <Badge
-              variant="destructive"
-              className="bg-red-500/85 px-1 py-0 text-[10px] text-white"
-            >
+            <Badge variant="destructive" className="bg-red-500/85 px-1 py-0 text-[10px] text-white">
               R-18
             </Badge>
           ) : null}
@@ -295,25 +293,18 @@ export function WorkCard(props: WorkCardProps): React.JSX.Element {
 /** 搜索结果 / 用户主页共用的作品卡片：自带右键菜单与「去 pixiv」入口 */
 export function SearchWorkCard(props: {
   work: SearchWork
-  /** 点击缩略图在应用内预览；未传时退化为跳 pixiv */
-  onPreview?: (work: SearchWork) => void
   /** 在当前列表里的序号，用于入场错峰 */
   index?: number
 }): React.JSX.Element {
   const work = props.work
   /** 右键菜单：下载 / 稍后看 / 复制 / 屏蔽作者 */
-  const menu = useWorkContextMenu({ onPreview: props.onPreview })
-
-  const openPreview = (): void => {
-    if (props.onPreview) props.onPreview(work)
-    else window.open(`https://www.pixiv.net/artworks/${work.id}`, '_blank')
-  }
+  const menu = useWorkContextMenu({ onPreview: openPreview })
 
   return (
     <WorkCard
       work={work}
       index={props.index}
-      onOpen={openPreview}
+      onOpen={() => openPreview(work)}
       authorHover
       showWebLink
       onContextMenu={(event) => menu.onContextMenu(event, work)}
@@ -325,7 +316,6 @@ export function SearchWorkCard(props: {
 
 export function SearchWorkGrid(props: {
   works: SearchWork[]
-  onPreview?: (work: SearchWork) => void
   /** 滚动容器末尾的附加内容（如触底加载哨兵），必须放在滚动区内才会随滚动进入视口 */
   footer?: React.ReactNode
   /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
@@ -346,12 +336,7 @@ export function SearchWorkGrid(props: {
         {/* 列表项自身带入场 / 退场动效，这里只管把「被过滤掉的卡片」留住播完退场动画 */}
         <AnimatePresence>
           {items.map((work, index) => (
-            <SearchWorkCard
-              key={work.id}
-              work={work}
-              index={index}
-              onPreview={props.onPreview}
-            />
+            <SearchWorkCard key={work.id} work={work} index={index} />
           ))}
         </AnimatePresence>
       </ul>

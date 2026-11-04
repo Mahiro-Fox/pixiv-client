@@ -1,19 +1,11 @@
-import {
-  ArrowLeft,
-  Bell,
-  BellOff,
-  ImageOff,
-  Layers,
-  Loader2,
-  User
-} from 'lucide-react'
+import { ArrowLeft, Bell, BellOff, ImageOff, Layers, Loader2, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type * as React from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { OAuthStatus, SearchWork, SeriesDetail, SeriesEpisode } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { toast } from '@renderer/lib/toast'
-import { useWorkPreview } from '@renderer/lib/workPreview'
+import { toast } from '@renderer/utils/toast'
+import { openPreview } from '@renderer/hooks/useWorkPreview'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { WorkCard } from '@renderer/components/WorkCard'
@@ -60,7 +52,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
   const navigate = useNavigate()
   const { seriesId = '' } = useParams()
   const [searchParams] = useSearchParams()
-  const { openPreview, previewNode } = useWorkPreview()
 
   const [detail, setDetail] = useState<SeriesDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -136,7 +127,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
           {t('series.back')}
         </Button>
       </div>
-
 
       <section className="flex gap-5 rounded-2xl border border-border/60 bg-card/40 p-5">
         <div className="relative h-44 w-42 shrink-0 overflow-hidden rounded-xl bg-secondary/60">
@@ -247,8 +237,6 @@ export function SeriesPage({ oauth }: SeriesPageProps): React.JSX.Element {
           </ul>
         )}
       </section>
-
-      {previewNode}
     </main>
   )
 }

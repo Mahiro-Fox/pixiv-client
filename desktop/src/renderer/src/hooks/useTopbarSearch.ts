@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { bumpSearchSubmit } from './searchSubmit'
-import { getSectionSearch, rememberSectionSearch } from './sectionQuery'
-import type { SearchSection } from './sectionQuery'
+import { bumpSearchSubmit } from './useSearchSubmit'
+import { getSectionSearch, rememberSectionSearch } from '../utils/sectionQuery'
+import type { SearchSection } from '../utils/sectionQuery'
 
 /** 顶栏搜索框同步关键词的范围：只有这四个搜索栏目页会随 URL 变化 */
 const SEARCH_SECTION_PATHS = new Set(['/illust', '/manga', '/novel', '/users'])

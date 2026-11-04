@@ -3,7 +3,8 @@ import { useState } from 'react'
 import type * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { UserWorkThumb } from '@shared/types'
-import { useUserContextMenu } from '@renderer/lib/cardMenu'
+import { useUserContextMenu } from '@renderer/hooks/useCardMenu'
+import { openPreview } from '@renderer/hooks/useWorkPreview'
 import { Badge } from './ui/badge'
 
 export interface UserCardData {
@@ -43,11 +44,7 @@ function UserAvatar(props: { src: string; name: string }): React.JSX.Element {
  * 用户卡片：与 pixiv web 的用户列表一致 —— 头像、昵称 + ID + 简介，右侧横向四张作品缩略图。
  * 点击卡片进用户主页；点击缩略图只做图片预览，不跳转。
  */
-export function UserCard(props: {
-  user: UserCardData
-  /** 点击四张作品缩略图时触发应用内预览 */
-  onPreview?: (thumb: UserWorkThumb) => void
-}): React.JSX.Element {
+export function UserCard(props: { user: UserCardData }): React.JSX.Element {
   const navigate = useNavigate()
   const user = props.user
   const works = user.works || []
@@ -81,9 +78,7 @@ export function UserCard(props: {
             ID {user.id}
           </Badge>
         </div>
-        <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-          {user.comment}
-        </p>
+        <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">{user.comment}</p>
       </div>
 
       {works.length > 0 ? (
@@ -96,7 +91,7 @@ export function UserCard(props: {
               onClick={(event) => {
                 // 缩略图只做预览，点击不应跳进用户主页
                 event.stopPropagation()
-                props.onPreview?.(thumb)
+                openPreview(thumb)
               }}
               className="h-24 w-24 overflow-hidden rounded-md bg-secondary/60 ring-1 ring-inset ring-border/40 transition-shadow hover:ring-primary/60"
             >

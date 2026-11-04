@@ -75,7 +75,9 @@ export function useFilteredWorks<T extends FilterableWork>(
 }
 
 /** 按当前规则过滤小说列表（页数 / 尺寸规则不适用） */
-export function useFilteredNovels<T extends FilterableNovel>(novels: T[]): {
+export function useFilteredNovels<T extends FilterableNovel>(
+  novels: T[]
+): {
   items: T[]
   hidden: number
 } {

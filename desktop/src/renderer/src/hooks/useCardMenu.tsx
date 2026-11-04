@@ -16,8 +16,8 @@ import { useNavigate } from 'react-router-dom'
 import type { SearchWork } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { ContextMenu, type ContextMenuItem } from '@renderer/components/ContextMenu'
-import { messageOf } from './errors'
-import { toast } from './toast'
+import { messageOf } from '../utils/errors'
+import { toast } from '../utils/toast'
 import {
   blockAuthor,
   copyText,
@@ -26,7 +26,7 @@ import {
   unblockAuthor,
   userWebUrl,
   workWebUrl
-} from './workActions'
+} from '../utils/workActions'
 
 /** 用户卡只需要 id / 名字就能撑起整个菜单 */
 export interface MenuUser {
