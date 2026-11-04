@@ -16,8 +16,8 @@ interface SecureText {
   encrypted: boolean;
 }
 
-function encryptionAvailable(): boolean {
-  return safeStorage.isEncryptionAvailable();
+async function encryptionAvailable(): Promise<boolean> {
+  return await safeStorage.isAsyncEncryptionAvailable();
 }
 
 /** 解密失败时用来判断是不是旧版本明文：合法 UTF-8、无替换字符、可原样还原 */
@@ -40,17 +40,18 @@ export async function readSecureText(
   } catch {
     return null;
   }
-
-  if (encryptionAvailable()) {
+  const isAvailable = await encryptionAvailable();
+  if (isAvailable) {
     try {
-      return { text: safeStorage.decryptString(raw), encrypted: true };
+      const { result } = await safeStorage.decryptStringAsync(raw);
+      return { text: result, encrypted: true };
     } catch {
       // 旧版本明文，或换机后系统密钥变化解不开，都按明文继续
     }
   }
 
   const text = raw.toString('utf-8');
-  if (encryptionAvailable() && text && isPlainText(raw)) {
+  if (isAvailable && text && isPlainText(raw)) {
     await writeSecureText(filePath, text).catch(() => undefined);
   }
   return { text, encrypted: false };
@@ -62,8 +63,9 @@ export async function writeSecureText(
   text: string
 ): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
-  const data = encryptionAvailable()
-    ? safeStorage.encryptString(text)
+  const isAvailable = await encryptionAvailable();
+  const data = isAvailable
+    ? await safeStorage.encryptStringAsync(text)
     : Buffer.from(text, 'utf-8');
   await writeFile(filePath, data);
 }

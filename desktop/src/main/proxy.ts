@@ -94,9 +94,11 @@ function targetSessions(): Electron.Session[] {
 async function readPassword(): Promise<string> {
   try {
     const raw = await readFile(passwordFile());
-    if (safeStorage.isEncryptionAvailable()) {
+    const isAvailable = await safeStorage.isAsyncEncryptionAvailable();
+    if (isAvailable) {
       try {
-        return safeStorage.decryptString(raw);
+        const { result } = await safeStorage.decryptStringAsync(raw);
+        return result;
       } catch {
         // 换机或系统密钥变化后解不开，按明文回落；解不出就当作没有密码
         return raw.toString('utf-8');
@@ -125,8 +127,9 @@ export async function saveProxyPassword(
     cachedPassword = '';
     return;
   }
-  const data = safeStorage.isEncryptionAvailable()
-    ? safeStorage.encryptString(password)
+  const isAvailable = await safeStorage.isAsyncEncryptionAvailable();
+  const data = isAvailable
+    ? await safeStorage.encryptStringAsync(password)
     : Buffer.from(password, 'utf-8');
   await writeFile(passwordFile(), data);
   cachedPassword = password;
