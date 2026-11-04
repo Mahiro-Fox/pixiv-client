@@ -6,7 +6,7 @@ import { joinBlockTerms, splitBlockTermsRaw } from '@shared/block'
 import { userWebUrl } from '@renderer/utils/workActions'
 import { useI18n } from '@renderer/i18n'
 import { Button } from './ui/button'
-import { DialogShell } from './DialogShell'
+import { DialogShell } from './shared/DialogShell'
 
 interface BlockManagerDialogProps {
   config: AppConfig

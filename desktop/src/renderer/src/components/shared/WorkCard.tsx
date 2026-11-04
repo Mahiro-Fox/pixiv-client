@@ -1,16 +1,14 @@
 import { Bookmark, Check, ExternalLink, ImageOff } from 'lucide-react'
 import type * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import type { SearchWork } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { useWorkContextMenu } from '@renderer/hooks/useCardMenu'
-import { useFilteredWorks } from '@renderer/hooks/useFilterContext'
 import { openPreview } from '@renderer/hooks/useWorkPreview'
 import { cn } from '@renderer/utils/ui'
 import { AuthorPopover } from './AuthorPopover'
-import { FilteredHint } from './FilteredHint'
-import { Badge } from './ui/badge'
+import { Badge } from '../ui/badge'
 
 /**
  * 一张作品卡需要的最小字段。
@@ -311,36 +309,5 @@ export function SearchWorkCard(props: {
     >
       {menu.menuNode}
     </WorkCard>
-  )
-}
-
-export function SearchWorkGrid(props: {
-  works: SearchWork[]
-  /** 滚动容器末尾的附加内容（如触底加载哨兵），必须放在滚动区内才会随滚动进入视口 */
-  footer?: React.ReactNode
-  /** 滚动容器本身就是这个 div，滚动位置记忆要挂在这里 */
-  ref?: React.Ref<HTMLDivElement>
-  /** 数据源没有分级维度时（推荐页）忽略「内容分级」规则 */
-  ignoreRating?: boolean
-}): React.JSX.Element {
-  // 过滤在这里统一做：搜索 / 排行 / 推荐 / 收藏 / 用户主页都用这个网格，
-  // 接一次就等于全站列表都按顶栏那套规则走，页面不必各自接线
-  const { items, hidden } = useFilteredWorks(props.works, {
-    ignoreRating: props.ignoreRating
-  })
-
-  return (
-    <div className="scrollbar-thin overflow-y-auto" ref={props.ref}>
-      {hidden > 0 && items.length === 0 ? <FilteredHint count={hidden} /> : null}
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
-        {/* 列表项自身带入场 / 退场动效，这里只管把「被过滤掉的卡片」留住播完退场动画 */}
-        <AnimatePresence>
-          {items.map((work, index) => (
-            <SearchWorkCard key={work.id} work={work} index={index} />
-          ))}
-        </AnimatePresence>
-      </ul>
-      {props.footer}
-    </div>
   )
 }

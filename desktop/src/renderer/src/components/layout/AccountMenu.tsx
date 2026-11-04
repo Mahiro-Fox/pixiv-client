@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import type { SelfUser } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Button } from './ui/button'
+import { Button } from '../ui/button'
 
 interface AccountMenuProps {
   selfUser: SelfUser | null

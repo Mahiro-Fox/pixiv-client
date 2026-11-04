@@ -17,11 +17,11 @@ import type {
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
-import { CollectPanel } from '@renderer/components/CollectPanel'
-import { LogPanel } from '@renderer/components/LogPanel'
-import { ProgressPanel } from '@renderer/components/ProgressPanel'
-import { QueuePanel } from '@renderer/components/QueuePanel'
-import { WorksGrid } from '@renderer/components/WorksGrid'
+import { LogPanel } from '@renderer/pages/WorkbenchPage/_components/LogPanel'
+import { ProgressPanel } from '@renderer/pages/WorkbenchPage/_components/ProgressPanel'
+import { CollectPanel } from '@renderer/pages/WorkbenchPage/_components/CollectPanel'
+import { QueuePanel } from '@renderer/pages/WorkbenchPage/_components/QueuePanel'
+import { WorksGrid } from '@renderer/components/shared/WorksGrid'
 
 /** 工作台作品栏目的固定顺序；「全部」放第一位，保持与旧行为一致 */
 const CONTENT_TABS: WorkContent[] = ['all', 'illust', 'manga', 'bookmarks']

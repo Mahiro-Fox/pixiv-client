@@ -2,7 +2,7 @@ import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { useI18n } from '@renderer/i18n'
-import { Button } from './ui/button'
+import { Button } from '../ui/button'
 
 interface BoundaryProps {
   labels: { title: string; body: string; retry: string; reload: string }

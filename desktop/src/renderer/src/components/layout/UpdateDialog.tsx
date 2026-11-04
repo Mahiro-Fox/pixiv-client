@@ -3,8 +3,8 @@ import type * as React from 'react'
 import type { UpdateStatus } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { toast } from '@renderer/utils/toast'
-import { Button } from './ui/button'
-import { DialogShell } from './DialogShell'
+import { Button } from '../ui/button'
+import { DialogShell } from '../shared/DialogShell'
 
 /**
  * 自动更新弹窗。

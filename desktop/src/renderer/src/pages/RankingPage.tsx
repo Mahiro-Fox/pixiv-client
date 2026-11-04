@@ -4,8 +4,8 @@ import { useSearchParams } from 'react-router-dom'
 import type { RankingMode, RankingResult, WorkSearchKind } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
-import { Pager } from '@renderer/components/Pager'
-import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { Pager } from '@renderer/components/shared/Pager'
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
 import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
 import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 
@@ -190,7 +190,7 @@ export function RankingPage(): React.JSX.Element {
       ) : null}
 
       {result && result.works.length > 0 ? (
-        <SearchWorkGrid ref={scroll.ref} works={result.works} />
+        <SearchWorksGrid ref={scroll.ref} works={result.works} />
       ) : null}
 
       {!loading && result && result.works.length === 0 ? (

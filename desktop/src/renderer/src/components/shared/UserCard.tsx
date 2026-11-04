@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import type { UserWorkThumb } from '@shared/types'
 import { useUserContextMenu } from '@renderer/hooks/useCardMenu'
 import { openPreview } from '@renderer/hooks/useWorkPreview'
-import { Badge } from './ui/badge'
+import { Badge } from '../ui/badge'
 
 export interface UserCardData {
   id: string

@@ -8,7 +8,7 @@ import { readUserTags, writeUserTags } from '@renderer/utils/dialogCache'
 import { useI18n } from '@renderer/i18n'
 import { toast } from '@renderer/utils/toast'
 import { Button } from './ui/button'
-import { DialogShell } from './DialogShell'
+import { DialogShell } from './shared/DialogShell'
 import { Input } from './ui/input'
 
 interface UserTagDialogProps {

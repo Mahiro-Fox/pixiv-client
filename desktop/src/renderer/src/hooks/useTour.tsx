@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type * as React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { TourOverlay } from '@renderer/components/tour/TourOverlay'
+import { TourOverlay } from '@renderer/components/layout/TourOverlay'
 import { hasSeenTour, markTourSeen, TOUR_STEPS, type TourAction } from '../utils/tourSteps'
 import { useAnchorRect } from './useAnchorRect'
 

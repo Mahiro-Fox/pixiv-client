@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import type * as React from 'react'
 import { useLocation } from 'react-router-dom'
 import type { ImageQuality, PixivWork, SearchWork, UserWorkThumb } from '@shared/types'
-import { WorkDetailDialog } from '@renderer/components/WorkDetailDialog'
+import { WorkDetailDialog } from '@renderer/components/shared/WorkDetailDialog'
 import { toPixivWork } from '@renderer/utils/work'
 
 /**

@@ -5,8 +5,8 @@ import { useSearchParams } from 'react-router-dom'
 import type { OAuthStatus, SearchWork, UserSearchItem, WorkSearchKind } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { Button } from '@renderer/components/ui/button'
-import { UserCard } from '@renderer/components/UserCard'
-import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { UserCard } from '@renderer/components/shared/UserCard'
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
 import { usePageActive } from '@renderer/hooks/usePageActive'
 import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
 import { toast } from '@renderer/utils/toast'
@@ -334,7 +334,7 @@ export function RecommendPage({ oauth }: RecommendPageProps): React.JSX.Element 
         works.length > 0 ? (
           // shrink-0：不让 main 压缩这一块，保证「只有 main 在滚动」，
           // 否则内部 grid 的 overflow-y-auto 会变成独立滚动区，滚动位置就记到别处去了
-          <SearchWorkGrid
+          <SearchWorksGrid
             ref={scroll.ref}
             works={works}
             // 推荐接口不返回分级维度，「内容分级」规则在这里没有意义，跳过它

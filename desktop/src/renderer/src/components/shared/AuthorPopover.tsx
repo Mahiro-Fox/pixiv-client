@@ -6,8 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import type { UserProfile } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
 import { toast } from '@renderer/utils/toast'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
 
 /** 浮层宽度（px），与下方 w-60 保持一致，用于做左右边界收敛 */
 const POPUP_WIDTH = 240

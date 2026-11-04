@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import { Field, FieldDescription, FieldLabel } from './ui/field'
+import { Field, FieldDescription, FieldLabel } from '../ui/field'
 
 /**
  * 表单字段：标签 + 控件 + 可选说明；`required` 在标签后加红色星号。

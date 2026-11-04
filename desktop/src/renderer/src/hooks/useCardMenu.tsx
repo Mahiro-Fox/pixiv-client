@@ -15,7 +15,7 @@ import type * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SearchWork } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { ContextMenu, type ContextMenuItem } from '@renderer/components/ContextMenu'
+import { ContextMenu, type ContextMenuItem } from '@renderer/components/shared/ContextMenu'
 import { messageOf } from '../utils/errors'
 import { toast } from '../utils/toast'
 import {

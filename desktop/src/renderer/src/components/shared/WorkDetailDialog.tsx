@@ -7,9 +7,9 @@ import type * as React from 'react'
 import type { BookmarkInput, BookmarkPrivacy, BookmarkState, ImageQuality, PixivWork, WorkPage, WorkSeriesNav } from '@shared/types'
 import { readWorkPages, writeWorkPages } from '@renderer/utils/dialogCache'
 import { useUgoiraFrames } from '@renderer/hooks/useUgoira'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
-import { useImagePreview } from './ImagePreview'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import { useImagePreview } from '../layout/ImagePreview'
 import { UgoiraPlayer } from './UgoiraPlayer'
 
 interface WorkDetailDialogProps {

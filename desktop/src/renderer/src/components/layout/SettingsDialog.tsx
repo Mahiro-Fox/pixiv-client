@@ -51,14 +51,14 @@ import { DEFAULT_THROTTLE_LIMITS, THROTTLE_RANGES } from '@shared/throttle'
 import { TOKEN_LABEL_KEYS, useI18n } from '@renderer/i18n'
 import type { Translate } from '@renderer/i18n'
 import { toast } from '@renderer/utils/toast'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
-import { DialogShell } from './DialogShell'
-import { FormField } from './FormField'
-import { SelectMenu } from './SelectMenu'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import { DialogShell } from '../shared/DialogShell'
+import { FormField } from '../shared/FormField'
+import { SelectMenu } from '../shared/SelectMenu'
 
-import { Input } from './ui/input'
-import { Textarea } from './ui/textarea'
+import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
 
 interface SettingsDialogProps {
   config: AppConfig

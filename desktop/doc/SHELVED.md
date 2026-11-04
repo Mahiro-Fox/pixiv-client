@@ -88,7 +88,7 @@ npm run build        # 提交前必跑
 **已完成补充（2026-10-29）**
 9. ✅ 稍后看：`src/main/watchLater.ts` 落 `watchLater.json`（防抖 + 原子写入 + 退出 flush），`/watch-later` 页支持关键词过滤、分页、移出、清空；详情弹窗加「稍后看」按钮，不依赖 OAuth。
 10. ✅ 系列聚合浏览：`src/main/pixiv/series.ts` 走 App API `/v1/illust/series`（`next_url` 翻页）+ 网页 `seriesNavData` 兜底；`/series/:seriesId` 页展示封面 / 元信息 / 话列表，详情弹窗加系列入口；追更走 `/v1/watchlist/manga/add|delete`。IPC：`series:detail`、`series:watch`。**App API 分支未实机验证**（本轮 Shell 最初不可用），仅类型检查与构建通过。
-11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorkGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
+11. ✅ 推荐页「加载更多」改为触底自动续拉：`IntersectionObserver` 哨兵放在滚动容器末尾（`SearchWorksGrid` 新增 `footer` 插槽，画师列表哨兵放进自身滚动区），`rootMargin` 300px 提前量；保留 ID 去重与刷新重置。
 12. ✅ 列表页离开再回来保留数据（keep-alive + 已加载标记 + 滚动位置 hook）：
    - **库**：`keepalive-for-react` v6（不再用 `keepalive-for-react-router` 的现成出口）。`App.tsx` 用不带 path 的布局路由 `KeepAliveOutlet` 包住全部路由，`include` 为 `/recommend`、`/illust`、`/manga`、`/novel`、`/ranking`、`/users`，`max=12`，**`activeCacheKey={location.pathname}`**（改筛选 / 翻页 / 回车只改 search，复用同一实例）。`main.tsx` 已移除 `StrictMode`（该库硬性要求）。
    - **非缓存路由同步切换（2026-10-29 修）**：`keepalive-for-react-router` 的出口把缓存键更新包进了 `startTransition`，新路由要等一个额外调度帧才挂载，这期间旧页面已经画出来了——表现为「从推荐页点进用户详情 / 关注列表时闪一下推荐页」。现在只把命中 `include` 的页面交给 `KeepAlive`，其它路由的 `useOutlet()` 直接渲染在正常 DOM 里（同步），离开缓存页时用 `hidden` 立即藏起缓存容器；非缓存路由统一用占位缓存键 `/(off)`，避免每个详情页都在缓存表里留一条。

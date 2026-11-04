@@ -21,7 +21,7 @@ import type {
   NovelWork
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { FilteredHint } from '@renderer/components/FilteredHint'
+import { FilteredHint } from '@renderer/components/shared/FilteredHint'
 import { useFilteredNovels } from '@renderer/hooks/useFilterContext'
 import { toast } from '@renderer/utils/toast'
 import { readingMinutes } from '@renderer/utils/novel'
@@ -30,7 +30,7 @@ import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
 import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { SelectMenu } from '@renderer/components/SelectMenu'
+import { SelectMenu } from '@renderer/components/shared/SelectMenu'
 
 const ORDERS: NovelOrder[] = ['date_d', 'date', 'popular_d', 'popular_male_d', 'popular_female_d']
 const TARGETS: NovelSearchTarget[] = ['s_tag_full', 's_tag', 's_tc']

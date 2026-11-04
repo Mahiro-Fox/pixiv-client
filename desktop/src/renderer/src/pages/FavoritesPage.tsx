@@ -7,8 +7,8 @@ import { useI18n } from '@renderer/i18n'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
-import { Pager } from '@renderer/components/Pager'
-import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { Pager } from '@renderer/components/shared/Pager'
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
 import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 
 const PAGE_SIZE = 48
@@ -185,7 +185,7 @@ export function FavoritesPage(): React.JSX.Element {
           ) : null}
 
           {!loading && content && content.works.length > 0 ? (
-            <SearchWorkGrid works={content.works} />
+            <SearchWorksGrid works={content.works} />
           ) : null}
 
           {!loading && content && content.works.length === 0 ? (

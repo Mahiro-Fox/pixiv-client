@@ -6,12 +6,12 @@ import type { AppConfig, R18Filter } from '@shared/types'
 import { splitBlockTermsRaw } from '@shared/block'
 import { countActiveFilters } from '@renderer/utils/filters'
 import { useI18n } from '@renderer/i18n'
-import { BlockManagerDialog } from './BlockManagerDialog'
-import { Button } from './ui/button'
-import { DialogShell } from './DialogShell'
-import { FormField } from './FormField'
-import { Input } from './ui/input'
-import { SelectMenu } from './SelectMenu'
+import { BlockManagerDialog } from '../BlockManagerDialog'
+import { Button } from '../ui/button'
+import { DialogShell } from '../shared/DialogShell'
+import { FormField } from '../shared/FormField'
+import { Input } from '../ui/input'
+import { SelectMenu } from '../shared/SelectMenu'
 
 interface FilterDialogProps {
   config: AppConfig

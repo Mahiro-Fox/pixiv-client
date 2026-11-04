@@ -21,9 +21,9 @@ import type {
 import { useI18n } from '@renderer/i18n'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { Pager } from '@renderer/components/Pager'
+import { Pager } from '@renderer/components/shared/Pager'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
-import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
 import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 import { toast } from '@renderer/utils/toast'
 
@@ -315,7 +315,7 @@ export function UserDetailPage({
           ) : null}
 
           {!loading && content && content.works.length > 0 && tab !== 'novel' ? (
-            <SearchWorkGrid works={content.works} />
+            <SearchWorksGrid works={content.works} />
           ) : null}
 
           {!loading && content && content.novels.length > 0 && tab === 'novel' ? (

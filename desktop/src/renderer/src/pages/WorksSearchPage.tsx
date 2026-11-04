@@ -11,9 +11,9 @@ import type {
   WorkSearchScope
 } from '@shared/types'
 import { useI18n } from '@renderer/i18n'
-import { Pager } from '@renderer/components/Pager'
-import { SelectMenu } from '@renderer/components/SelectMenu'
-import { SearchWorkGrid } from '@renderer/components/WorkCard'
+import { Pager } from '@renderer/components/shared/Pager'
+import { SelectMenu } from '@renderer/components/shared/SelectMenu'
+import { SearchWorksGrid } from '@renderer/components/shared/WorksGrid'
 import { useSearchSubmitVersion } from '@renderer/hooks/useSearchSubmit'
 import { usePagedQuery } from '@renderer/hooks/usePagedQuery'
 import { useKeepAliveScroll } from '@renderer/hooks/useScrollMemory'
@@ -253,7 +253,7 @@ export function WorksSearchPage(props: { kind: WorkSearchKind }): React.JSX.Elem
               </div>
             ) : null}
             {!loading && result && result.works.length > 0 ? (
-              <SearchWorkGrid works={result.works} />
+              <SearchWorksGrid works={result.works} />
             ) : null}
           </div>
 

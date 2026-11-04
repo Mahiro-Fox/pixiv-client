@@ -5,10 +5,10 @@ import type { BatchSyncProgress, QueueSummary, ThrottleState } from '@shared/typ
 import { formatBytes, formatElapsed } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
 import type { MessageKey, Translate } from '@renderer/i18n'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
-import { Progress } from './ui/progress'
+import { Badge } from '../../../components/ui/badge'
+import { Button } from '../../../components/ui/button'
+import { Card, CardContent } from '../../../components/ui/card'
+import { Progress } from '../../../components/ui/progress'
 
 interface ProgressPanelProps {
   /** 队列里的未完成任务；总进度按所有任务的图片数汇总 */

@@ -22,12 +22,12 @@ import { validateTemplate } from '@shared/template'
 import { cn } from '@renderer/utils/ui'
 import { useI18n } from '@renderer/i18n'
 import type { MessageKey } from '@renderer/i18n'
-import { Button } from './ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { FormField } from './FormField'
-import { SelectMenu } from './SelectMenu'
-import { Input } from './ui/input'
-import { Separator } from './ui/separator'
+import { Button } from '@renderer/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@renderer/components/ui/card'
+import { FormField } from '@renderer/components/shared/FormField'
+import { SelectMenu } from '@renderer/components/shared/SelectMenu'
+import { Input } from '@renderer/components/ui/input'
+import { Separator } from '@renderer/components/ui/separator'
 
 interface CollectPanelProps {
   config: AppConfig

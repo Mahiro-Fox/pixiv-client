@@ -38,18 +38,18 @@ import { useWorkCollection } from './hooks/useWorkCollection'
 import { WorkPreviewHost } from './hooks/useWorkPreview'
 import { I18nProvider, translate } from './i18n'
 import type { Translate } from './i18n'
-import { FilterDialog } from './components/FilterDialog'
+import { FilterDialog } from './components/layout/FilterDialog'
 import { UserTagDialog } from './components/UserTagDialog'
 import { FilterProvider } from './hooks/useFilterContext'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorBoundary } from './components/layout/ErrorBoundary'
 import { TourProvider, startTour } from './hooks/useTour'
-import { ImagePreviewProvider } from './components/ImagePreview'
-import { LibraryPanel } from './components/LibraryPanel'
-import { SettingsDialog } from './components/SettingsDialog'
-import { WorkDetailDialog } from './components/WorkDetailDialog'
-import { UpdateDialog } from './components/UpdateDialog'
-import { AccountMenu } from './components/AccountMenu'
-import { SearchBox } from './components/SearchBox'
+import { ImagePreviewProvider } from './components/layout/ImagePreview'
+import { LibraryPage } from './pages/LibraryPage'
+import { SettingsDialog } from './components/layout/SettingsDialog'
+import { WorkDetailDialog } from './components/shared/WorkDetailDialog'
+import { UpdateDialog } from './components/layout/UpdateDialog'
+import { AccountMenu } from './components/layout/AccountMenu'
+import { SearchBox } from './components/layout/SearchBox'
 import { NovelSearchPage } from './pages/NovelSearchPage'
 import { NovelSeriesPage } from './pages/NovelSeriesPage'
 import { SeriesPage } from './pages/SeriesPage'
@@ -567,9 +567,7 @@ export default function App(): React.JSX.Element {
                   <Route
                     path="/gallery"
                     element={
-                      <main className="flex min-h-0 flex-1 flex-col px-6 py-4">
-                        <LibraryPanel />
-                      </main>
+                        <LibraryPage />
                     }
                   />
                   {/* 旧书库页并入图库：小说现在是作者页下的第三个栏目，老链接直接转过去 */}

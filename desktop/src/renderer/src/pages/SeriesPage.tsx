@@ -8,7 +8,7 @@ import { toast } from '@renderer/utils/toast'
 import { openPreview } from '@renderer/hooks/useWorkPreview'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { WorkCard } from '@renderer/components/WorkCard'
+import { WorkCard } from '@renderer/components/shared/WorkCard'
 
 interface SeriesPageProps {
   /** App API 凭据状态；追更按钮依赖它 */

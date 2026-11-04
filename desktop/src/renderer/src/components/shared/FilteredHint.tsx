@@ -2,7 +2,7 @@ import { FilterX } from 'lucide-react'
 import type * as React from 'react'
 import { useI18n } from '@renderer/i18n'
 import { useFilterContext } from '@renderer/hooks/useFilterContext'
-import { Button } from './ui/button'
+import { Button } from '../ui/button'
 
 /**
  * 整页结果都被过滤规则隐藏时的占位。

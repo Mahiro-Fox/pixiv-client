@@ -200,7 +200,7 @@
 
 | 页面 | 是否生效 | 说明 |
 | --- | --- | --- |
-| 插画 / 漫画搜索、收藏、用户主页 | ✅ | 结果网格 `SearchWorkGrid` 内部统一按规则过滤 |
+| 插画 / 漫画搜索、收藏、用户主页 | ✅ | 结果网格 `SearchWorksGrid` 内部统一按规则过滤 |
 | 排行榜、推荐（作品） | ✅ | 同一个网格组件，含触底续拉 |
 | 小说搜索 | ✅ | 分级 / 标签 / 关键词 / 屏蔽生效；页数与尺寸规则不适用（改用正文字数，暂未提供 UI） |
 | 用户搜索、关注列表、推荐画师 | ✅ | 只按屏蔽规则过滤用户卡 |
@@ -886,7 +886,7 @@
 - 依赖 `motion`（原 framer-motion，`import { AnimatePresence, motion, useReducedMotion } from 'motion/react'`）。
 - 作品卡片 `SearchWorkCard` 是 `motion.li`：入场 `opacity 0 → 1` + `y 8 → 0` + `scale 0.98 → 1`，退场只做淡出与轻微缩小。只动 `opacity` / `transform`，交给合成器，不触发重排。
 - 错峰：按列表序号 `delay = min(index * 0.012, 0.18)`，一次 50 张的翻页在 0.2 秒内铺完；「加载更多」追加时旧卡片 key 不变不会重播。
-- 退场：`SearchWorkGrid` 用 `<AnimatePresence>` 包住列表，被过滤规则隐藏或移除的卡片会先播完淡出再消失。
+- 退场：`SearchWorksGrid` 用 `<AnimatePresence>` 包住列表，被过滤规则隐藏或移除的卡片会先播完淡出再消失。
 - **路由切换**：未缓存的页面（作品 / 用户 / 系列详情、收藏、浏览记录、稍后看等）包在 `key={location.pathname}` 的 `motion.div` 里，入场 `opacity 0→1` + `y 6→0`，160ms。只做入场、不做退场：退场会让新页面晚一帧出现，等于把「闪旧页面」的问题重新引进来。
 - 缓存页（六个列表页）刻意不做入场动效：它们靠隐藏 / 显示切换，动画只能等首帧画完再回退，反而闪一下；恢复滚动位置时整页位移也会让人看到位置跳变。
 - **缩略图淡入**：`SearchWorkCard` 的 `<img>` 在 `onLoad` 后从 `opacity 0` 过渡到 1；命中缓存时 `onLoad` 可能早于挂载，挂载后用 `complete` 兜底补一次。占位底色上不再一块块硬切出现。
@@ -964,13 +964,13 @@
 
 **背景**：同一张「封面 + 标题 + 作者」的卡片此前在搜索页、工作台、浏览记录、稍后看、系列页各写了一份，角标位置、占位符、悬停效果、右键菜单接线都不一致，改一处要改五处。
 
-**方案**：`components/WorkCard.tsx` 导出 `WorkCard`（模板）+ `SearchWorkCard`（模板 + 右键菜单 + 去 pixiv 入口）+ `SearchWorkGrid`（模板 + 过滤 + 网格）。
+**方案**：`components/WorkCard.tsx` 导出 `WorkCard`（模板）+ `SearchWorkCard`（模板 + 右键菜单 + 去 pixiv 入口）+ `SearchWorksGrid`（模板 + 过滤 + 网格）。
 
 - `WorkCard` 只接受展示字段（`WorkCardData`：id / 标题 / 缩略图 / 作者 / 页数 / 分级 / 类型 / 收藏数 / 名次），因此 `SearchWork`（`thumbnail`）、`PixivWork`（`url`）、`ViewHistoryEntry` / `WatchLaterEntry`（`thumbnail`）都能直接传入，页面不再各自写转换器（本地记录转预览用的 `SearchWork` 统一在 `lib/workRecords.ts`）。
 - 槽位：`onOpen`（点卡片打开）、`onToggle` + `selected`（整卡切换选中，工作台）、`action`（封面右上角按钮）、`footerAction`（作者行右侧按钮）、`badge`（额外角标）、`meta`（标题下方附加行）、`children`（右键菜单 portal）。
 - 点击优先级：传了 `onToggle` 就整卡切换选中（点击操作按钮自行 `stopPropagation`），否则执行 `onOpen`。
 - 默认样式统一：方图封面（系列页传 `aspect="poster"` 用 3:4）、左上角横向角标（名次 / 动图 / R-18 / AI）、左下角「已下载」、标题两行、作者行、`N 页`、缩略图淡入与失败占位。
-- 直接使用它的地方：`SearchWorkGrid`（插画 / 漫画 / 小说搜索、排行、推荐、收藏、用户主页）、工作台作品网格、浏览记录、稍后看、系列话列表。
+- 直接使用它的地方：`SearchWorksGrid`（插画 / 漫画 / 小说搜索、排行、推荐、收藏、用户主页）、工作台作品网格、浏览记录、稍后看、系列话列表。
 - 不复用的地方：本地图库卡片（读本地文件、动图首帧、多选删除，数据源与交互都不同）、小说卡片（封面 + 字数 + 话数的横排结构）、用户卡（头像卡）。这些保持独立组件。
 
 ### 3.40 托盘常驻
